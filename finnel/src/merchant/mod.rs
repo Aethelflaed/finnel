@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn create() {
         let db = Database::memory().unwrap();
-        db.setup().unwrap();
+        MerchantStorage::setup(&db).unwrap();
 
         let merchant = db.create("Uraidla Pub").unwrap();
         assert_eq!(Id::from(1), merchant.get_id());

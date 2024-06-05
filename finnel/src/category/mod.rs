@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn create() {
         let db = Database::memory().unwrap();
-        db.setup().unwrap();
+        CategoryStorage::setup(&db).unwrap();
 
         let category = db.create("Uraidla Pub").unwrap();
         assert_eq!(Id::from(1), category.get_id());

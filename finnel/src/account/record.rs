@@ -72,13 +72,25 @@ impl RecordStorage for Database {
                     amount_cur TEXT NOT NULL,
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,
-                    transaction_type INTEGER,
+                    transaction_type TEXT,
                     transaction_details TEXT,
                     category INTEGER,
-                    merchant INTEGER,
+                    merchant INTEGER
                 );
             ",
             )
             .map_err(|e| e.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn setup() {
+        let db = Database::memory().unwrap();
+        RecordStorage::setup(&db).unwrap();
     }
 }
