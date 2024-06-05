@@ -1,8 +1,9 @@
 use std::path::Path;
 
 use chrono::{offset::Utc, DateTime};
+use semver::Version;
 
-use sqlite::{BindableWithIndex, Connection, ParameterIndex, Statement};
+use sqlite::{BindableWithIndex, Connection, ParameterIndex, State, Statement};
 
 use crate::transaction;
 
@@ -72,6 +73,8 @@ pub enum Error {
     DateParseError(#[from] chrono::ParseError),
     #[error("Parsing transaction type error")]
     TransactionTypeParseError(#[from] transaction::ParseTypeError),
+    #[error("Parsing version information")]
+    VersionError(#[from] semver::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -105,15 +108,104 @@ impl Database {
             }
         }
     }
+
+    pub fn version(&self) -> Result<Version> {
+        let mut statement = self.connection.prepare(
+            "
+        SELECT 
+            name
+        FROM 
+            sqlite_schema
+        WHERE 
+            name = 'finnel' AND
+            type ='table' AND 
+            name NOT LIKE 'sqlite_%';",
+        )?;
+
+        if matches!(statement.next(), Ok(State::Done)) {
+            return Ok(Version::new(0, 0, 0));
+        }
+
+        statement = self
+            .connection
+            .prepare("SELECT value FROM finnel WHERE key = 'version'")?;
+
+        if let Ok(State::Row) = statement.next() {
+            Ok(Version::parse(&statement.read::<String, _>("value")?)?)
+        } else {
+            Ok(Version::new(0, 0, 0))
+        }
+    }
+}
+
+pub(crate) trait Upgrade {
+    fn setup(db: &Database) -> Result<()> {
+        let version = db.version()?;
+        let current = Version::parse(env!("CARGO_PKG_VERSION"))?;
+
+        if version == Version::new(0, 0, 0) {
+            db.connection.execute(
+                "
+            CREATE TABLE IF NOT EXISTS finnel (
+                key TEXT NOT NULL UNIQUE,
+                value TEXT
+            );
+            ",
+            )?;
+        }
+
+        if version < current {
+            Self::upgrade_from(db, &version)?;
+        }
+
+        if version == Version::new(0, 0, 0) {
+            db.connection.execute(
+                format!(
+                    "INSERT INTO finnel (key, value) VALUES('version', '{current}');"
+                )
+            )?;
+        } else {
+            db.connection.execute(
+                format!(
+                    "UPDATE finnel SET value = '{current}' WHERE key = 'version';"
+                )
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn upgrade_from(db: &Database, version: &Version) -> Result<()>;
+}
+
+impl Upgrade for Database {
+    fn upgrade_from(db: &Database, version: &Version) -> Result<()> {
+        crate::merchant::Merchant::upgrade_from(db, version)?;
+        crate::category::Category::upgrade_from(db, version)?;
+        crate::account::Account::upgrade_from(db, version)?;
+        crate::account::Record::upgrade_from(db, version)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
-    fn open_memory() {
-        assert!(Database::open(":memory:").is_ok());
+    fn open_memory() -> Result<()> {
+        assert!(Database::memory().is_ok());
+        assert_eq!(Database::memory()?.version()?, Version::new(0, 0, 0));
+
+        Ok(())
+    }
+
+    #[test]
+    fn setup() -> Result<()> {
+        let db = Database::memory()?;
+        Database::setup(&db)
     }
 
     #[test]

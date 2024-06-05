@@ -1,4 +1,4 @@
-use crate::database::{Database, Error, Result};
+use crate::database::{Database, Error, Result, Upgrade};
 
 pub use crate::database::Id;
 
@@ -34,7 +34,6 @@ pub trait MerchantStorage {
     fn find_by_name(&self, name: &str) -> Result<Merchant>;
     fn find_or_create_by_name(&self, name: &str) -> Result<Merchant>;
     fn create(&self, name: &str) -> Result<Merchant>;
-    fn setup(&self) -> Result<()>;
 }
 
 impl MerchantStorage for Database {
@@ -80,12 +79,14 @@ impl MerchantStorage for Database {
             Err(Error::NotFound)
         }
     }
+}
 
-    fn setup(&self) -> Result<()> {
-        self.connection
+impl Upgrade for Merchant {
+    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
+        db.connection
             .execute(
                 "
-                CREATE TABLE merchants (
+                CREATE TABLE IF NOT EXISTS merchants (
                     id INTEGER NOT NULL PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE
                 );
@@ -103,7 +104,7 @@ mod tests {
     #[test]
     fn create() {
         let db = Database::memory().unwrap();
-        MerchantStorage::setup(&db).unwrap();
+        Merchant::setup(&db).unwrap();
 
         let merchant = db.create("Uraidla Pub").unwrap();
         assert_eq!(Id::from(1), merchant.get_id());
@@ -120,7 +121,7 @@ mod tests {
     #[test]
     fn find_or_create_by_name() {
         let db = Database::memory().unwrap();
-        MerchantStorage::setup(&db).unwrap();
+        Merchant::setup(&db).unwrap();
 
         let res = db.find_by_name("Chariot");
         assert!(matches!(res.unwrap_err(), Error::NotFound));

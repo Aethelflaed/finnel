@@ -9,6 +9,7 @@ edition = "2021"
 chrono = "0.4.38"
 derive_more = "0.99.17"
 oxydized-money = "0.3.0"
+semver = "1.0.23"
 sqlite = "0.36.0"
 thiserror = "1.0.61"
 

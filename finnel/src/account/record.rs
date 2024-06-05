@@ -4,7 +4,9 @@ use chrono::{offset::Utc, DateTime};
 
 use oxydized_money::Amount;
 
-use crate::database::{Amount as DbAmount, Database, Date, Error, Result};
+use crate::database::{
+    Amount as DbAmount, Database, Date, Error, Result, Upgrade,
+};
 
 pub use crate::database::Id;
 use crate::{account, category, database, merchant, transaction};
@@ -45,7 +47,6 @@ impl TryFrom<sqlite::Statement<'_>> for Record {
 
 pub trait RecordStorage {
     fn find(&self, id: Id) -> Result<Record>;
-    fn setup(&self) -> Result<()>;
 }
 
 impl RecordStorage for Database {
@@ -60,12 +61,14 @@ impl RecordStorage for Database {
             Err(Error::NotFound)
         }
     }
+}
 
-    fn setup(&self) -> Result<()> {
-        self.connection
+impl Upgrade for Record {
+    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
+        db.connection
             .execute(
                 "
-                CREATE TABLE records (
+                CREATE TABLE IF NOT EXISTS records (
                     id INTEGER NOT NULL PRIMARY KEY,
                     account INTEGER NOT NULL,
                     amount_val TEXT NOT NULL,
@@ -91,6 +94,6 @@ mod tests {
     #[test]
     fn setup() {
         let db = Database::memory().unwrap();
-        RecordStorage::setup(&db).unwrap();
+        Record::setup(&db).unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::database::{Amount as DbAmount, Database, Error, Result};
+use crate::database::{Amount as DbAmount, Database, Error, Result, Upgrade};
 use oxydized_money::Amount;
 
 pub use crate::database::Id;
@@ -44,7 +44,6 @@ pub trait AccountStorage {
     fn find_by_name(&self, name: &str) -> Result<Account>;
     fn find_or_create_by_name(&self, name: &str) -> Result<Account>;
     fn create(&self, name: &str) -> Result<Account>;
-    fn setup(&self) -> Result<()>;
 }
 
 impl AccountStorage for Database {
@@ -90,12 +89,14 @@ impl AccountStorage for Database {
             Err(Error::NotFound)
         }
     }
+}
 
-    fn setup(&self) -> Result<()> {
-        self.connection
+impl Upgrade for Account {
+    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
+        db.connection
             .execute(
                 "
-                CREATE TABLE accounts (
+                CREATE TABLE IF NOT EXISTS accounts (
                     id INTEGER NOT NULL PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE,
                     balance_val TEXT NOT NULL DEFAULT '0',
@@ -115,7 +116,7 @@ mod tests {
     #[test]
     fn create() {
         let db = Database::memory().unwrap();
-        AccountStorage::setup(&db).unwrap();
+        Account::setup(&db).unwrap();
 
         let account = db.create("Uraidla Pub").unwrap();
         assert_eq!(Id::from(1), account.get_id());
@@ -135,7 +136,7 @@ mod tests {
     #[test]
     fn find_or_create_by_name() {
         let db = Database::memory().unwrap();
-        AccountStorage::setup(&db).unwrap();
+        Account::setup(&db).unwrap();
 
         let res = db.find_by_name("Chariot");
         assert!(matches!(res.unwrap_err(), Error::NotFound));

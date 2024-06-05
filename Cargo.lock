@@ -391,6 +391,7 @@ dependencies = [
  "derive_more",
  "oxydized-money",
  "pretty_assertions",
+ "semver",
  "sqlite",
  "thiserror",
 ]

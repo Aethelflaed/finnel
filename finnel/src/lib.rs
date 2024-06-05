@@ -15,6 +15,9 @@ mod tests {
     fn it_works() {
         use oxydized_money::{Amount, Currency::EUR, Decimal};
 
+        let db = Database::memory().unwrap();
+        db.version().unwrap();
+
         let cost = Amount(Decimal::from_str_exact("-1.00").unwrap(), EUR);
         let cost2 = Amount(Decimal::from_str_exact("-1").unwrap(), EUR);
         assert_eq!(cost, cost2);
