@@ -4,6 +4,8 @@ pub mod database;
 mod merchant;
 mod transaction;
 
+pub use database::Database;
+
 #[cfg(test)]
 mod tests {
     use super::*;

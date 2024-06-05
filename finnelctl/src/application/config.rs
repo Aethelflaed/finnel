@@ -1,13 +1,14 @@
+use std::fs::create_dir;
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use toml::{Table, Value};
 
 use crate::application::cli::Cli;
 
 pub struct Config {
     dir: PathBuf,
-    data_dir: PathBuf,
+    pub data_dir: PathBuf,
     cli: Cli,
     table: Table,
 }
@@ -40,6 +41,13 @@ impl Config {
                 .unwrap_or_else(data_home)
         });
 
+        if !data_dir.is_dir() {
+            return Err(anyhow!(
+                "Data directory is not a dir: {}",
+                data_dir.display()
+            ));
+        }
+
         Ok(Config {
             dir,
             data_dir,
@@ -52,18 +60,30 @@ impl Config {
 fn config_home() -> PathBuf {
     match std::env::var("FINNEL_CONFIG") {
         Ok(val) if !val.is_empty() => PathBuf::from(val),
-        _ => xdg::BaseDirectories::with_prefix("finnel")
-            .unwrap()
-            .get_config_home(),
+        _ => {
+            let path = xdg::BaseDirectories::with_prefix("finnel")
+                .unwrap()
+                .get_config_home();
+            if !path.exists() {
+                create_dir(&path).unwrap();
+            }
+            path
+        }
     }
 }
 
 fn data_home() -> PathBuf {
     match std::env::var("FINNEL_DATA") {
         Ok(val) if !val.is_empty() => PathBuf::from(val),
-        _ => xdg::BaseDirectories::with_prefix("finnel")
-            .unwrap()
-            .get_data_home(),
+        _ => {
+            let path = xdg::BaseDirectories::with_prefix("finnel")
+                .unwrap()
+                .get_data_home();
+            if !path.exists() {
+                create_dir(&path).unwrap();
+            }
+            path
+        }
     }
 }
 
@@ -85,6 +105,8 @@ mod tests {
                 datad.child("foo").path().display()
             ))?;
 
+            assert!(Config::try_parse().is_err());
+            let _ = create_dir(datad.child("foo").path());
             config = Config::try_parse()?;
             assert_eq!(config.data_dir, datad.child("foo").path());
 
@@ -95,6 +117,7 @@ mod tests {
             ])?;
             assert_eq!(config.dir, datad.child("bar").path());
 
+            let _ = create_dir(datad.child("bar").path());
             config = Config::try_parse_from(&[
                 "arg0",
                 "-D",
