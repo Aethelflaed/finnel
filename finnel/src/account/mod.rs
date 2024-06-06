@@ -1,29 +1,132 @@
-use crate::database::{Amount as DbAmount, Database, Error, Result, Upgrade};
+use crate::database::{
+    Amount as DbAmount, Database, Entity, Error, Readable, Result, Upgrade,
+};
 use oxydized_money::Amount;
 
 pub use crate::database::Id;
 
 mod record;
-pub use record::{Record, RecordStorage};
+pub use record::Record;
 
 #[derive(Debug)]
 pub struct Account {
-    id: Id,
+    id: Option<Id>,
     name: String,
     balance: Amount,
 }
 
 impl Account {
-    pub fn get_id(&self) -> Id {
-        self.id
+    pub fn new<T: Into<String>>(name: T) -> Self {
+        Account {
+            name: name.into(),
+            ..Default::default()
+        }
     }
 
-    pub fn get_name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn get_balance(&self) -> Amount {
+    pub fn set_name<T: Into<String>>(&mut self, name: T) {
+        self.name = name.into();
+    }
+
+    pub fn balance(&self) -> Amount {
         self.balance
+    }
+
+    pub fn find_by_name(db: &Database, name: &str) -> Result<Self> {
+        let query = "SELECT * FROM accounts WHERE name = ? LIMIT 1;";
+        let mut statement = db.connection.prepare(query)?;
+        statement.bind((1, name))?;
+
+        if let Ok(sqlite::State::Row) = statement.next() {
+            statement.try_into()
+        } else {
+            Err(Error::NotFound)
+        }
+    }
+
+    pub fn find_or_create_by_name<T: Into<String>>(
+        db: &Database,
+        name: T,
+    ) -> Result<Account> {
+        let name_string: String = name.into();
+
+        match Self::find_by_name(db, name_string.as_str()) {
+            Err(Error::NotFound) => {
+                let mut account = Self::new(name_string);
+                account.save(&db)?;
+                Ok(account)
+            }
+            value => value,
+        }
+    }
+}
+
+impl Default for Account {
+    fn default() -> Self {
+        Account {
+            id: None,
+            name: String::from(""),
+            balance: DbAmount::default().into(),
+        }
+    }
+}
+
+impl Entity for Account {
+    fn id(&self) -> Option<Id> {
+        self.id
+    }
+
+    fn find(db: &Database, id: Id) -> Result<Self> {
+        let query = "SELECT * FROM accounts WHERE id = ? LIMIT 1;";
+        let mut statement = db.connection.prepare(query)?;
+        statement.bind((1, id))?;
+
+        if let Ok(sqlite::State::Row) = statement.next() {
+            statement.try_into()
+        } else {
+            Err(Error::NotFound)
+        }
+    }
+
+    fn save(&mut self, db: &Database) -> Result<()> {
+        if let Some(id) = self.id {
+            let query = "UPDATE accounts SET
+                    name = :name,
+                    balance_val = :balance_val,
+                    balance_cur = :balance_cur
+                WHERE id = :id";
+            let mut statement = db.connection.prepare(query)?;
+            statement.bind((":name", self.name.as_str()))?;
+            let db_amount = DbAmount::from(self.balance);
+            statement.bind((":balance_val", db_amount.val().as_str()))?;
+            statement.bind((":balance_cur", db_amount.cur()))?;
+            statement.bind((":id", id))?;
+
+            if let Ok(sqlite::State::Done) = statement.next() {
+                Ok(())
+            } else {
+                Err(Error::NotFound)
+            }
+        } else {
+            let query = "INSERT INTO accounts (name, balance_val, balance_cur)
+                VALUES(?, ?, ?) RETURNING id;";
+            let mut statement = db.connection.prepare(query)?;
+            statement.bind((1, self.name.as_str()))?;
+
+            let db_amount = DbAmount::from(self.balance);
+            statement.bind((2, db_amount.val().as_str()))?;
+            statement.bind((3, db_amount.cur()))?;
+
+            if let Ok(sqlite::State::Row) = statement.next() {
+                self.id = Some(Id::try_read("id", &statement)?);
+                Ok(())
+            } else {
+                Err(Error::NotFound)
+            }
+        }
     }
 }
 
@@ -32,62 +135,10 @@ impl TryFrom<sqlite::Statement<'_>> for Account {
 
     fn try_from(statement: sqlite::Statement) -> Result<Self> {
         Ok(Account {
-            id: Id::from(statement.read::<i64, _>("id")?),
+            id: Some(Id::try_read("id", &statement)?),
             name: statement.read::<String, _>("name")?,
             balance: DbAmount::try_read("balance", &statement)?.into(),
         })
-    }
-}
-
-pub trait AccountStorage {
-    fn find(&self, id: Id) -> Result<Account>;
-    fn find_by_name(&self, name: &str) -> Result<Account>;
-    fn find_or_create_by_name(&self, name: &str) -> Result<Account>;
-    fn create(&self, name: &str) -> Result<Account>;
-}
-
-impl AccountStorage for Database {
-    fn find(&self, id: Id) -> Result<Account> {
-        let query = "SELECT * FROM accounts WHERE id = ? LIMIT 1;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, id)).unwrap();
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
-        }
-    }
-
-    fn find_by_name(&self, name: &str) -> Result<Account> {
-        let query = "SELECT * FROM accounts WHERE name = ? LIMIT 1;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, name)).unwrap();
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
-        }
-    }
-
-    fn find_or_create_by_name(&self, name: &str) -> Result<Account> {
-        match self.find_by_name(name) {
-            Err(Error::NotFound) => self.create(name),
-            value => value,
-        }
-    }
-
-    fn create(&self, name: &str) -> Result<Account> {
-        let query = "INSERT INTO accounts(name) VALUES(?) RETURNING *;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, name)).unwrap();
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
-        }
     }
 }
 
@@ -114,38 +165,41 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn create() {
-        let db = Database::memory().unwrap();
-        Account::setup(&db).unwrap();
+    fn crud() -> Result<()> {
+        let db = Database::memory()?;
+        Account::setup(&db)?;
 
-        let account = db.create("Uraidla Pub").unwrap();
-        assert_eq!(Id::from(1), account.get_id());
-        assert_eq!("Uraidla Pub", account.get_name());
+        let mut account = Account::new("Uraidla Pub");
+        assert_eq!(None, account.id());
+        account.save(&db)?;
+        assert_eq!(Some(Id::from(1)), account.id());
 
-        assert_eq!(
-            "Uraidla Pub",
-            AccountStorage::find(&db, Id::from(1)).unwrap().get_name()
-        );
+        assert_eq!("Uraidla Pub", account.name());
+        account.set_name("Chariot");
+        account.save(&db)?;
+        assert_eq!("Chariot", Account::find(&db, Id::from(1))?.name());
 
-        assert_eq!(
-            Id::from(1),
-            db.find_by_name("Uraidla Pub").unwrap().get_id()
-        );
+        Ok(())
     }
 
     #[test]
-    fn find_or_create_by_name() {
-        let db = Database::memory().unwrap();
-        Account::setup(&db).unwrap();
+    fn find_or_create_by_name() -> Result<()> {
+        let db = Database::memory()?;
+        Account::setup(&db)?;
 
-        let res = db.find_by_name("Chariot");
-        assert!(matches!(res.unwrap_err(), Error::NotFound));
+        assert!(matches!(
+            Account::find_by_name(&db, "Chariot"),
+            Err(Error::NotFound)
+        ));
 
-        let account = db.find_or_create_by_name("Chariot").unwrap();
-        assert_eq!(Id::from(1), account.get_id());
-        assert_eq!("Chariot", account.get_name());
+        let mut account = Account::new("Chariot");
+        account.save(&db)?;
 
-        assert!(db.create("Chariot").is_err());
-        assert!(db.find_by_name("Chariot").is_ok());
+        assert_eq!(account.id(), Account::find_by_name(&db, "Chariot")?.id());
+
+        account = Account::find_or_create_by_name(&db, "Uraidla Pub")?;
+        assert_eq!(Some(Id::from(2)), account.id());
+
+        Ok(())
     }
 }

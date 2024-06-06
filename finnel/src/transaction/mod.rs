@@ -1,10 +1,10 @@
 use std::fmt::{Display, Error, Formatter};
 use std::str::FromStr;
 
-const TRANSFER_DEBIT: &'static str = "Transfer debit";
-const TRANSFER_CREDIT: &'static str = "Transfer credit";
-const DEBIT: &'static str = "Debit";
-const ATM_DEBIT: &'static str = "ATM debit";
+const TRANSFER_DEBIT: &str = "Transfer debit";
+const TRANSFER_CREDIT: &str = "Transfer credit";
+const DEBIT: &str = "Debit";
+const ATM_DEBIT: &str = "ATM debit";
 
 pub enum Type {
     TransferDebit,

@@ -20,11 +20,43 @@ impl BindableWithIndex for Id {
     }
 }
 
+pub trait Readable: Sized {
+    fn try_read(field: &str, statement: &Statement) -> Result<Self>;
+}
+
+impl Readable for Id {
+    fn try_read(field: &str, statement: &Statement) -> Result<Self> {
+        match statement.read::<i64, _>(field) {
+            Ok(id) => Ok(id.into()),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, derive_more::From, derive_more::Into)]
 pub struct Amount(oxydized_money::Amount);
 
+impl Default for Amount {
+    fn default() -> Self {
+        Amount(oxydized_money::Amount(
+            oxydized_money::Decimal::new(0, 0),
+            oxydized_money::Currency::EUR,
+        ))
+    }
+}
+
 impl Amount {
-    pub fn try_read(field: &str, statement: &Statement) -> Result<Self> {
+    pub fn val(&self) -> String {
+        self.0 .0.to_string()
+    }
+
+    pub fn cur(&self) -> &'static str {
+        self.0 .1.code()
+    }
+}
+
+impl Readable for Amount {
+    fn try_read(field: &str, statement: &Statement) -> Result<Self> {
         Ok(Amount(oxydized_money::Amount(
             oxydized_money::Decimal::from_str_exact(
                 &statement
@@ -138,6 +170,13 @@ impl Database {
     }
 }
 
+pub trait Entity: Sized {
+    fn id(&self) -> Option<Id>;
+
+    fn find(db: &Database, id: Id) -> Result<Self>;
+    fn save(&mut self, db: &Database) -> Result<()>;
+}
+
 pub(crate) trait Upgrade {
     fn setup(db: &Database) -> Result<()> {
         let version = db.version()?;
@@ -165,11 +204,9 @@ pub(crate) trait Upgrade {
                 )
             )?;
         } else {
-            db.connection.execute(
-                format!(
-                    "UPDATE finnel SET value = '{current}' WHERE key = 'version';"
-                )
-            )?;
+            db.connection.execute(format!(
+                "UPDATE finnel SET value = '{current}' WHERE key = 'version';"
+            ))?;
         }
 
         Ok(())
