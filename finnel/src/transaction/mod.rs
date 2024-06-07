@@ -46,3 +46,20 @@ impl FromStr for Type {
         }
     }
 }
+
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+
+impl FromSql for Type {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Self::from_str(value.as_str()?)
+            .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
+    }
+}
+
+impl ToSql for Type {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+            self.to_string(),
+        )))
+    }
+}

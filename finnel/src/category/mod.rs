@@ -1,98 +1,136 @@
-use crate::database::{Database, Error, Result, Upgrade};
+use crate::database::{Database, Entity, Error, Result, Upgrade};
 
 pub use crate::database::Id;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Category {
-    id: Id,
+    id: Option<Id>,
     name: String,
 }
 
 impl Category {
-    pub fn get_id(&self) -> Id {
-        self.id
+    pub fn new<T: Into<String>>(name: T) -> Self {
+        Self {
+            name: name.into(),
+            ..Default::default()
+        }
     }
 
-    pub fn get_name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn set_name<T: Into<String>>(&mut self, name: T) {
+        self.name = name.into();
+    }
+
+    pub fn find_by_name(db: &Database, name: &str) -> Result<Self> {
+        let query = "SELECT * FROM categories WHERE name = ? LIMIT 1;";
+        let mut statement = db.connection.prepare(query)?;
+
+        match statement.query_row([name], |row| row.try_into()) {
+            Ok(record) => Ok(record),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn find_or_create_by_name<T: Into<String>>(
+        db: &Database,
+        name: T,
+    ) -> Result<Self> {
+        let name_string: String = name.into();
+
+        match Self::find_by_name(db, name_string.as_str()) {
+            Err(Error::NotFound) => {
+                let mut record = Self::new(name_string);
+                record.save(db)?;
+                Ok(record)
+            }
+            value => value,
+        }
     }
 }
 
-impl TryFrom<sqlite::Statement<'_>> for Category {
-    type Error = Error;
+impl TryFrom<&rusqlite::Row<'_>> for Category {
+    type Error = rusqlite::Error;
 
-    fn try_from(statement: sqlite::Statement) -> Result<Self> {
+    fn try_from(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         Ok(Category {
-            id: Id::from(statement.read::<i64, _>("id")?),
-            name: statement.read::<String, _>("name")?,
+            id: row.get("id")?,
+            name: row.get("name")?,
         })
     }
 }
 
-pub trait CategoryStorage {
-    fn find(&self, id: Id) -> Result<Category>;
-    fn find_by_name(&self, name: &str) -> Result<Category>;
-    fn find_or_create_by_name(&self, name: &str) -> Result<Category>;
-    fn create(&self, name: &str) -> Result<Category>;
-}
+impl Entity for Category {
+    fn id(&self) -> Option<Id> {
+        self.id
+    }
 
-impl CategoryStorage for Database {
-    fn find(&self, id: Id) -> Result<Category> {
+    fn find(db: &Database, id: Id) -> Result<Self> {
         let query = "SELECT * FROM categories WHERE id = ? LIMIT 1;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, id)).unwrap();
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
+        let mut statement = db.connection.prepare(query)?;
+        match statement.query_row([id], |row| row.try_into()) {
+            Ok(record) => Ok(record),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
+            Err(e) => Err(e.into()),
         }
     }
 
-    fn find_by_name(&self, name: &str) -> Result<Category> {
-        let query = "SELECT * FROM categories WHERE name = ? LIMIT 1;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, name)).unwrap();
+    fn save(&mut self, db: &Database) -> Result<()> {
+        use rusqlite::named_params;
 
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
+        if let Some(id) = self.id() {
+            let query = "
+                UPDATE categories
+                SET
+                    name = :name
+                WHERE
+                    id = :id";
+            let mut statement = db.connection.prepare(query)?;
+            match statement
+                .execute(named_params! {":id": id, ":name": self.name})
+            {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into()),
+            }
         } else {
-            Err(Error::NotFound)
-        }
-    }
+            let query = "
+                INSERT INTO categories (
+                    name
+                )
+                VALUES (
+                    :name
+                )
+                RETURNING id;";
+            let mut statement = db.connection.prepare(query)?;
 
-    fn find_or_create_by_name(&self, name: &str) -> Result<Category> {
-        match self.find_by_name(name) {
-            Err(Error::NotFound) => self.create(name),
-            value => value,
-        }
-    }
-
-    fn create(&self, name: &str) -> Result<Category> {
-        let query = "INSERT INTO categories(name) VALUES(?) RETURNING *;";
-        let mut statement = self.connection.prepare(query).unwrap();
-        statement.bind((1, name)).unwrap();
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
+            Ok(statement.query_row(
+                &[(":name", self.name.as_str())],
+                |row| {
+                    self.id = row.get(0)?;
+                    Ok(())
+                },
+            )?)
         }
     }
 }
 
 impl Upgrade for Category {
     fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        db.connection
-            .execute(
-                "
+        match db.connection.execute(
+            "
                 CREATE TABLE IF NOT EXISTS categories (
                     id INTEGER NOT NULL PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE
                 );
             ",
-            )
-            .map_err(|e| e.into())
+            (),
+        ) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -102,35 +140,41 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn create() {
-        let db = Database::memory().unwrap();
-        Category::setup(&db).unwrap();
+    fn crud() -> Result<()> {
+        let db = Database::memory()?;
+        Category::setup(&db)?;
 
-        let category = db.create("Uraidla Pub").unwrap();
-        assert_eq!(Id::from(1), category.get_id());
-        assert_eq!("Uraidla Pub", category.get_name());
+        let mut category = Category::new("Uraidla Pub");
+        assert_eq!(None, category.id());
+        category.save(&db)?;
+        assert_eq!(Some(Id::from(1)), category.id());
 
-        assert_eq!("Uraidla Pub", db.find(Id::from(1)).unwrap().get_name());
+        assert_eq!("Uraidla Pub", category.name());
+        category.set_name("Chariot");
+        category.save(&db)?;
+        assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name());
 
-        assert_eq!(
-            Id::from(1),
-            db.find_by_name("Uraidla Pub").unwrap().get_id()
-        );
+        Ok(())
     }
 
     #[test]
-    fn find_or_create_by_name() {
-        let db = Database::memory().unwrap();
-        Category::setup(&db).unwrap();
+    fn find_or_create_by_name() -> Result<()> {
+        let db = Database::memory()?;
+        Category::setup(&db)?;
 
-        let res = db.find_by_name("Chariot");
-        assert!(matches!(res.unwrap_err(), Error::NotFound));
+        assert!(matches!(
+            Category::find_by_name(&db, "Chariot"),
+            Err(Error::NotFound)
+        ));
 
-        let category = db.find_or_create_by_name("Chariot").unwrap();
-        assert_eq!(Id::from(1), category.get_id());
-        assert_eq!("Chariot", category.get_name());
+        let mut category = Category::new("Chariot");
+        category.save(&db)?;
 
-        assert!(db.create("Chariot").is_err());
-        assert!(db.find_by_name("Chariot").is_ok());
+        assert_eq!(category.id(), Category::find_by_name(&db, "Chariot")?.id());
+
+        category = Category::find_or_create_by_name(&db, "Uraidla Pub")?;
+        assert_eq!(Some(Id::from(2)), category.id());
+
+        Ok(())
     }
 }

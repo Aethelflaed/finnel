@@ -1,6 +1,4 @@
-use crate::database::{
-    Amount as DbAmount, Database, Entity, Error, Readable, Result, Upgrade,
-};
+use crate::database::{Database, Entity, Error, Money, Result, Upgrade};
 use oxydized_money::Amount;
 
 pub use crate::database::Id;
@@ -17,7 +15,7 @@ pub struct Account {
 
 impl Account {
     pub fn new<T: Into<String>>(name: T) -> Self {
-        Account {
+        Self {
             name: name.into(),
             ..Default::default()
         }
@@ -38,26 +36,25 @@ impl Account {
     pub fn find_by_name(db: &Database, name: &str) -> Result<Self> {
         let query = "SELECT * FROM accounts WHERE name = ? LIMIT 1;";
         let mut statement = db.connection.prepare(query)?;
-        statement.bind((1, name))?;
 
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
+        match statement.query_row([name], |row| row.try_into()) {
+            Ok(record) => Ok(record),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
+            Err(e) => Err(e.into()),
         }
     }
 
     pub fn find_or_create_by_name<T: Into<String>>(
         db: &Database,
         name: T,
-    ) -> Result<Account> {
+    ) -> Result<Self> {
         let name_string: String = name.into();
 
         match Self::find_by_name(db, name_string.as_str()) {
             Err(Error::NotFound) => {
-                let mut account = Self::new(name_string);
-                account.save(&db)?;
-                Ok(account)
+                let mut record = Self::new(name_string);
+                record.save(db)?;
+                Ok(record)
             }
             value => value,
         }
@@ -66,11 +63,23 @@ impl Account {
 
 impl Default for Account {
     fn default() -> Self {
-        Account {
+        Self {
             id: None,
-            name: String::from(""),
-            balance: DbAmount::default().into(),
+            name: String::new(),
+            balance: Money::default().into(),
         }
+    }
+}
+
+impl TryFrom<&rusqlite::Row<'_>> for Account {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Account {
+            id: row.get("id")?,
+            name: row.get("name")?,
+            balance: row.get::<&str, Money>("balance")?.into(),
+        })
     }
 }
 
@@ -82,80 +91,71 @@ impl Entity for Account {
     fn find(db: &Database, id: Id) -> Result<Self> {
         let query = "SELECT * FROM accounts WHERE id = ? LIMIT 1;";
         let mut statement = db.connection.prepare(query)?;
-        statement.bind((1, id))?;
-
-        if let Ok(sqlite::State::Row) = statement.next() {
-            statement.try_into()
-        } else {
-            Err(Error::NotFound)
+        match statement.query_row([id], |row| row.try_into()) {
+            Ok(record) => Ok(record),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
+            Err(e) => Err(e.into()),
         }
     }
 
     fn save(&mut self, db: &Database) -> Result<()> {
-        if let Some(id) = self.id {
-            let query = "UPDATE accounts SET
-                    name = :name,
-                    balance_val = :balance_val,
-                    balance_cur = :balance_cur
-                WHERE id = :id";
-            let mut statement = db.connection.prepare(query)?;
-            statement.bind((":name", self.name.as_str()))?;
-            let db_amount = DbAmount::from(self.balance);
-            statement.bind((":balance_val", db_amount.val().as_str()))?;
-            statement.bind((":balance_cur", db_amount.cur()))?;
-            statement.bind((":id", id))?;
+        use rusqlite::named_params;
 
-            if let Ok(sqlite::State::Done) = statement.next() {
-                Ok(())
-            } else {
-                Err(Error::NotFound)
+        if let Some(id) = self.id() {
+            let query = "
+                UPDATE accounts
+                SET
+                    name = :name,
+                    balance = :balance
+                WHERE
+                    id = :id";
+            let mut statement = db.connection.prepare(query)?;
+            let params = named_params! {
+                ":id": id,
+                ":name": self.name,
+                ":balance": Money::from(self.balance)
+            };
+            match statement.execute(params) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into()),
             }
         } else {
-            let query = "INSERT INTO accounts (name, balance_val, balance_cur)
-                VALUES(?, ?, ?) RETURNING id;";
+            let query = "
+                INSERT INTO accounts (
+                    name,
+                    balance
+                )
+                VALUES (
+                    :name, :balance
+                )
+                RETURNING id;";
             let mut statement = db.connection.prepare(query)?;
-            statement.bind((1, self.name.as_str()))?;
+            let params = named_params! {
+                ":name": self.name.as_str(),
+                ":balance": Money::from(self.balance)
+            };
 
-            let db_amount = DbAmount::from(self.balance);
-            statement.bind((2, db_amount.val().as_str()))?;
-            statement.bind((3, db_amount.cur()))?;
-
-            if let Ok(sqlite::State::Row) = statement.next() {
-                self.id = Some(Id::try_read("id", &statement)?);
+            Ok(statement.query_row(params, |row| {
+                self.id = row.get(0)?;
                 Ok(())
-            } else {
-                Err(Error::NotFound)
-            }
+            })?)
         }
-    }
-}
-
-impl TryFrom<sqlite::Statement<'_>> for Account {
-    type Error = Error;
-
-    fn try_from(statement: sqlite::Statement) -> Result<Self> {
-        Ok(Account {
-            id: Some(Id::try_read("id", &statement)?),
-            name: statement.read::<String, _>("name")?,
-            balance: DbAmount::try_read("balance", &statement)?.into(),
-        })
     }
 }
 
 impl Upgrade for Account {
     fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        db.connection
-            .execute(
-                "
-                CREATE TABLE IF NOT EXISTS accounts (
-                    id INTEGER NOT NULL PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE,
-                    balance_val TEXT NOT NULL DEFAULT '0',
-                    balance_cur TEXT NOT NULL DEFAULT 'EUR'
-                );
-            ",
-            )
-            .map_err(|e| e.into())
+        match db.connection.execute(
+            "CREATE TABLE IF NOT EXISTS accounts (
+                id INTEGER NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                balance BLOB NOT NULL
+            );",
+            (),
+        ) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
