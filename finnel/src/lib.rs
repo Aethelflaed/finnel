@@ -1,8 +1,8 @@
 pub mod database;
 
-mod account;
-mod category;
-mod merchant;
-mod transaction;
+pub mod account;
+pub mod category;
+pub mod merchant;
+pub mod transaction;
 
 pub use database::Database;

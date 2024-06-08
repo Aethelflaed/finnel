@@ -5,18 +5,41 @@ use oxydized_money::Amount;
 use crate::database::{Database, Entity, Error, Money, Result, Upgrade};
 
 pub use crate::database::Id;
-use crate::{account, category, merchant, transaction};
+use crate::transaction;
 
 pub struct Record {
     id: Option<Id>,
-    account: account::Id,
+    account: Id,
     amount: Amount,
     operation_date: DateTime<Utc>,
     value_date: DateTime<Utc>,
     transaction_type: transaction::Type,
     transaction_details: String,
-    category: category::Id,
-    merchant: merchant::Id,
+    category: Id,
+    merchant: Id,
+}
+
+impl Record {
+    pub fn by_account<F>(db: &Database, account: Id, f: F) -> Result<()>
+    where
+        F: Fn(Result<Self>) -> Result<()>,
+    {
+        let query = "SELECT * FROM records WHERE account = ?";
+        let mut statement = db.connection.prepare(query)?;
+
+        let x = match statement
+            .query_and_then([account], |row| Self::try_from(row))
+        {
+            Ok(iter) => {
+                for entity in iter {
+                    f(entity.map_err(|e| e.into()))?;
+                }
+                Ok(())
+            }
+            Err(e) => Err(e.into()),
+        };
+        x
+    }
 }
 
 impl TryFrom<&rusqlite::Row<'_>> for Record {

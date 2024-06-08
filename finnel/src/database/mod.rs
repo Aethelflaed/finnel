@@ -2,68 +2,16 @@ use std::path::Path;
 
 use semver::Version;
 
-use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
-use rusqlite::{Connection};
+use rusqlite::Connection;
 
-use oxydized_money::{Amount, Currency, CurrencyError, Decimal};
+mod error;
+pub use error::{Error, Result};
 
-use crate::transaction;
+mod id;
+pub use id::Id;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, derive_more::From)]
-pub struct Id(i64);
-
-impl FromSql for Id {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        Ok(value.as_i64()?.into())
-    }
-}
-
-impl ToSql for Id {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-#[derive(Copy, Clone, Debug, derive_more::From, derive_more::Into)]
-pub struct Money(Amount);
-
-impl Default for Money {
-    fn default() -> Self {
-        Self(Amount(Decimal::new(0, 0), Currency::EUR))
-    }
-}
-
-impl Money {
-    fn serialize(&self) -> Vec<u8> {
-        let mut vec = Vec::<u8>::with_capacity(18);
-        vec.extend_from_slice(&self.0 .0.serialize());
-        vec.extend_from_slice(&self.0 .1.numeric().to_be_bytes());
-        vec
-    }
-
-    fn deserialize(vec: &[u8]) -> Result<Self> {
-        Ok(Self(Amount(
-            Decimal::deserialize(vec[0..16].try_into()?),
-            Currency::from_numeric(u16::from_be_bytes(vec[16..18].try_into()?))
-                .ok_or(CurrencyError::Unknown)?,
-        )))
-    }
-}
-
-impl FromSql for Money {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        Self::deserialize(value.as_bytes()?)
-            .map_err(|e| rusqlite::types::FromSqlError::Other(Box::new(e)))
-    }
-}
-
-impl ToSql for Money {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::Owned(rusqlite::types::Value::Blob(
-            self.serialize(),
-        )))
-    }
-}
+mod money;
+pub use money::Money;
 
 pub struct Database {
     pub connection: Connection,
@@ -74,26 +22,6 @@ impl From<Connection> for Database {
         Database { connection }
     }
 }
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("Sqlite error")]
-    Sqlite(#[from] rusqlite::Error),
-    #[error("Not found")]
-    NotFound,
-    #[error("Parsing date error")]
-    DateParseError(#[from] chrono::ParseError),
-    #[error("Parsing transaction type error")]
-    TransactionTypeParseError(#[from] transaction::ParseTypeError),
-    #[error("Parsing version information")]
-    VersionError(#[from] semver::Error),
-    #[error("Reading decimal")]
-    TryFromSliceError(#[from] std::array::TryFromSliceError),
-    #[error("Reading currency")]
-    CurrencyError(#[from] CurrencyError),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 impl Database {
     pub fn open<T: AsRef<Path>>(path: T) -> Result<Database> {
@@ -199,8 +127,8 @@ impl Upgrade for Database {
     fn upgrade_from(db: &Database, version: &Version) -> Result<()> {
         crate::merchant::Merchant::upgrade_from(db, version)?;
         crate::category::Category::upgrade_from(db, version)?;
-        //crate::account::Account::upgrade_from(db, version)?;
-        //crate::account::Record::upgrade_from(db, version)?;
+        crate::account::Account::upgrade_from(db, version)?;
+        crate::account::Record::upgrade_from(db, version)?;
 
         Ok(())
     }
