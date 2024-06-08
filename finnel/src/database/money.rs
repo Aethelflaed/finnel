@@ -43,3 +43,42 @@ impl ToSql for Money {
         )))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    use crate::database::{Database, Id};
+
+    #[test]
+    fn read_and_write() -> Result<()> {
+        let db = Database::memory().unwrap();
+        db.connection.execute(
+            "CREATE TABLE money_test (
+                amount BLOB NOT NULL
+            );",
+            (),
+        )?;
+
+        let amount =
+            Amount(Decimal::from_str_exact("3.14").unwrap(), Currency::EUR);
+        let query = "INSERT INTO money_test(amount) VALUES(?) RETURNING rowid;";
+        let mut stmt = db.connection.prepare(query)?;
+        let mut id = Id::from(0);
+        stmt.query_row([Money(amount)], |row| {
+            id = row.get(0)?;
+            Ok(())
+        })?;
+
+        let query = "SELECT amount FROM money_test WHERE rowid = ? LIMIT 1";
+        stmt = db.connection.prepare(query)?;
+
+        stmt.query_row([id], |row| {
+            assert_eq!(amount, Amount::from(row.get::<usize, Money>(0)?));
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+}

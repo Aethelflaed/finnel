@@ -140,8 +140,7 @@ impl Upgrade for Record {
             "CREATE TABLE IF NOT EXISTS records (
                     id INTEGER NOT NULL PRIMARY KEY,
                     account INTEGER NOT NULL,
-                    amount_val TEXT NOT NULL,
-                    amount_cur TEXT NOT NULL,
+                    amount BLOB NOT NULL,
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,
                     transaction_type TEXT,
