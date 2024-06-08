@@ -38,6 +38,36 @@ impl Database {
         }
     }
 
+    pub fn get<K>(&self, key: K) -> Result<Option<String>>
+    where
+        K: AsRef<str> + rusqlite::ToSql,
+    {
+        match self
+            .connection
+            .prepare("SELECT value FROM finnel WHERE key = ?")?
+            .query_row([key], |row| row.get::<usize, String>(0))
+        {
+            Ok(record) => Ok(Some(record)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn set<K, V>(&self, key: K, value: V) -> Result<()>
+    where
+        K: AsRef<str> + rusqlite::ToSql,
+        V: AsRef<str> + rusqlite::ToSql,
+    {
+        self.connection.execute(
+            "INSERT INTO finnel(key, value)
+                VALUES(:key, :value)
+                ON CONFLICT(key)
+                DO UPDATE SET value = :value",
+            rusqlite::named_params! {":key": key, ":value": value},
+        )?;
+        Ok(())
+    }
+
     pub fn version(&self) -> Result<Version> {
         let mut statement = self.connection.prepare(
             "
@@ -59,14 +89,8 @@ impl Database {
             }
         }
 
-        statement = self
-            .connection
-            .prepare("SELECT value FROM finnel WHERE key = 'version'")?;
-
-        let mut rows = statement.query([])?;
-
-        if let Some(row) = rows.next()? {
-            Ok(Version::parse(row.get::<usize, String>(0)?.as_str())?)
+        if let Some(version) = self.get("version")? {
+            Ok(Version::parse(&version)?)
         } else {
             Ok(Version::new(0, 0, 0))
         }
@@ -101,23 +125,7 @@ pub(crate) trait Upgrade {
             Self::upgrade_from(db, &version)?;
         }
 
-        if version == Version::new(0, 0, 0) {
-            db.connection.execute(
-                format!(
-                    "INSERT INTO finnel (key, value) VALUES('version', '{current}');"
-                ).as_str(), ()
-            )?;
-        } else {
-            db.connection.execute(
-                format!(
-                "UPDATE finnel SET value = '{current}' WHERE key = 'version';"
-            )
-                .as_str(),
-                (),
-            )?;
-        }
-
-        Ok(())
+        db.set("version", current.to_string())
     }
 
     fn upgrade_from(db: &Database, version: &Version) -> Result<()>;
