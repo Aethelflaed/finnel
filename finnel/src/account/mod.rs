@@ -1,4 +1,4 @@
-use crate::database::{Database, Entity, Error, Money, Result, Upgrade};
+use crate::database::{Database, Connection, Entity, Error, Money, Result, Upgrade};
 use oxydized_money::Amount;
 
 pub use crate::database::Id;
@@ -33,9 +33,26 @@ impl Account {
         self.balance
     }
 
-    pub fn find_by_name(db: &Database, name: &str) -> Result<Self> {
+    pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
+        if let Some(id) = self.id() {
+            let tx = db.transaction()?;
+            Record::delete_by_account(&tx, id)?;
+            tx.execute(
+                "DELETE FROM accounts
+                WHERE id = :id",
+                rusqlite::named_params! {":id": id},
+            )?;
+
+            tx.commit()?;
+            Ok(())
+        } else {
+            Err(Error::NotPersisted)
+        }
+    }
+
+    pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
         let query = "SELECT * FROM accounts WHERE name = ? LIMIT 1;";
-        let mut statement = db.connection.prepare(query)?;
+        let mut statement = db.prepare(query)?;
 
         match statement.query_row([name], |row| row.try_into()) {
             Ok(record) => Ok(record),
@@ -45,7 +62,7 @@ impl Account {
     }
 
     pub fn find_or_create_by_name<T: Into<String>>(
-        db: &Database,
+        db: &Connection,
         name: T,
     ) -> Result<Self> {
         let name_string: String = name.into();
@@ -57,6 +74,24 @@ impl Account {
                 Ok(record)
             }
             value => value,
+        }
+    }
+
+    pub fn for_each<F>(db: &Connection, mut f: F) -> Result<()>
+    where
+        F: FnMut(Self),
+    {
+        match db
+            .prepare("SELECT * FROM accounts")?
+            .query_and_then([], |row| Self::try_from(row))
+        {
+            Ok(iter) => {
+                for entity in iter {
+                    f(entity?);
+                }
+                Ok(())
+            }
+            Err(e) => Err(e.into()),
         }
     }
 }
@@ -88,9 +123,9 @@ impl Entity for Account {
         self.id
     }
 
-    fn find(db: &Database, id: Id) -> Result<Self> {
+    fn find(db: &Connection, id: Id) -> Result<Self> {
         let query = "SELECT * FROM accounts WHERE id = ? LIMIT 1;";
-        let mut statement = db.connection.prepare(query)?;
+        let mut statement = db.prepare(query)?;
         match statement.query_row([id], |row| row.try_into()) {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
@@ -98,7 +133,7 @@ impl Entity for Account {
         }
     }
 
-    fn save(&mut self, db: &Database) -> Result<()> {
+    fn save(&mut self, db: &Connection) -> Result<()> {
         use rusqlite::named_params;
 
         if let Some(id) = self.id() {
@@ -109,7 +144,7 @@ impl Entity for Account {
                     balance = :balance
                 WHERE
                     id = :id";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":id": id,
                 ":name": self.name,
@@ -129,7 +164,7 @@ impl Entity for Account {
                     :name, :balance
                 )
                 RETURNING id;";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":name": self.name.as_str(),
                 ":balance": Money::from(self.balance)
@@ -145,7 +180,7 @@ impl Entity for Account {
 
 impl Upgrade for Account {
     fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.connection.execute(
+        match db.execute(
             "CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
@@ -199,6 +234,27 @@ mod tests {
 
         account = Account::find_or_create_by_name(&db, "Uraidla Pub")?;
         assert_eq!(Some(Id::from(2)), account.id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn for_each() -> Result<()> {
+        let db = Database::memory()?;
+        Account::setup(&db)?;
+
+        let mut account1 = Account::new("Account 1");
+        account1.save(&db)?;
+        let mut account2 = Account::new("Account 2");
+        account2.save(&db)?;
+
+        let mut accounts = Vec::new();
+        Account::for_each(&db, |account| {
+            accounts.push(account);
+        })?;
+
+        assert_eq!("Account 1", accounts[0].name());
+        assert_eq!("Account 2", accounts[1].name());
 
         Ok(())
     }

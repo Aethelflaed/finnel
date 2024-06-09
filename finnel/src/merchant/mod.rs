@@ -1,4 +1,4 @@
-use crate::database::{Database, Entity, Error, Result, Upgrade};
+use crate::database::{Database, Connection, Entity, Error, Result, Upgrade};
 
 pub use crate::database::Id;
 
@@ -24,9 +24,9 @@ impl Merchant {
         self.name = name.into();
     }
 
-    pub fn find_by_name(db: &Database, name: &str) -> Result<Self> {
+    pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
         let query = "SELECT * FROM merchants WHERE name = ? LIMIT 1;";
-        let mut statement = db.connection.prepare(query)?;
+        let mut statement = db.prepare(query)?;
 
         match statement.query_row([name], |row| row.try_into()) {
             Ok(record) => Ok(record),
@@ -36,7 +36,7 @@ impl Merchant {
     }
 
     pub fn find_or_create_by_name<T: Into<String>>(
-        db: &Database,
+        db: &Connection,
         name: T,
     ) -> Result<Self> {
         let name_string: String = name.into();
@@ -68,9 +68,9 @@ impl Entity for Merchant {
         self.id
     }
 
-    fn find(db: &Database, id: Id) -> Result<Self> {
+    fn find(db: &Connection, id: Id) -> Result<Self> {
         let query = "SELECT * FROM merchants WHERE id = ? LIMIT 1;";
-        let mut statement = db.connection.prepare(query)?;
+        let mut statement = db.prepare(query)?;
         match statement.query_row([id], |row| row.try_into()) {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
@@ -78,7 +78,7 @@ impl Entity for Merchant {
         }
     }
 
-    fn save(&mut self, db: &Database) -> Result<()> {
+    fn save(&mut self, db: &Connection) -> Result<()> {
         use rusqlite::named_params;
 
         if let Some(id) = self.id() {
@@ -88,7 +88,7 @@ impl Entity for Merchant {
                     name = :name
                 WHERE
                     id = :id";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
             match statement
                 .execute(named_params! {":id": id, ":name": self.name})
             {
@@ -104,7 +104,7 @@ impl Entity for Merchant {
                     :name
                 )
                 RETURNING id;";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
 
             Ok(statement.query_row(
                 &[(":name", self.name.as_str())],
@@ -119,7 +119,7 @@ impl Entity for Merchant {
 
 impl Upgrade for Merchant {
     fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.connection.execute(
+        match db.execute(
             "CREATE TABLE IF NOT EXISTS merchants (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE

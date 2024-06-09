@@ -10,6 +10,8 @@ pub enum Error {
     Sqlite(#[from] rusqlite::Error),
     #[error("Not found")]
     NotFound,
+    #[error("Not persisted")]
+    NotPersisted,
     #[error("Parsing date error")]
     DateParseError(#[from] chrono::ParseError),
     #[error("Parsing transaction type error")]

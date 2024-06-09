@@ -2,7 +2,7 @@ use chrono::{offset::Utc, DateTime};
 
 use oxydized_money::Amount;
 
-use crate::database::{Database, Entity, Error, Money, Result, Upgrade};
+use crate::database::{Database, Connection, Entity, Error, Money, Result, Upgrade};
 
 pub use crate::database::Id;
 use crate::transaction;
@@ -20,25 +20,31 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn by_account<F>(db: &Database, account: Id, f: F) -> Result<()>
+    pub fn by_account<F>(db: &Connection, account: Id, mut f: F) -> Result<()>
     where
-        F: Fn(Result<Self>) -> Result<()>,
+        F: FnMut(Self),
     {
-        let query = "SELECT * FROM records WHERE account = ?";
-        let mut statement = db.connection.prepare(query)?;
-
-        let x = match statement
+        match db
+            .prepare("SELECT * FROM records WHERE account = ?")?
             .query_and_then([account], |row| Self::try_from(row))
         {
             Ok(iter) => {
                 for entity in iter {
-                    f(entity.map_err(|e| e.into()))?;
+                    f(entity?);
                 }
                 Ok(())
             }
             Err(e) => Err(e.into()),
-        };
-        x
+        }
+    }
+
+    pub(crate) fn delete_by_account(db: &Connection, account: Id) -> Result<()> {
+        db.execute(
+            "DELETE FROM records
+            WHERE account = :account",
+            rusqlite::named_params! {":account": account},
+        )?;
+        Ok(())
     }
 }
 
@@ -65,9 +71,9 @@ impl Entity for Record {
         self.id
     }
 
-    fn find(db: &Database, id: Id) -> Result<Self> {
+    fn find(db: &Connection, id: Id) -> Result<Self> {
         let query = "SELECT * FROM records WHERE id = ? LIMIT 1;";
-        let mut statement = db.connection.prepare(query)?;
+        let mut statement = db.prepare(query)?;
         match statement.query_row([id], |row| row.try_into()) {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
@@ -75,7 +81,7 @@ impl Entity for Record {
         }
     }
 
-    fn save(&mut self, db: &Database) -> Result<()> {
+    fn save(&mut self, db: &Connection) -> Result<()> {
         use rusqlite::named_params;
 
         if let Some(id) = self.id() {
@@ -87,7 +93,7 @@ impl Entity for Record {
                     merchant = :merchant
                 WHERE
                     id = :id";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":id": id,
                 ":value_date": self.value_date,
@@ -114,7 +120,7 @@ impl Entity for Record {
                     :merchant
                 )
                 RETURNING id;";
-            let mut statement = db.connection.prepare(query)?;
+            let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":account": self.account,
                 ":amount": Money::from(self.amount),
@@ -136,7 +142,7 @@ impl Entity for Record {
 
 impl Upgrade for Record {
     fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.connection.execute(
+        match db.execute(
             "CREATE TABLE IF NOT EXISTS records (
                     id INTEGER NOT NULL PRIMARY KEY,
                     account INTEGER NOT NULL,

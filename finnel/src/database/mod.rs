@@ -2,7 +2,7 @@ use std::path::Path;
 
 use semver::Version;
 
-use rusqlite::Connection;
+pub use rusqlite::Connection;
 
 mod error;
 pub use error::{Error, Result};
@@ -13,27 +13,25 @@ pub use id::Id;
 mod money;
 pub use money::Money;
 
-pub struct Database {
-    pub connection: Connection,
-}
-
-impl From<Connection> for Database {
-    fn from(connection: Connection) -> Self {
-        Database { connection }
-    }
-}
+#[derive(
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    derive_more::DerefMut,
+)]
+pub struct Database(Connection);
 
 impl Database {
     pub fn open<T: AsRef<Path>>(path: T) -> Result<Database> {
         match Connection::open(path) {
-            Ok(connection) => Ok(Database { connection }),
+            Ok(connection) => Ok(connection.into()),
             Err(e) => Err(e.into()),
         }
     }
 
     pub fn memory() -> Result<Database> {
         match Connection::open_in_memory() {
-            Ok(connection) => Ok(Database { connection }),
+            Ok(connection) => Ok(connection.into()),
             Err(e) => Err(e.into()),
         }
     }
@@ -43,7 +41,6 @@ impl Database {
         K: AsRef<str> + rusqlite::ToSql,
     {
         match self
-            .connection
             .prepare("SELECT value FROM finnel WHERE key = ?")?
             .query_row([key], |row| row.get::<usize, String>(0))
         {
@@ -58,7 +55,7 @@ impl Database {
         K: AsRef<str> + rusqlite::ToSql,
         V: AsRef<str> + rusqlite::ToSql,
     {
-        self.connection.execute(
+        self.execute(
             "INSERT INTO finnel(key, value)
                 VALUES(:key, :value)
                 ON CONFLICT(key)
@@ -72,7 +69,7 @@ impl Database {
     where
         K: AsRef<str> + rusqlite::ToSql,
     {
-        self.connection.execute(
+        self.execute(
             "DELETE FROM finnel
             WHERE key = :key",
             rusqlite::named_params! {":key": key},
@@ -85,7 +82,7 @@ impl Database {
     }
 
     pub fn version(&self) -> Result<Version> {
-        let mut statement = self.connection.prepare(
+        let mut statement = self.prepare(
             "
         SELECT 
             name
@@ -116,8 +113,8 @@ impl Database {
 pub trait Entity: Sized {
     fn id(&self) -> Option<Id>;
 
-    fn find(db: &Database, id: Id) -> Result<Self>;
-    fn save(&mut self, db: &Database) -> Result<()>;
+    fn find(db: &Connection, id: Id) -> Result<Self>;
+    fn save(&mut self, db: &Connection) -> Result<()>;
 }
 
 pub(crate) trait Upgrade {
@@ -126,7 +123,7 @@ pub(crate) trait Upgrade {
         let current = Version::parse(env!("CARGO_PKG_VERSION"))?;
 
         if version == Version::new(0, 0, 0) {
-            db.connection.execute(
+            db.execute(
                 "
             CREATE TABLE IF NOT EXISTS finnel (
                 key TEXT NOT NULL UNIQUE,
