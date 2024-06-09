@@ -68,12 +68,28 @@ impl Database {
         Ok(())
     }
 
+    pub fn reset<K>(&self, key: K) -> Result<()>
+    where
+        K: AsRef<str> + rusqlite::ToSql,
+    {
+        self.connection.execute(
+            "DELETE FROM finnel
+            WHERE key = :key",
+            rusqlite::named_params! {":key": key},
+        )?;
+        Ok(())
+    }
+
+    pub fn setup(&self) -> Result<()> {
+        <Self as Upgrade>::setup(self)
+    }
+
     pub fn version(&self) -> Result<Version> {
         let mut statement = self.connection.prepare(
             "
         SELECT 
             name
-        FROM 
+        FROM
             sqlite_schema
         WHERE 
             name = 'finnel' AND
@@ -161,9 +177,23 @@ mod tests {
 
         assert_eq!(db.version()?, Version::new(0, 0, 0));
 
-        Database::setup(&db)?;
+        db.setup()?;
 
         assert_eq!(db.version()?, Version::parse(env!("CARGO_PKG_VERSION"))?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_set_reset() -> Result<()> {
+        let db = Database::memory()?;
+        db.setup()?;
+
+        assert_eq!(None, db.get("foo")?);
+        db.set("foo", "bar")?;
+        assert_eq!(Some("bar"), db.get("foo")?.as_deref());
+        db.reset("foo")?;
+        assert_eq!(None, db.get("foo")?);
 
         Ok(())
     }
