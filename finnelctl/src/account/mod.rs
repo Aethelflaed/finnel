@@ -3,8 +3,8 @@ use anyhow::Result;
 use crate::cli::{AccountCommands, Commands};
 use crate::config::Config;
 
-use finnel::database::Entity;
 use finnel::account::Account;
+use finnel::{Database, Entity, Error};
 
 pub fn run(config: &Config) -> Result<()> {
     let Commands::Account { command } = config.command().clone().unwrap();
@@ -13,7 +13,22 @@ pub fn run(config: &Config) -> Result<()> {
         AccountCommands::List {} => list(command, &config),
         AccountCommands::Create { .. } => create(command, &config),
         AccountCommands::Delete { .. } => delete(command, &config),
-        AccountCommands::Default { .. } => default(command, &config),
+        AccountCommands::Default { .. } => command_default(command, &config),
+    }
+}
+
+pub fn default(db: &Database) -> Result<Option<Account>> {
+    if let Some(account_name) = db.get("default_account")? {
+        match Account::find_by_name(&db, &account_name) {
+            Ok(entity) => Ok(Some(entity)),
+            Err(Error::NotFound) => {
+                db.reset("default_account")?;
+                Ok(None)
+            }
+            Err(error) => Err(error.into()),
+        }
+    } else {
+        Ok(None)
     }
 }
 
@@ -26,10 +41,7 @@ fn list(_command: AccountCommands, config: &Config) -> Result<()> {
 }
 
 fn create(command: AccountCommands, config: &Config) -> Result<()> {
-    let AccountCommands::Create {
-        account_name,
-    } = command
-    else {
+    let AccountCommands::Create { account_name } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
@@ -59,7 +71,7 @@ fn delete(command: AccountCommands, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn default(command: AccountCommands, config: &Config) -> Result<()> {
+fn command_default(command: AccountCommands, config: &Config) -> Result<()> {
     let AccountCommands::Default {
         account_name,
         reset,
@@ -68,14 +80,16 @@ fn default(command: AccountCommands, config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
+    let db = config.database();
+
     if let Some(name) = account_name {
-        Ok(config.database().set("default_account", name)?)
+        let account = Account::find_by_name(&db, &name)?;
+        Ok(db.set("default_account", account.name())?)
     } else if reset {
-        Ok(config.database().reset("default_account")?)
+        Ok(db.reset("default_account")?)
     } else {
-        let account_name = config
-            .database()
-            .get("default_account")?
+        let account_name = default(&db)?
+            .map(|a| a.name().to_string())
             .unwrap_or("<not set>".to_string());
         println!("{}", account_name);
         Ok(())
