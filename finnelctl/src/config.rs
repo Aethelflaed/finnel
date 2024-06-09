@@ -1,16 +1,20 @@
+use std::cell::OnceCell;
 use std::fs::create_dir;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use toml::{Table, Value};
 
-use crate::application::cli::Cli;
+use finnel::Database;
+
+use crate::cli::{Cli, Commands};
 
 pub struct Config {
     dir: PathBuf,
-    pub data_dir: PathBuf,
+    data_dir: PathBuf,
     cli: Cli,
     table: Table,
+    db: OnceCell<Database>,
 }
 
 impl Config {
@@ -53,6 +57,30 @@ impl Config {
             data_dir,
             cli,
             table,
+            db: OnceCell::new(),
+        })
+    }
+
+    pub fn command(&self) -> &Option<Commands> {
+        &self.cli.command
+    }
+
+    pub fn database(&self) -> &Database {
+        self.db.get_or_init(|| {
+            let db_filename = if let Some(db_table) =
+                self.table.get("db").and_then(Value::as_table)
+            {
+                db_table
+                    .get("filename")
+                    .and_then(Value::as_str)
+                    .unwrap_or("db.finnel")
+            } else {
+                "db.finnel"
+            };
+
+            let db = Database::open(self.data_dir.join(db_filename)).unwrap();
+            db.setup().unwrap();
+            db
         })
     }
 }
