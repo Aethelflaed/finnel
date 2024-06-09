@@ -45,6 +45,20 @@ pub enum Commands {
 pub enum AccountCommands {
     /// List registered accounts
     List {},
+    /// Create a new account
+    Create {
+        /// Name of the new account
+        account_name: String,
+    },
+    /// Delete an account
+    Delete {
+        /// Name of the account to delete
+        account_name: String,
+
+        /// Confirm deletion
+        #[arg(long, hide = true)]
+        confirm: bool,
+    },
     /// Check or set the default account
     Default {
         /// Set the given account name to be the new default one

@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::fs::create_dir;
 use std::path::PathBuf;
 
@@ -14,7 +13,6 @@ pub struct Config {
     data_dir: PathBuf,
     cli: Cli,
     table: Table,
-    db: OnceCell<Database>,
 }
 
 impl Config {
@@ -57,7 +55,6 @@ impl Config {
             data_dir,
             cli,
             table,
-            db: OnceCell::new(),
         })
     }
 
@@ -65,23 +62,21 @@ impl Config {
         &self.cli.command
     }
 
-    pub fn database(&self) -> &Database {
-        self.db.get_or_init(|| {
-            let db_filename = if let Some(db_table) =
-                self.table.get("db").and_then(Value::as_table)
-            {
-                db_table
-                    .get("filename")
-                    .and_then(Value::as_str)
-                    .unwrap_or("db.finnel")
-            } else {
-                "db.finnel"
-            };
+    pub fn database(&self) -> Database {
+        let db_filename = if let Some(db_table) =
+            self.table.get("db").and_then(Value::as_table)
+        {
+            db_table
+                .get("filename")
+                .and_then(Value::as_str)
+                .unwrap_or("db.finnel")
+        } else {
+            "db.finnel"
+        };
 
-            let db = Database::open(self.data_dir.join(db_filename)).unwrap();
-            db.setup().unwrap();
-            db
-        })
+        let db = Database::open(self.data_dir.join(db_filename)).unwrap();
+        db.setup().unwrap();
+        db
     }
 }
 
