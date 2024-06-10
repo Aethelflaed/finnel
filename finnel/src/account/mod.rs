@@ -1,7 +1,7 @@
-use crate::database::{Database, Connection, Entity, Error, Money, Result, Upgrade};
+use crate::database::{
+    Connection, Database, Entity, Error, Id, Money, Result, Upgrade,
+};
 use oxydized_money::Amount;
-
-pub use crate::database::Id;
 
 mod record;
 pub use record::Record;

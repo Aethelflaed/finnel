@@ -1,6 +1,6 @@
-use crate::database::{Database, Connection, Entity, Error, Result, Upgrade};
-
-pub use crate::database::Id;
+use crate::database::{
+    Connection, Database, Entity, Error, Id, Result, Upgrade,
+};
 
 #[derive(Debug, Default)]
 pub struct Category {

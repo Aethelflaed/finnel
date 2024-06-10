@@ -2,9 +2,10 @@ use chrono::{offset::Utc, DateTime};
 
 use oxydized_money::Amount;
 
-use crate::database::{Database, Connection, Entity, Error, Money, Result, Upgrade};
+use crate::database::{
+    Connection, Database, Entity, Error, Id, Money, Result, Upgrade,
+};
 
-pub use crate::database::Id;
 use crate::transaction;
 
 pub struct Record {
@@ -38,7 +39,10 @@ impl Record {
         }
     }
 
-    pub(crate) fn delete_by_account(db: &Connection, account: Id) -> Result<()> {
+    pub(crate) fn delete_by_account(
+        db: &Connection,
+        account: Id,
+    ) -> Result<()> {
         db.execute(
             "DELETE FROM records
             WHERE account = :account",
