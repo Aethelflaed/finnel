@@ -11,7 +11,7 @@ mod id;
 pub use id::Id;
 
 mod money;
-pub use money::Money;
+pub use money::{Currency, Decimal};
 
 #[derive(
     derive_more::From,

@@ -1,9 +1,9 @@
 use chrono::{offset::Utc, DateTime};
 
-use oxydized_money::Amount;
+use oxydized_money::{Amount, Currency, Decimal};
 
 use crate::database::{
-    Connection, Database, Entity, Error, Id, Money, Result, Upgrade,
+    self, Connection, Database, Entity, Error, Id, Result, Upgrade,
 };
 
 use crate::transaction;
@@ -11,7 +11,8 @@ use crate::transaction;
 pub struct Record {
     id: Option<Id>,
     account: Id,
-    amount: Amount,
+    amount: Decimal,
+    currency: Currency,
     operation_date: DateTime<Utc>,
     value_date: DateTime<Utc>,
     transaction_type: Option<transaction::Type>,
@@ -21,6 +22,10 @@ pub struct Record {
 }
 
 impl Record {
+    pub fn amount(&self) -> Amount {
+        Amount(self.amount, self.currency)
+    }
+
     pub fn by_account<F>(db: &Connection, account: Id, mut f: F) -> Result<()>
     where
         F: FnMut(Self),
@@ -59,7 +64,8 @@ impl TryFrom<&rusqlite::Row<'_>> for Record {
         Ok(Record {
             id: row.get("id")?,
             account: row.get("account")?,
-            amount: row.get::<&str, Money>("amount")?.into(),
+            amount: row.get::<&str, database::Decimal>("amount")?.into(),
+            currency: row.get::<&str, database::Currency>("currency")?.into(),
             operation_date: row.get("operation_date")?,
             value_date: row.get("value_date")?,
             transaction_type: row.get("transaction_type")?,
@@ -111,13 +117,13 @@ impl Entity for Record {
         } else {
             let query = "
                 INSERT INTO records (
-                    account, amount,
+                    account, amount, currency,
                     operation_date, value_date,
                     transaction_type, transaction_details,
                     category,
                     merchant
                 ) VALUES (
-                    :account, :amount,
+                    :account, :amount, :currency,
                     :operation_date, :value_date,
                     :transaction_type, :transaction_details,
                     :category,
@@ -127,7 +133,8 @@ impl Entity for Record {
             let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":account": self.account,
-                ":amount": Money::from(self.amount),
+                ":amount": database::Decimal::from(self.amount),
+                ":currency": database::Currency::from(self.currency),
                 ":operation_date": self.operation_date,
                 ":value_date": self.value_date,
                 ":transaction_type": self.transaction_type,
@@ -150,7 +157,8 @@ impl Upgrade for Record {
             "CREATE TABLE IF NOT EXISTS records (
                     id INTEGER NOT NULL PRIMARY KEY,
                     account INTEGER NOT NULL,
-                    amount BLOB NOT NULL,
+                    amount TEXT NOT NULL,
+                    currency TEXT NOT NULL,
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,
                     transaction_type TEXT,

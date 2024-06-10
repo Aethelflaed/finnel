@@ -1,7 +1,7 @@
 use crate::database::{
-    Connection, Database, Entity, Error, Id, Money, Result, Upgrade,
+    self, Connection, Database, Entity, Error, Id, Result, Upgrade,
 };
-use oxydized_money::Amount;
+use oxydized_money::{Amount, Currency, Decimal};
 
 mod record;
 pub use record::Record;
@@ -10,7 +10,8 @@ pub use record::Record;
 pub struct Account {
     id: Option<Id>,
     name: String,
-    balance: Amount,
+    balance: Decimal,
+    currency: Currency,
 }
 
 impl Account {
@@ -30,7 +31,7 @@ impl Account {
     }
 
     pub fn balance(&self) -> Amount {
-        self.balance
+        Amount(self.balance, self.currency)
     }
 
     pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
@@ -85,7 +86,8 @@ impl Default for Account {
         Self {
             id: None,
             name: String::new(),
-            balance: Money::default().into(),
+            balance: Decimal::ZERO,
+            currency: Currency::EUR,
         }
     }
 }
@@ -97,7 +99,8 @@ impl TryFrom<&rusqlite::Row<'_>> for Account {
         Ok(Account {
             id: row.get("id")?,
             name: row.get("name")?,
-            balance: row.get::<&str, Money>("balance")?.into(),
+            balance: row.get::<&str, database::Decimal>("balance")?.into(),
+            currency: row.get::<&str, database::Currency>("currency")?.into(),
         })
     }
 }
@@ -132,7 +135,7 @@ impl Entity for Account {
             let params = named_params! {
                 ":id": id,
                 ":name": self.name,
-                ":balance": Money::from(self.balance)
+                ":balance": database::Decimal::from(self.balance),
             };
             match statement.execute(params) {
                 Ok(_) => Ok(()),
@@ -142,16 +145,18 @@ impl Entity for Account {
             let query = "
                 INSERT INTO accounts (
                     name,
-                    balance
+                    balance,
+                    currency
                 )
                 VALUES (
-                    :name, :balance
+                    :name, :balance, :currency
                 )
                 RETURNING id;";
             let mut statement = db.prepare(query)?;
             let params = named_params! {
                 ":name": self.name.as_str(),
-                ":balance": Money::from(self.balance)
+                ":balance": database::Decimal::from(self.balance),
+                ":currency": database::Currency::from(self.currency),
             };
 
             Ok(statement.query_row(params, |row| {
@@ -168,7 +173,8 @@ impl Upgrade for Account {
             "CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
-                balance BLOB NOT NULL
+                balance TEXT NOT NULL,
+                currency TEXT NOT NULL
             );",
             (),
         ) {
