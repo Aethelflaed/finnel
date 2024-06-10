@@ -14,10 +14,10 @@ pub struct Record {
     amount: Amount,
     operation_date: DateTime<Utc>,
     value_date: DateTime<Utc>,
-    transaction_type: transaction::Type,
+    transaction_type: Option<transaction::Type>,
     transaction_details: String,
-    category: Id,
-    merchant: Id,
+    category: Option<Id>,
+    merchant: Option<Id>,
 }
 
 impl Record {
@@ -154,7 +154,7 @@ impl Upgrade for Record {
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,
                     transaction_type TEXT,
-                    transaction_details TEXT,
+                    transaction_details TEXT NOT NULL DEFAULT '',
                     category INTEGER,
                     merchant INTEGER
                 );",
