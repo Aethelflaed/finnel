@@ -34,22 +34,6 @@ impl Category {
             Err(e) => Err(e.into()),
         }
     }
-
-    pub fn find_or_create_by_name<T: Into<String>>(
-        db: &Connection,
-        name: T,
-    ) -> Result<Self> {
-        let name_string: String = name.into();
-
-        match Self::find_by_name(db, name_string.as_str()) {
-            Err(Error::NotFound) => {
-                let mut record = Self::new(name_string);
-                record.save(db)?;
-                Ok(record)
-            }
-            value => value,
-        }
-    }
 }
 
 impl TryFrom<&rusqlite::Row<'_>> for Category {
@@ -153,27 +137,6 @@ mod tests {
         category.set_name("Chariot");
         category.save(&db)?;
         assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name());
-
-        Ok(())
-    }
-
-    #[test]
-    fn find_or_create_by_name() -> Result<()> {
-        let db = Database::memory()?;
-        Category::setup(&db)?;
-
-        assert!(matches!(
-            Category::find_by_name(&db, "Chariot"),
-            Err(Error::NotFound)
-        ));
-
-        let mut category = Category::new("Chariot");
-        category.save(&db)?;
-
-        assert_eq!(category.id(), Category::find_by_name(&db, "Chariot")?.id());
-
-        category = Category::find_or_create_by_name(&db, "Uraidla Pub")?;
-        assert_eq!(Some(Id::from(2)), category.id());
 
         Ok(())
     }

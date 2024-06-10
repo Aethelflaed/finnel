@@ -61,22 +61,6 @@ impl Account {
         }
     }
 
-    pub fn find_or_create_by_name<T: Into<String>>(
-        db: &Connection,
-        name: T,
-    ) -> Result<Self> {
-        let name_string: String = name.into();
-
-        match Self::find_by_name(db, name_string.as_str()) {
-            Err(Error::NotFound) => {
-                let mut record = Self::new(name_string);
-                record.save(db)?;
-                Ok(record)
-            }
-            value => value,
-        }
-    }
-
     pub fn for_each<F>(db: &Connection, mut f: F) -> Result<()>
     where
         F: FnMut(Self),
@@ -213,27 +197,6 @@ mod tests {
         account.set_name("Chariot");
         account.save(&db)?;
         assert_eq!("Chariot", Account::find(&db, Id::from(1))?.name());
-
-        Ok(())
-    }
-
-    #[test]
-    fn find_or_create_by_name() -> Result<()> {
-        let db = Database::memory()?;
-        Account::setup(&db)?;
-
-        assert!(matches!(
-            Account::find_by_name(&db, "Chariot"),
-            Err(Error::NotFound)
-        ));
-
-        let mut account = Account::new("Chariot");
-        account.save(&db)?;
-
-        assert_eq!(account.id(), Account::find_by_name(&db, "Chariot")?.id());
-
-        account = Account::find_or_create_by_name(&db, "Uraidla Pub")?;
-        assert_eq!(Some(Id::from(2)), account.id());
 
         Ok(())
     }
