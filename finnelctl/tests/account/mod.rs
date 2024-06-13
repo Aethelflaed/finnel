@@ -28,9 +28,10 @@ fn operations() -> Result<()> {
         .stderr(str::contains("Not found"));
 
     env.command()?
+        .arg("-A")
+        .arg("Cash")
         .arg("account")
         .arg("show")
-        .arg("Cash")
         .assert()
         .success()
         .stdout(str::contains("EUR 0"));
@@ -43,9 +44,10 @@ fn operations() -> Result<()> {
         .stdout(str::contains("<not set>"));
 
     env.command()?
+        .arg("-A")
+        .arg("Cash")
         .arg("account")
         .arg("default")
-        .arg("Cash")
         .assert()
         .success()
         .stdout(str::is_empty());
@@ -72,17 +74,19 @@ fn operations() -> Result<()> {
         .stderr(str::contains("confirmation"));
 
     env.command()?
+        .arg("-A")
+        .arg("Cash")
         .arg("account")
         .arg("delete")
-        .arg("Cash")
         .assert()
         .failure()
         .stderr(str::contains("confirmation"));
 
     env.command()?
+        .arg("-A")
+        .arg("Cash")
         .arg("account")
         .arg("delete")
-        .arg("Cash")
         .arg("--confirm")
         .assert()
         .success()

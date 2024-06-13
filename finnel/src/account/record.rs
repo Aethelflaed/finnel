@@ -46,7 +46,7 @@ impl Default for NewRecord {
             account: None,
             amount: Decimal::ZERO,
             currency: Currency::EUR,
-            operation_date: date.clone(),
+            operation_date: date,
             value_date: date,
             transaction_type: None,
             transaction_details: String::new(),
@@ -65,7 +65,7 @@ impl NewRecord {
         let Some(account_id) = self.account else {
             return Err(invalid("Account not provided"));
         };
-        let account = Account::find(&db, account_id)?;
+        let account = Account::find(db, account_id)?;
         if self.currency != account.currency() {
             return Err(invalid("Currency mismatch"));
         }
@@ -83,7 +83,7 @@ impl NewRecord {
             merchant: self.merchant,
         };
 
-        record.save(&db)?;
+        record.save(db)?;
 
         Ok(record)
     }

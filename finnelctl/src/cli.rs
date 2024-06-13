@@ -39,6 +39,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: AccountCommands,
     },
+    Record {},
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -51,24 +52,15 @@ pub enum AccountCommands {
         account_name: String,
     },
     /// Show details about an account
-    Show {
-        /// Name of the account to show, or use the default one
-        account_name: Option<String>,
-    },
+    Show {},
     /// Delete an account
     Delete {
-        /// Name of the account to delete, or use the default one
-        account_name: Option<String>,
-
         /// Confirm deletion
         #[arg(long, hide = true)]
         confirm: bool,
     },
     /// Check or set the default account
     Default {
-        /// Set the given account name to be the new default one
-        account_name: Option<String>,
-
         /// Reset the default account
         #[arg(short, long)]
         reset: bool,

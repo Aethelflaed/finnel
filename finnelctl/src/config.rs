@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Result};
 use toml::{Table, Value};
 
-use finnel::Database;
+use finnel::{Account, Database, Error};
 
 use crate::cli::{Cli, Commands};
 
@@ -56,6 +56,22 @@ impl Config {
             cli,
             table,
         })
+    }
+
+    pub fn account_name(&self) -> Option<&str> {
+        self.cli.account.as_deref()
+    }
+
+    pub fn account_or_default(&self, db: &Database) -> Result<Account> {
+        if let Some(name) = self.account_name() {
+            Ok(Account::find_by_name(db, name)?)
+        } else {
+            match crate::account::default(db) {
+                Ok(None) => Err(Error::NotFound.into()),
+                Ok(Some(account)) => Ok(account),
+                Err(e) => Err(e),
+            }
+        }
     }
 
     pub fn command(&self) -> &Option<Commands> {

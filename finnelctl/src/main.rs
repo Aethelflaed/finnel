@@ -16,6 +16,9 @@ fn main() -> Result<()> {
     if let Some(command) = config.command() {
         match command {
             Commands::Account { .. } => account::run(&config)?,
+            Commands::Record { .. } => {
+                todo!()
+            }
         }
     }
 
