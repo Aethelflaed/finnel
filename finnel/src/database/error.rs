@@ -12,6 +12,8 @@ pub enum Error {
     NotFound,
     #[error("Not persisted")]
     NotPersisted,
+    #[error("Invalid")]
+    Invalid(String),
     #[error("Parsing date error")]
     DateParseError(#[from] chrono::ParseError),
     #[error("Parsing transaction type error")]

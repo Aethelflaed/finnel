@@ -34,10 +34,14 @@ impl Account {
         Amount(self.balance, self.currency)
     }
 
+    pub fn currency(&self) -> Currency {
+        self.currency
+    }
+
     pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
         if let Some(id) = self.id() {
             let tx = db.transaction()?;
-            Record::delete_by_account(&tx, id)?;
+            Record::delete_by_account_id(&tx, id)?;
             tx.execute(
                 "DELETE FROM accounts
                 WHERE id = :id",
@@ -203,6 +207,8 @@ mod tests {
         account.set_name("Chariot");
         account.save(&db)?;
         assert_eq!("Chariot", Account::find(&db, Id::from(1))?.name());
+
+        assert_eq!(Decimal::ZERO, account.balance);
 
         Ok(())
     }

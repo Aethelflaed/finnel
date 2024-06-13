@@ -6,8 +6,12 @@ use crate::database::{
     self, Connection, Database, Entity, Error, Id, Result, Upgrade,
 };
 
+use crate::account::Account;
+use crate::category::Category;
+use crate::merchant::Merchant;
 use crate::transaction;
 
+#[derive(Debug)]
 pub struct Record {
     id: Option<Id>,
     account: Id,
@@ -21,12 +25,99 @@ pub struct Record {
     merchant: Option<Id>,
 }
 
+#[derive(Debug)]
+pub struct NewRecord {
+    pub account: Option<Id>,
+    pub amount: Decimal,
+    pub currency: Currency,
+    pub operation_date: DateTime<Utc>,
+    pub value_date: DateTime<Utc>,
+    pub transaction_type: Option<transaction::Type>,
+    pub transaction_details: String,
+    pub category: Option<Id>,
+    pub merchant: Option<Id>,
+}
+
+impl Default for NewRecord {
+    fn default() -> Self {
+        let date = Utc::now();
+
+        Self {
+            account: None,
+            amount: Decimal::ZERO,
+            currency: Currency::EUR,
+            operation_date: date.clone(),
+            value_date: date,
+            transaction_type: None,
+            transaction_details: String::new(),
+            category: None,
+            merchant: None,
+        }
+    }
+}
+
+fn invalid(msg: &str) -> Error {
+    Error::Invalid(msg.to_string())
+}
+
+impl NewRecord {
+    pub fn save(&self, db: &Connection) -> Result<Record> {
+        let Some(account_id) = self.account else {
+            return Err(invalid("Account not provided"));
+        };
+        let account = Account::find(&db, account_id)?;
+        if self.currency != account.currency() {
+            return Err(invalid("Currency mismatch"));
+        }
+
+        let mut record = Record {
+            id: None,
+            account: account_id,
+            amount: self.amount,
+            currency: self.currency,
+            operation_date: self.operation_date,
+            value_date: self.value_date,
+            transaction_type: self.transaction_type,
+            transaction_details: self.transaction_details.clone(),
+            category: self.category,
+            merchant: self.merchant,
+        };
+
+        record.save(&db)?;
+
+        Ok(record)
+    }
+}
+
 impl Record {
     pub fn amount(&self) -> Amount {
         Amount(self.amount, self.currency)
     }
 
-    pub fn by_account<F>(db: &Connection, account: Id, mut f: F) -> Result<()>
+    pub fn set_value_date(&mut self, value: DateTime<Utc>) {
+        self.value_date = value;
+    }
+
+    pub fn category_id(&self) -> Option<Id> {
+        self.category
+    }
+
+    pub fn set_category(&mut self, category: Option<&Category>) {
+        self.category = category.and_then(|c| c.id());
+    }
+
+    pub fn merchant_id(&self) -> Option<Id> {
+        self.merchant
+    }
+    pub fn set_merchant(&mut self, merchant: Option<&Merchant>) {
+        self.merchant = merchant.and_then(|m| m.id());
+    }
+
+    pub fn by_account_id<F>(
+        db: &Connection,
+        account: Id,
+        mut f: F,
+    ) -> Result<()>
     where
         F: FnMut(Self),
     {
@@ -44,7 +135,7 @@ impl Record {
         }
     }
 
-    pub(crate) fn delete_by_account(
+    pub(crate) fn delete_by_account_id(
         db: &Connection,
         account: Id,
     ) -> Result<()> {
@@ -179,9 +270,52 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    fn error_contains_msg<E, S>(error: E, message: S) -> bool
+    where
+        E: std::error::Error,
+        S: AsRef<str>
+    {
+        use predicates::{Predicate, str::contains};
+
+        contains(message.as_ref()).eval(format!("{:?}", error).as_str())
+    }
+
     #[test]
-    fn setup() {
-        let db = Database::memory().unwrap();
-        Record::setup(&db).unwrap();
+    fn crud() -> anyhow::Result<()> {
+        let db = Database::memory()?;
+        db.setup()?;
+
+        let mut account = Account::new("Cash");
+        account.currency = Currency::USD;
+
+        let mut new_record = NewRecord {
+            amount: Decimal::from_str_exact("3.14")?,
+            ..Default::default()
+        };
+        let error = new_record.save(&db).unwrap_err();
+        assert!(error_contains_msg(error, "Account not provided"));
+
+        account.save(&db)?;
+
+        new_record.account = account.id();
+
+        let error = new_record.save(&db).unwrap_err();
+        assert!(error_contains_msg(error, "Currency mismatch"));
+
+        new_record.currency = account.currency;
+        let mut record = new_record.save(&db)?;
+        assert_eq!(record.account, account.id().unwrap());
+        assert_eq!(Currency::USD, record.currency);
+
+        let mut category = Category::new("category");
+        category.save(&db)?;
+
+        record.set_category(Some(&category));
+        record.save(&db)?;
+
+        let record = Record::find(&db, record.id().unwrap())?;
+        assert_eq!(category.id(), record.category_id());
+
+        Ok(())
     }
 }

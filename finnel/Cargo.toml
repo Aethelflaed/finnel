@@ -14,4 +14,6 @@ semver = "1.0.23"
 thiserror = "1.0.61"
 
 [dev-dependencies]
+anyhow = "1.0.86"
+predicates = "3.1.0"
 pretty_assertions = "1.4.0"

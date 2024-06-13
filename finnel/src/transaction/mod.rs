@@ -6,6 +6,7 @@ const TRANSFER_CREDIT: &str = "Transfer credit";
 const DEBIT: &str = "Debit";
 const ATM_DEBIT: &str = "ATM debit";
 
+#[derive(Debug, Clone, Copy)]
 pub enum Type {
     TransferDebit,
     TransferCredit,
