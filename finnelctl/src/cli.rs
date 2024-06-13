@@ -50,10 +50,15 @@ pub enum AccountCommands {
         /// Name of the new account
         account_name: String,
     },
+    /// Show details about an account
+    Show {
+        /// Name of the account to show, or use the default one
+        account_name: Option<String>,
+    },
     /// Delete an account
     Delete {
-        /// Name of the account to delete
-        account_name: String,
+        /// Name of the account to delete, or use the default one
+        account_name: Option<String>,
 
         /// Confirm deletion
         #[arg(long, hide = true)]

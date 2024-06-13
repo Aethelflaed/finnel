@@ -1,4 +1,5 @@
 use anyhow::Result;
+use predicates::str;
 
 #[test]
 fn operations() -> Result<()> {
@@ -10,21 +11,36 @@ fn operations() -> Result<()> {
         .arg("Cash")
         .assert()
         .success()
-        .stdout(predicates::str::is_empty());
+        .stdout(str::is_empty());
 
     env.command()?
         .arg("account")
         .arg("list")
         .assert()
         .success()
-        .stdout(predicates::str::contains("Cash"));
+        .stdout(str::contains("Cash"));
+
+    env.command()?
+        .arg("account")
+        .arg("show")
+        .assert()
+        .failure()
+        .stderr(str::contains("Not found"));
+
+    env.command()?
+        .arg("account")
+        .arg("show")
+        .arg("Cash")
+        .assert()
+        .success()
+        .stdout(str::contains("EUR 0"));
 
     env.command()?
         .arg("account")
         .arg("default")
         .assert()
         .success()
-        .stdout(predicates::str::contains("<not set>"));
+        .stdout(str::contains("<not set>"));
 
     env.command()?
         .arg("account")
@@ -32,14 +48,28 @@ fn operations() -> Result<()> {
         .arg("Cash")
         .assert()
         .success()
-        .stdout(predicates::str::is_empty());
+        .stdout(str::is_empty());
 
     env.command()?
         .arg("account")
         .arg("default")
         .assert()
         .success()
-        .stdout(predicates::str::contains("Cash"));
+        .stdout(str::contains("Cash"));
+
+    env.command()?
+        .arg("account")
+        .arg("show")
+        .assert()
+        .success()
+        .stdout(str::contains("EUR 0"));
+
+    env.command()?
+        .arg("account")
+        .arg("delete")
+        .assert()
+        .failure()
+        .stderr(str::contains("confirmation"));
 
     env.command()?
         .arg("account")
@@ -47,7 +77,7 @@ fn operations() -> Result<()> {
         .arg("Cash")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("confirmation"));
+        .stderr(str::contains("confirmation"));
 
     env.command()?
         .arg("account")
@@ -56,14 +86,14 @@ fn operations() -> Result<()> {
         .arg("--confirm")
         .assert()
         .success()
-        .stdout(predicates::str::is_empty());
+        .stdout(str::is_empty());
 
     env.command()?
         .arg("account")
         .arg("default")
         .assert()
         .success()
-        .stdout(predicates::str::contains("<not set>"));
+        .stdout(str::contains("<not set>"));
 
     Ok(())
 }
