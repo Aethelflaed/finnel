@@ -9,7 +9,7 @@ use crate::database::{
 use crate::account::Account;
 use crate::category::Category;
 use crate::merchant::Merchant;
-use crate::transaction;
+use crate::transaction::{Direction, Mode};
 
 #[derive(Debug)]
 pub struct Record {
@@ -19,8 +19,9 @@ pub struct Record {
     currency: Currency,
     operation_date: DateTime<Utc>,
     value_date: DateTime<Utc>,
-    transaction_type: Option<transaction::Type>,
-    transaction_details: String,
+    direction: Direction,
+    mode: Mode,
+    details: String,
     category: Option<Id>,
     merchant: Option<Id>,
 }
@@ -32,8 +33,9 @@ pub struct NewRecord {
     pub currency: Currency,
     pub operation_date: DateTime<Utc>,
     pub value_date: DateTime<Utc>,
-    pub transaction_type: Option<transaction::Type>,
-    pub transaction_details: String,
+    pub direction: Direction,
+    pub mode: Mode,
+    pub details: String,
     pub category: Option<Id>,
     pub merchant: Option<Id>,
 }
@@ -48,8 +50,9 @@ impl Default for NewRecord {
             currency: Currency::EUR,
             operation_date: date,
             value_date: date,
-            transaction_type: None,
-            transaction_details: String::new(),
+            direction: Direction::Debit,
+            mode: Mode::Direct,
+            details: String::new(),
             category: None,
             merchant: None,
         }
@@ -61,7 +64,7 @@ fn invalid(msg: &str) -> Error {
 }
 
 impl NewRecord {
-    pub fn save(&self, db: &Connection) -> Result<Record> {
+    pub fn save(&mut self, db: &Connection) -> Result<Record> {
         let Some(account_id) = self.account else {
             return Err(invalid("Account not provided"));
         };
@@ -77,8 +80,9 @@ impl NewRecord {
             currency: self.currency,
             operation_date: self.operation_date,
             value_date: self.value_date,
-            transaction_type: self.transaction_type,
-            transaction_details: self.transaction_details.clone(),
+            direction: self.direction,
+            mode: self.mode.clone(),
+            details: self.details.clone(),
             category: self.category,
             merchant: self.merchant,
         };
@@ -159,8 +163,9 @@ impl TryFrom<&rusqlite::Row<'_>> for Record {
             currency: row.get::<&str, database::Currency>("currency")?.into(),
             operation_date: row.get("operation_date")?,
             value_date: row.get("value_date")?,
-            transaction_type: row.get("transaction_type")?,
-            transaction_details: row.get("transaction_details")?,
+            direction: row.get("direction")?,
+            mode: row.get("mode")?,
+            details: row.get("details")?,
             category: row.get("category")?,
             merchant: row.get("merchant")?,
         })
@@ -210,13 +215,13 @@ impl Entity for Record {
                 INSERT INTO records (
                     account, amount, currency,
                     operation_date, value_date,
-                    transaction_type, transaction_details,
+                    direction, mode, details,
                     category,
                     merchant
                 ) VALUES (
                     :account, :amount, :currency,
                     :operation_date, :value_date,
-                    :transaction_type, :transaction_details,
+                    :direction, :mode, :details,
                     :category,
                     :merchant
                 )
@@ -228,8 +233,9 @@ impl Entity for Record {
                 ":currency": database::Currency::from(self.currency),
                 ":operation_date": self.operation_date,
                 ":value_date": self.value_date,
-                ":transaction_type": self.transaction_type,
-                ":transaction_details": self.transaction_details,
+                ":direction": self.direction,
+                ":mode": self.mode,
+                ":details": self.details,
                 ":category": self.category,
                 ":merchant": self.merchant,
             };
@@ -252,8 +258,9 @@ impl Upgrade for Record {
                     currency TEXT NOT NULL,
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,
-                    transaction_type TEXT,
-                    transaction_details TEXT NOT NULL DEFAULT '',
+                    direction TEXT NOT NULL DEFAULT 'Debit',
+                    mode TEXT NOT NULL DEFAULT 'Direct',
+                    details TEXT NOT NULL DEFAULT '',
                     category INTEGER,
                     merchant INTEGER
                 );",

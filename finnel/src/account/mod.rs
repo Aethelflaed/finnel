@@ -4,7 +4,7 @@ use crate::database::{
 use oxydized_money::{Amount, Currency, Decimal};
 
 mod record;
-pub use record::Record;
+pub use record::{NewRecord, Record};
 
 #[derive(Debug)]
 pub struct Account {

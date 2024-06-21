@@ -6,6 +6,8 @@ pub mod merchant;
 pub mod transaction;
 
 pub use account::Account;
+pub use merchant::Merchant;
+pub use category::Category;
 
 pub use database::{Connection, Database, Entity, Error};
 
