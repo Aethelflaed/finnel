@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
-clap = "4.5.4"
+chrono = "0.4.38"
+clap = { version = "4.5.4" }
 clap-verbosity-flag = "2.2.0"
+derive_more = "0.99.18"
 finnel = { path = "../finnel" }
 toml = "0.8.14"
 xdg = "2.5.2"

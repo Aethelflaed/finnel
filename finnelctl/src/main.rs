@@ -3,6 +3,7 @@ use anyhow::Result;
 mod account;
 mod cli;
 mod config;
+mod record;
 
 #[cfg(test)]
 mod test;
@@ -16,8 +17,11 @@ fn main() -> Result<()> {
     if let Some(command) = config.command() {
         match command {
             Commands::Account { .. } => account::run(&config)?,
-            Commands::Record { .. } => {
-                todo!()
+            Commands::Record { .. } => record::run(&config)?,
+            Commands::Reset { confirm } => {
+                if *confirm {
+                    std::fs::remove_file(config.database_path())?;
+                }
             }
         }
     }

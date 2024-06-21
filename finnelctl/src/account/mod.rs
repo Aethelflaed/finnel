@@ -37,7 +37,9 @@ pub fn default(db: &Database) -> Result<Option<Account>> {
 }
 
 fn list(_command: AccountCommands, config: &Config) -> Result<()> {
-    Account::for_each(&config.database(), |account| {
+    let db = &config.database()?;
+
+    Account::for_each(db, |account| {
         println!("{}", account.name());
     })?;
 
@@ -49,8 +51,10 @@ fn create(command: AccountCommands, config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
+    let db = &config.database()?;
+
     let mut account = Account::new(account_name);
-    account.save(&config.database())?;
+    account.save(db)?;
     Ok(())
 }
 
@@ -59,7 +63,7 @@ fn show(command: AccountCommands, config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
-    let db = &config.database();
+    let db = &config.database()?;
     let account = config.account_or_default(db)?;
 
     let Amount(amount, currency) = account.balance();
@@ -72,7 +76,7 @@ fn delete(command: AccountCommands, config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
-    let mut db = config.database();
+    let mut db = config.database()?;
 
     let mut account = config.account_or_default(&db)?;
 
@@ -89,7 +93,7 @@ fn command_default(command: AccountCommands, config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
-    let db = config.database();
+    let db = config.database()?;
 
     if let Some(name) = config.account_name() {
         let account = Account::find_by_name(&db, name)?;

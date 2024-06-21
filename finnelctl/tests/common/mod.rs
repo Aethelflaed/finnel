@@ -1,8 +1,13 @@
-mod account;
-
 use anyhow::Result;
 use assert_cmd::Command;
 use assert_fs::TempDir;
+
+pub mod prelude {
+    pub use anyhow::Result;
+    pub use predicates::str;
+    pub use predicates::prelude::*;
+    pub use super::Env;
+}
 
 pub struct Env {
     pub conf_dir: TempDir,

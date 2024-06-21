@@ -9,7 +9,7 @@ use finnel::{Account, Database, Error};
 use crate::cli::{Cli, Commands};
 
 pub struct Config {
-    dir: PathBuf,
+    _dir: PathBuf,
     data_dir: PathBuf,
     cli: Cli,
     table: Table,
@@ -51,7 +51,7 @@ impl Config {
         }
 
         Ok(Config {
-            dir,
+            _dir: dir,
             data_dir,
             cli,
             table,
@@ -64,10 +64,14 @@ impl Config {
 
     pub fn account_or_default(&self, db: &Database) -> Result<Account> {
         if let Some(name) = self.account_name() {
-            Ok(Account::find_by_name(db, name)?)
+            match Account::find_by_name(db, name) {
+                Ok(account) => Ok(account),
+                Err(Error::NotFound) => Err(anyhow!("Account not found: {}", name)),
+                Err(e) => Err(e.into()),
+            }
         } else {
             match crate::account::default(db) {
-                Ok(None) => Err(Error::NotFound.into()),
+                Ok(None) => Err(anyhow!("Account not provided")),
                 Ok(Some(account)) => Ok(account),
                 Err(e) => Err(e),
             }
@@ -78,7 +82,7 @@ impl Config {
         &self.cli.command
     }
 
-    pub fn database(&self) -> Database {
+    pub fn database_path(&self) -> PathBuf {
         let db_filename = if let Some(db_table) =
             self.table.get("db").and_then(Value::as_table)
         {
@@ -90,9 +94,13 @@ impl Config {
             "db.finnel"
         };
 
-        let db = Database::open(self.data_dir.join(db_filename)).unwrap();
-        db.setup().unwrap();
-        db
+        self.data_dir.join(db_filename)
+    }
+
+    pub fn database(&self) -> Result<Database> {
+        let db = Database::open(self.database_path())?;
+        db.setup()?;
+        Ok(db)
     }
 }
 
@@ -136,7 +144,7 @@ mod tests {
     fn parse() -> Result<()> {
         with_dirs(|confd, datad| {
             let mut config = Config::try_parse()?;
-            assert_eq!(config.dir, confd.path());
+            assert_eq!(config._dir, confd.path());
             assert_eq!(config.data_dir, datad.path());
 
             confd.child("config.toml").write_str(&format!(
@@ -154,7 +162,7 @@ mod tests {
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
             ])?;
-            assert_eq!(config.dir, datad.child("bar").path());
+            assert_eq!(config._dir, datad.child("bar").path());
 
             let _ = create_dir(datad.child("bar").path());
             config = Config::try_parse_from(&[

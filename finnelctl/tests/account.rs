@@ -1,9 +1,9 @@
-use anyhow::Result;
-use predicates::str;
+mod common;
+use common::prelude::*;
 
 #[test]
 fn operations() -> Result<()> {
-    let env = crate::Env::new()?;
+    let env = Env::new()?;
 
     env.command()?
         .arg("account")
@@ -25,7 +25,7 @@ fn operations() -> Result<()> {
         .arg("show")
         .assert()
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Account not provided"));
 
     env.command()?
         .arg("-A")
@@ -44,9 +44,9 @@ fn operations() -> Result<()> {
         .stdout(str::contains("<not set>"));
 
     env.command()?
+        .arg("account")
         .arg("-A")
         .arg("Cash")
-        .arg("account")
         .arg("default")
         .assert()
         .success()
@@ -74,10 +74,10 @@ fn operations() -> Result<()> {
         .stderr(str::contains("confirmation"));
 
     env.command()?
-        .arg("-A")
-        .arg("Cash")
         .arg("account")
         .arg("delete")
+        .arg("-A")
+        .arg("Cash")
         .assert()
         .failure()
         .stderr(str::contains("confirmation"));
