@@ -3,10 +3,10 @@ use assert_cmd::Command;
 use assert_fs::TempDir;
 
 pub mod prelude {
-    pub use anyhow::Result;
-    pub use predicates::str;
-    pub use predicates::prelude::*;
     pub use super::Env;
+    pub use anyhow::Result;
+    pub use predicates::prelude::*;
+    pub use predicates::str;
 }
 
 pub struct Env {

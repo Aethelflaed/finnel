@@ -81,7 +81,8 @@ impl FromStr for Mode {
             "direct" => Ok(Direct),
             "transfer" => Ok(Transfer),
             "atm" => Ok(Atm),
-            other if other.is_empty() => Err(ParseTypeError),
+            "" => Err(ParseTypeError),
+            other if other.chars().all(char::is_whitespace) => Err(ParseTypeError),
             _ => Ok(Other(value.to_string())),
         }
     }

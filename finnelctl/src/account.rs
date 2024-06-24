@@ -4,7 +4,7 @@ use crate::cli::{AccountCommands, Commands};
 use crate::config::Config;
 
 use finnel::account::Account;
-use finnel::{Amount, Database, Entity, Error};
+use finnel::{Amount, DatabaseTrait, Database, Entity, Error};
 
 pub fn run(config: &Config) -> Result<()> {
     let Commands::Account { command } = config.command().clone().unwrap()

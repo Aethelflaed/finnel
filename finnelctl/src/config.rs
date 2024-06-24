@@ -66,7 +66,9 @@ impl Config {
         if let Some(name) = self.account_name() {
             match Account::find_by_name(db, name) {
                 Ok(account) => Ok(account),
-                Err(Error::NotFound) => Err(anyhow!("Account not found: {}", name)),
+                Err(Error::NotFound) => {
+                    Err(anyhow!("Account not found: {}", name))
+                }
                 Err(e) => Err(e.into()),
             }
         } else {

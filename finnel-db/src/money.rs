@@ -46,14 +46,14 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    use crate::{SimpleDatabase, InternalDatabase, Id, Result};
+    use crate::{DatabaseTrait, SimpleDatabase, Id, Result};
 
     use oxydized_money::Amount;
     use rusqlite::params;
 
     #[test]
     fn read_and_write() -> Result<()> {
-        let db: SimpleDatabase = InternalDatabase::memory()?.into();
+        let db = SimpleDatabase::memory()?;
 
         db.execute(
             "CREATE TABLE money_test (
