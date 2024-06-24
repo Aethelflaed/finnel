@@ -1,17 +1,17 @@
-use crate::database::{
-    self, Connection, Database, Entity, Error, Id, Result, Upgrade,
+use crate::Database;
+use finnel_db::{
+    self as database, Connection, Entity, Error, Id, Result, Upgrade,
 };
 use oxydized_money::{Amount, Currency, Decimal};
 
-mod record;
-pub use record::{NewRecord, Record};
+use crate::record::Record;
 
 #[derive(Debug)]
 pub struct Account {
     id: Option<Id>,
     name: String,
     balance: Decimal,
-    currency: Currency,
+    pub(crate) currency: Currency,
 }
 
 impl Account {
@@ -171,9 +171,9 @@ impl Entity for Account {
     }
 }
 
-impl Upgrade for Account {
-    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.execute(
+impl Upgrade<Account> for Database {
+    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
+        match self.execute(
             "CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn crud() -> Result<()> {
         let db = Database::memory()?;
-        Account::setup(&db)?;
+        db.setup()?;
 
         let mut account = Account::new("Uraidla Pub");
         assert_eq!(None, account.id());
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn for_each() -> Result<()> {
         let db = Database::memory()?;
-        Account::setup(&db)?;
+        db.setup()?;
 
         let mut account1 = Account::new("Account 1");
         account1.save(&db)?;

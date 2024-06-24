@@ -1,13 +1,12 @@
 use crate::category::Category;
-use crate::database::{
-    Connection, Database, Entity, Error, Id, Result, Upgrade,
-};
+use crate::Database;
+use finnel_db::{Connection, Entity, Error, Id, Result, Upgrade};
 
 #[derive(Debug, Default)]
 pub struct Merchant {
     id: Option<Id>,
     name: String,
-    default_category: Option<Id>,
+    default_category_id: Option<Id>,
 }
 
 impl Merchant {
@@ -27,15 +26,15 @@ impl Merchant {
     }
 
     pub fn default_category_id(&self) -> Option<Id> {
-        self.default_category
+        self.default_category_id
     }
 
     /// Change the default category
     ///
     /// Passing a non-persisted category (i.e. without id) will instead reset
-    /// the default_category to `None`
+    /// the default_category_id to `None`
     pub fn set_default_category(&mut self, category: Option<&Category>) {
-        self.default_category = category.and_then(|c| c.id());
+        self.default_category_id = category.and_then(Entity::id);
     }
 
     pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
@@ -57,7 +56,7 @@ impl TryFrom<&rusqlite::Row<'_>> for Merchant {
         Ok(Merchant {
             id: row.get("id")?,
             name: row.get("name")?,
-            default_category: row.get("default_category")?,
+            default_category_id: row.get("default_category_id")?,
         })
     }
 }
@@ -84,13 +83,13 @@ impl Entity for Merchant {
                 UPDATE merchants
                 SET
                     name = :name,
-                    default_category = :default_category
+                    default_category_id = :default_category_id
                 WHERE
                     id = :id";
             let params = named_params! {
                 ":id": id,
                 ":name": self.name,
-                ":default_category": self.default_category,
+                ":default_category_id": self.default_category_id,
             };
             match db.prepare(query)?.execute(params) {
                 Ok(_) => Ok(()),
@@ -100,17 +99,17 @@ impl Entity for Merchant {
             let query = "
                 INSERT INTO merchants (
                     name,
-                    default_category
+                    default_category_id
                 )
                 VALUES (
                     :name,
-                    :default_category
+                    :default_category_id
                 )
                 RETURNING id;";
 
             let params = named_params! {
                 ":name": self.name,
-                ":default_category": self.default_category,
+                ":default_category_id": self.default_category_id,
             };
 
             Ok(db.prepare(query)?.query_row(params, |row| {
@@ -121,13 +120,13 @@ impl Entity for Merchant {
     }
 }
 
-impl Upgrade for Merchant {
-    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.execute(
+impl Upgrade<Merchant> for Database {
+    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
+        match self.execute(
             "CREATE TABLE IF NOT EXISTS merchants (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
-                default_category INTEGER
+                default_category_id INTEGER
             );",
             (),
         ) {
@@ -145,7 +144,7 @@ mod tests {
     #[test]
     fn crud() -> Result<()> {
         let db = Database::memory()?;
-        Merchant::setup(&db)?;
+        db.setup()?;
 
         let mut merchant = Merchant::new("Uraidla Pub");
         assert_eq!(None, merchant.id());
@@ -176,7 +175,7 @@ mod tests {
         assert_ne!(None, category.id());
         assert_eq!(category.id(), merchant.default_category_id());
 
-        // Check that default_category is correctly persisted
+        // Check that default_category_id is correctly persisted
         merchant.save(&db)?;
         assert_eq!(
             category.id(),

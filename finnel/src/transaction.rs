@@ -93,7 +93,8 @@ impl FromStr for Type {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut words = value.split_whitespace();
 
-        let direction = words.next().ok_or(ParseTypeError)?.parse::<Direction>()?;
+        let direction =
+            words.next().ok_or(ParseTypeError)?.parse::<Direction>()?;
 
         if let Some(mode) = words.next() {
             let None = words.next() else {
@@ -168,8 +169,14 @@ mod tests {
         assert_eq!(Type(Credit, Transfer), Type::from_str("Credit Transfer")?);
         assert_eq!(Type(Debit, Atm), Type::from_str("Debit ATM")?);
         assert_eq!(Type(Credit, Atm), Type::from_str("Credit ATM")?);
-        assert_eq!(Type(Debit, Other("foo".to_string())), Type::from_str("Debit foo")?);
-        assert_eq!(Type(Credit, Other("foo".to_string())), Type::from_str("Credit foo")?);
+        assert_eq!(
+            Type(Debit, Other("foo".to_string())),
+            Type::from_str("Debit foo")?
+        );
+        assert_eq!(
+            Type(Credit, Other("foo".to_string())),
+            Type::from_str("Credit foo")?
+        );
 
         assert_eq!(Debit, "Debit".parse::<Direction>()?);
         assert_eq!(Debit, "Débit".parse::<Direction>()?);

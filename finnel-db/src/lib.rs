@@ -13,30 +13,30 @@ pub use id::Id;
 mod money;
 pub use money::{Currency, Decimal};
 
-#[derive(
-    derive_more::From,
-    derive_more::Into,
-    derive_more::Deref,
-    derive_more::DerefMut,
-)]
-pub struct Database(Connection);
+mod query;
+pub use query::Query;
 
-impl Database {
-    pub fn open<T: AsRef<Path>>(path: T) -> Result<Database> {
+pub trait DatabaseTrait:
+    From<Connection>
+    + Into<Connection>
+    + core::ops::Deref<Target = Connection>
+    + core::ops::DerefMut<Target = Connection>
+{
+    fn open<T: AsRef<Path>>(path: T) -> Result<Self> {
         match Connection::open(path) {
             Ok(connection) => Ok(connection.into()),
             Err(e) => Err(e.into()),
         }
     }
 
-    pub fn memory() -> Result<Database> {
+    fn memory() -> Result<Self> {
         match Connection::open_in_memory() {
             Ok(connection) => Ok(connection.into()),
             Err(e) => Err(e.into()),
         }
     }
 
-    pub fn get<K>(&self, key: K) -> Result<Option<String>>
+    fn get<K>(&self, key: K) -> Result<Option<String>>
     where
         K: AsRef<str> + rusqlite::ToSql,
     {
@@ -50,7 +50,7 @@ impl Database {
         }
     }
 
-    pub fn set<K, V>(&self, key: K, value: V) -> Result<()>
+    fn set<K, V>(&self, key: K, value: V) -> Result<()>
     where
         K: AsRef<str> + rusqlite::ToSql,
         V: AsRef<str> + rusqlite::ToSql,
@@ -65,7 +65,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn reset<K>(&self, key: K) -> Result<()>
+    fn reset<K>(&self, key: K) -> Result<()>
     where
         K: AsRef<str> + rusqlite::ToSql,
     {
@@ -77,11 +77,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn setup(&self) -> Result<()> {
-        <Self as Upgrade>::setup(self)
-    }
-
-    pub fn version(&self) -> Result<Version> {
+    fn version(&self) -> Result<Version> {
         let mut statement = self.prepare(
             "
         SELECT 
@@ -89,9 +85,7 @@ impl Database {
         FROM
             sqlite_schema
         WHERE 
-            name = 'finnel' AND
-            type ='table' AND 
-            name NOT LIKE 'sqlite_%';",
+            name = 'finnel';",
         )?;
 
         {
@@ -108,22 +102,17 @@ impl Database {
             Ok(Version::new(0, 0, 0))
         }
     }
-}
 
-pub trait Entity: Sized {
-    fn id(&self) -> Option<Id>;
+    fn current_version(&self) -> Result<Version> {
+        Ok(Version::parse(env!("CARGO_PKG_VERSION"))?)
+    }
 
-    fn find(db: &Connection, id: Id) -> Result<Self>;
-    fn save(&mut self, db: &Connection) -> Result<()>;
-}
-
-pub(crate) trait Upgrade {
-    fn setup(db: &Database) -> Result<()> {
-        let version = db.version()?;
-        let current = Version::parse(env!("CARGO_PKG_VERSION"))?;
+    fn setup(&self) -> Result<()> {
+        let version = self.version()?;
+        let current = self.current_version()?;
 
         if version == Version::new(0, 0, 0) {
-            db.execute(
+            self.execute(
                 "
             CREATE TABLE IF NOT EXISTS finnel (
                 key TEXT NOT NULL UNIQUE,
@@ -135,22 +124,36 @@ pub(crate) trait Upgrade {
         }
 
         if version < current {
-            Self::upgrade_from(db, &version)?;
+            self.upgrade_from(&version)?;
         }
 
-        db.set("version", current.to_string())
+        self.set("version", current.to_string())
     }
 
-    fn upgrade_from(db: &Database, version: &Version) -> Result<()>;
+    fn upgrade_from(&self, version: &Version) -> Result<()>;
 }
 
-impl Upgrade for Database {
-    fn upgrade_from(db: &Database, version: &Version) -> Result<()> {
-        crate::merchant::Merchant::upgrade_from(db, version)?;
-        crate::category::Category::upgrade_from(db, version)?;
-        crate::account::Account::upgrade_from(db, version)?;
-        crate::account::Record::upgrade_from(db, version)?;
+pub trait Entity: Sized {
+    fn id(&self) -> Option<Id>;
 
+    fn find(db: &Connection, id: Id) -> Result<Self>;
+    fn save(&mut self, db: &Connection) -> Result<()>;
+}
+
+pub trait Upgrade<T> {
+    fn upgrade_from(&self, version: &Version) -> Result<()>;
+}
+
+#[derive(
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    derive_more::DerefMut,
+)]
+struct SimpleDatabase(Connection);
+
+impl DatabaseTrait for SimpleDatabase {
+    fn upgrade_from(&self, _version: &Version) -> Result<()> {
         Ok(())
     }
 }
@@ -162,15 +165,18 @@ mod tests {
 
     #[test]
     fn open_memory() -> Result<()> {
-        assert!(Database::memory().is_ok());
-        assert_eq!(Database::memory()?.version()?, Version::new(0, 0, 0));
+        assert!(SimpleDatabase::memory().is_ok());
+        assert_eq!(
+            SimpleDatabase::memory()?.version()?,
+            Version::new(0, 0, 0)
+        );
 
         Ok(())
     }
 
     #[test]
     fn setup() -> Result<()> {
-        let db = Database::memory()?;
+        let db: SimpleDatabase = SimpleDatabase::memory()?.into();
 
         assert_eq!(db.version()?, Version::new(0, 0, 0));
 
@@ -183,7 +189,7 @@ mod tests {
 
     #[test]
     fn get_set_reset() -> Result<()> {
-        let db = Database::memory()?;
+        let db: SimpleDatabase = SimpleDatabase::memory()?.into();
         db.setup()?;
 
         assert_eq!(None, db.get("foo")?);

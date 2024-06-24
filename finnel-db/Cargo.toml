@@ -1,21 +1,16 @@
 [package]
-name = "finnel"
+name = "finnel-db"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.38"
-derive_more = "0.99.17"
-finnel-derive = { path = "../finnel-derive" }
-finnel-db = { path = "../finnel-db" }
+derive_more = "0.99.18"
 oxydized-money = "0.3.0"
-rusqlite = { version = "0.31.0", features = ["chrono"] }
+rusqlite = "0.31.0"
 semver = "1.0.23"
 thiserror = "1.0.61"
 
 [dev-dependencies]
-anyhow = "1.0.86"
-predicates = "3.1.0"
 pretty_assertions = "1.4.0"

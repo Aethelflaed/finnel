@@ -1,4 +1,3 @@
-use crate::transaction;
 use oxydized_money::CurrencyError;
 use std::array::TryFromSliceError;
 
@@ -14,10 +13,6 @@ pub enum Error {
     NotPersisted,
     #[error("Invalid")]
     Invalid(String),
-    #[error("Parsing date error")]
-    DateParseError(#[from] chrono::ParseError),
-    #[error("Parsing transaction type error")]
-    TransactionTypeParseError(#[from] transaction::ParseTypeError),
     #[error("Parsing version information")]
     VersionError(#[from] semver::Error),
     #[error("Reading decimal")]

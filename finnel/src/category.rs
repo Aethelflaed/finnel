@@ -1,6 +1,5 @@
-use crate::database::{
-    Connection, Database, Entity, Error, Id, Result, Upgrade,
-};
+use crate::Database;
+use finnel_db::{Connection, Entity, Error, Id, Result, Upgrade};
 
 #[derive(Debug, Default)]
 pub struct Category {
@@ -101,9 +100,9 @@ impl Entity for Category {
     }
 }
 
-impl Upgrade for Category {
-    fn upgrade_from(db: &Database, _version: &semver::Version) -> Result<()> {
-        match db.execute(
+impl Upgrade<Category> for Database {
+    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
+        match self.execute(
             "
                 CREATE TABLE IF NOT EXISTS categories (
                     id INTEGER NOT NULL PRIMARY KEY,
@@ -126,7 +125,7 @@ mod tests {
     #[test]
     fn crud() -> Result<()> {
         let db = Database::memory()?;
-        Category::setup(&db)?;
+        db.setup()?;
 
         let mut category = Category::new("Uraidla Pub");
         assert_eq!(None, category.id());
