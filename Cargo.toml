@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "finnel", "finnel-db", "finnel-derive",
+  "finnel", "db", "derive",
   "finnelctl"
 ]

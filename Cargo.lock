@@ -359,6 +359,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
 
 [[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "oxydized-money",
+ "pretty_assertions",
+ "rusqlite",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
+name = "derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.67",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -429,36 +450,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "db",
+ "derive",
  "derive_more",
- "finnel-db",
- "finnel-derive",
  "oxydized-money",
  "predicates",
  "pretty_assertions",
  "rusqlite",
  "semver",
  "thiserror",
-]
-
-[[package]]
-name = "finnel-db"
-version = "0.1.0"
-dependencies = [
- "derive_more",
- "oxydized-money",
- "pretty_assertions",
- "rusqlite",
- "semver",
- "thiserror",
-]
-
-[[package]]
-name = "finnel-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.67",
 ]
 
 [[package]]

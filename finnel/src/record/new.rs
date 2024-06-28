@@ -4,7 +4,7 @@ use oxydized_money::{Currency, Decimal};
 use crate::account::Account;
 use crate::record::Record;
 use crate::transaction::{Direction, Mode};
-use finnel_db::{Connection, Entity, Error, Id, Result};
+use db::{Connection, Entity, Error, Id, Result};
 
 #[derive(Debug)]
 pub struct NewRecord {

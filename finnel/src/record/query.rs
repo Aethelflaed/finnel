@@ -2,11 +2,11 @@ use chrono::{offset::Utc, DateTime};
 
 use crate::record::Record;
 use crate::transaction::{Direction, Mode};
-use finnel_db::{Decimal, Id, Query};
+use db::{Decimal, Id, Query};
 
 use rusqlite::ToSql;
 
-use finnel_derive::Query;
+use derive::Query;
 
 #[derive(Debug, Default, Query)]
 #[query(entity = Record, table = "records")]

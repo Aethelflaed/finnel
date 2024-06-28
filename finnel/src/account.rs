@@ -1,5 +1,5 @@
 use crate::Database;
-use finnel_db::{
+use db::{
     self as database, Connection, Entity, Error, Id, Result, Upgrade,
 };
 use oxydized_money::{Amount, Currency, Decimal};

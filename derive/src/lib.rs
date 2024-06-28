@@ -199,7 +199,7 @@ impl Param {
 
         quote! {
             if self.#param.is_none() {
-                return Err(finnel_db::Error::Invalid(format!("{} is mandatory", #name)));
+                return Err(db::Error::Invalid(format!("{} is mandatory", #name)));
             }
         }
     }
@@ -287,7 +287,7 @@ fn impl_query(input: DeriveInput) -> Result<TokenStream> {
                 #parameters
             }
 
-            fn valid(&self) -> finnel_db::Result<()> {
+            fn valid(&self) -> db::Result<()> {
                 #validations
 
                 Ok(())

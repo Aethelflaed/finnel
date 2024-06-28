@@ -9,7 +9,7 @@ pub use category::Category;
 pub use merchant::Merchant;
 pub use record::Record;
 
-pub use finnel_db::{Connection, DatabaseTrait, Query, Entity, Error};
+pub use db::{Connection, DatabaseTrait, Query, Entity, Error};
 
 pub use oxydized_money::{Amount, Currency, Decimal};
 
@@ -21,7 +21,7 @@ pub use oxydized_money::{Amount, Currency, Decimal};
 )]
 pub struct Database(Connection);
 
-use finnel_db::Result;
+use db::Result;
 
 impl Database {
     pub fn open<T: AsRef<std::path::Path>>(path: T) -> Result<Self> {
@@ -39,7 +39,7 @@ impl Database {
 
 impl DatabaseTrait for Database {
     fn upgrade_from(&self, version: &semver::Version) -> Result<()> {
-        use finnel_db::Upgrade;
+        use db::Upgrade;
 
         Upgrade::<Category>::upgrade_from(self, version)?;
         Upgrade::<Merchant>::upgrade_from(self, version)?;

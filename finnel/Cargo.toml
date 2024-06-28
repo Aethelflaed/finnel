@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.38"
 derive_more = "0.99.17"
-finnel-derive = { path = "../finnel-derive" }
-finnel-db = { path = "../finnel-db" }
+derive = { path = "../derive" }
+db = { path = "../db" }
 oxydized-money = "0.3.0"
 rusqlite = { version = "0.31.0", features = ["chrono"] }
 semver = "1.0.23"

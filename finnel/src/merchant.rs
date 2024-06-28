@@ -1,6 +1,6 @@
 use crate::category::Category;
 use crate::Database;
-use finnel_db::{Connection, Entity, Error, Id, Result, Upgrade};
+use db::{Connection, Entity, Error, Id, Result, Upgrade};
 
 #[derive(Debug, Default)]
 pub struct Merchant {
