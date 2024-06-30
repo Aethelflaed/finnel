@@ -166,10 +166,7 @@ mod tests {
     #[test]
     fn open_memory() -> Result<()> {
         assert!(SimpleDatabase::memory().is_ok());
-        assert_eq!(
-            SimpleDatabase::memory()?.version()?,
-            Version::new(0, 0, 0)
-        );
+        assert_eq!(SimpleDatabase::memory()?.version()?, Version::new(0, 0, 0));
 
         Ok(())
     }

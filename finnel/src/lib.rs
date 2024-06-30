@@ -9,7 +9,7 @@ pub use category::Category;
 pub use merchant::Merchant;
 pub use record::Record;
 
-pub use db::{Connection, DatabaseTrait, Query, Entity, Error};
+pub use db::{Connection, DatabaseTrait, Entity, Error, Id, Query};
 
 pub use oxydized_money::{Amount, Currency, Decimal};
 

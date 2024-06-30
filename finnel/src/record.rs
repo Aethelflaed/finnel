@@ -3,9 +3,7 @@ use chrono::{offset::Utc, DateTime};
 use oxydized_money::{Amount, Currency, Decimal};
 
 use crate::Database;
-use db::{
-    self as database, Connection, Entity, Error, Id, Result, Upgrade,
-};
+use db::{self as database, Connection, Entity, Error, Id, Result, Upgrade};
 
 use crate::category::Category;
 use crate::merchant::Merchant;
@@ -195,7 +193,7 @@ impl Upgrade<Record> for Database {
             "CREATE TABLE IF NOT EXISTS records (
                     id INTEGER NOT NULL PRIMARY KEY,
                     account_id INTEGER NOT NULL,
-                    amount TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
                     currency TEXT NOT NULL,
                     operation_date TEXT NOT NULL,
                     value_date TEXT NOT NULL,

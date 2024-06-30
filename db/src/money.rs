@@ -1,8 +1,10 @@
-use std::str::FromStr;
-
 use oxydized_money::CurrencyError;
-use rusqlite::types::{
-    FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, Value, ValueRef,
+use rusqlite::{
+    types::{
+        FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, Value,
+        ValueRef,
+    },
+    Error, Result,
 };
 
 #[derive(Copy, Clone, Debug, derive_more::From, derive_more::Into)]
@@ -13,16 +15,18 @@ pub struct Currency(oxydized_money::Currency);
 
 impl FromSql for Decimal {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        match oxydized_money::Decimal::from_str(value.as_str()?) {
-            Ok(dec) => Ok(Decimal(dec)),
-            Err(e) => Err(FromSqlError::Other(Box::new(e))),
-        }
+        Ok(oxydized_money::Decimal::new(value.as_i64()?, 3).into())
     }
 }
 
 impl ToSql for Decimal {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::Owned(Value::Text(self.0.to_string())))
+    fn to_sql(&self) -> Result<ToSqlOutput<'_>> {
+        let mut value = self.0.clone();
+        value.rescale(3);
+        match TryInto::<i64>::try_into(value.mantissa()) {
+            Ok(value) => Ok(ToSqlOutput::Owned(Value::Integer(value))),
+            Err(e) => Err(Error::ToSqlConversionFailure(Box::new(e))),
+        }
     }
 }
 
@@ -36,7 +40,7 @@ impl FromSql for Currency {
 }
 
 impl ToSql for Currency {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+    fn to_sql(&self) -> Result<ToSqlOutput<'_>> {
         self.0.code().to_sql()
     }
 }
@@ -46,7 +50,7 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    use crate::{DatabaseTrait, SimpleDatabase, Id, Result};
+    use crate::{DatabaseTrait, Id, Result, SimpleDatabase};
 
     use oxydized_money::Amount;
     use rusqlite::params;

@@ -1,7 +1,5 @@
 use crate::Database;
-use db::{
-    self as database, Connection, Entity, Error, Id, Result, Upgrade,
-};
+use db::{self as database, Connection, Entity, Error, Id, Result, Upgrade};
 use oxydized_money::{Amount, Currency, Decimal};
 
 use crate::record::Record;
@@ -177,7 +175,7 @@ impl Upgrade<Account> for Database {
             "CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
-                balance TEXT NOT NULL,
+                balance INTEGER NOT NULL,
                 currency TEXT NOT NULL
             );",
             (),

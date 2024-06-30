@@ -6,7 +6,7 @@ use crate::record::Record;
 use crate::transaction::{Direction, Mode};
 use db::{Connection, Entity, Error, Id, Result};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NewRecord {
     pub account_id: Option<Id>,
     pub amount: Decimal,
