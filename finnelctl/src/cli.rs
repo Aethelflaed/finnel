@@ -247,6 +247,15 @@ pub enum RecordCommands {
         )]
         no_merchant: bool,
     },
+    /// Import records from a transaction CSV file
+    Import {
+        /// File to import
+        file: PathBuf,
+
+        /// Import profile to use
+        #[arg(short = 'P', long, help_heading = "Import records")]
+        profile: String,
+    },
 }
 
 #[derive(Args, Clone, Debug)]
@@ -283,10 +292,24 @@ impl RecordCommands {
     /// <no category_args> => Ok(None)
     /// --no-category => Ok(Some(None))
     /// --category-id 1 => Ok(Some(Some(Category{..})))
-    pub fn category(&self, db: &Connection) -> Result<Option<Option<Category>>> {
+    pub fn category(
+        &self,
+        db: &Connection,
+    ) -> Result<Option<Option<Category>>> {
         let (arg, create, no) = match self {
-            Self::Add { category, create_category, .. } => (category, create_category, false),
-            Self::List { category, no_category, .. } => (category, &None, *no_category),
+            Self::Add {
+                category,
+                create_category,
+                ..
+            } => (category, create_category, false),
+            Self::List {
+                category,
+                no_category,
+                ..
+            } => (category, &None, *no_category),
+            Self::Import { .. } => {
+                anyhow::bail!("Not defined on this variant")
+            }
         };
 
         if let Some(name) = &arg.category {
@@ -313,10 +336,24 @@ impl RecordCommands {
     /// <no category_args> => Ok(None)
     /// --no-merchant => Ok(Some(None))
     /// --merchant-id 1 => Ok(Some(Some(Merchant{..})))
-    pub fn merchant(&self, db: &Connection) -> Result<Option<Option<Merchant>>> {
+    pub fn merchant(
+        &self,
+        db: &Connection,
+    ) -> Result<Option<Option<Merchant>>> {
         let (arg, create, no) = match self {
-            Self::Add { merchant, create_merchant, .. } => (merchant, create_merchant, false),
-            Self::List { merchant, no_merchant, .. } => (merchant, &None, *no_merchant),
+            Self::Add {
+                merchant,
+                create_merchant,
+                ..
+            } => (merchant, create_merchant, false),
+            Self::List {
+                merchant,
+                no_merchant,
+                ..
+            } => (merchant, &None, *no_merchant),
+            Self::Import { .. } => {
+                anyhow::bail!("Not defined on this variant")
+            }
         };
 
         if let Some(name) = &arg.merchant {
@@ -337,56 +374,56 @@ impl RecordCommands {
     pub fn operation_date(&self) -> Result<DateTime<Utc>> {
         let date = match self {
             Self::Add { operation_date, .. } => operation_date,
-            Self::List { .. } => {
+            Self::List { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
 
-        date.map(Self::naive_date_to_utc).unwrap_or(Ok(Utc::now()))
+        date.map(naive_date_to_utc).unwrap_or(Ok(Utc::now()))
     }
 
     pub fn value_date(&self) -> Result<DateTime<Utc>> {
         let date = match self {
             Self::Add { value_date, .. } => value_date,
-            Self::List { .. } => {
+            Self::List { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
 
-        date.map(Self::naive_date_to_utc).unwrap_or(Ok(Utc::now()))
+        date.map(naive_date_to_utc).unwrap_or(Ok(Utc::now()))
     }
 
     pub fn after(&self) -> Result<Option<DateTime<Utc>>> {
         let date = match self {
             Self::List { after, .. } => after,
-            Self::Add { .. } => {
+            Self::Add { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
 
-        date.map(Self::naive_date_to_utc).transpose()
+        date.map(naive_date_to_utc).transpose()
     }
 
     pub fn before(&self) -> Result<Option<DateTime<Utc>>> {
         let date = match self {
             Self::List { before, .. } => before,
-            Self::Add { .. } => {
+            Self::Add { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
 
-        date.map(Self::naive_date_to_utc).transpose()
+        date.map(naive_date_to_utc).transpose()
     }
+}
 
-    fn naive_date_to_utc(date: NaiveDate) -> Result<DateTime<Utc>> {
-        use chrono::{offset::MappedLocalTime, NaiveDateTime};
+pub fn naive_date_to_utc(date: NaiveDate) -> Result<DateTime<Utc>> {
+    use chrono::offset::{Local, MappedLocalTime};
 
-        match Utc.from_local_datetime(&NaiveDateTime::from(date)) {
-            MappedLocalTime::Single(date) => Ok(date),
-            MappedLocalTime::Ambiguous(date, _) => Ok(date),
-            MappedLocalTime::None => {
-                anyhow::bail!("Impossible to map local date to UTC");
-            }
+    match Local.from_local_datetime(&date.and_hms_opt(12, 0, 0).unwrap()) {
+        MappedLocalTime::Single(date) => Ok(date.into()),
+        MappedLocalTime::Ambiguous(date, _) => Ok(date.into()),
+        MappedLocalTime::None => {
+            anyhow::bail!("Impossible to map local date to UTC");
         }
     }
 }

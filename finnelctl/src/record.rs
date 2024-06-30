@@ -8,6 +8,8 @@ use finnel::{
     Account, Database, Entity, Query,
 };
 
+mod import;
+
 struct RecordCmd<'a> {
     _config: &'a Config,
     db: &'a Database,
@@ -31,6 +33,7 @@ pub fn run(config: &Config) -> Result<()> {
     match command {
         RecordCommands::Add { .. } => cmd.add(),
         RecordCommands::List { .. } => cmd.list(),
+        RecordCommands::Import { .. } => cmd.import(),
     }
 }
 
@@ -112,9 +115,17 @@ impl RecordCmd<'_> {
                 .map(|m| m.as_ref().and_then(Entity::id)),
         };
 
-        criteria.for_each(self.db, |record| {
-            println!("{:?}", record)
-        })?;
+        criteria.for_each(self.db, |record| println!("{:?}", record))?;
+
+        Ok(())
+    }
+
+    fn import(&mut self) -> Result<()> {
+        let RecordCommands::Import { file, profile, .. } = &self.command else {
+            anyhow::bail!("wrong command passed: {:?}", self.command);
+        };
+
+        println!("{:#?}", import::import(profile, file)?);
 
         Ok(())
     }
