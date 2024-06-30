@@ -34,6 +34,8 @@ pub struct QueryRecord {
     pub mode: Option<Mode>,
     pub merchant_id: Option<Option<Id>>,
     pub category_id: Option<Option<Id>>,
+    #[param(operator = "LIKE")]
+    pub details: Option<String>,
     #[param(limit)]
     pub count: Option<usize>,
 }

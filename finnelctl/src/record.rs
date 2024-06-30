@@ -5,7 +5,7 @@ use crate::config::Config;
 
 use finnel::{
     record::{NewRecord, QueryRecord},
-    Account, Database, Entity, Query
+    Account, Database, Entity, Query,
 };
 
 struct RecordCmd<'a> {
@@ -81,6 +81,7 @@ impl RecordCmd<'_> {
             less_than,
             direction,
             mode,
+            details,
             count,
             ..
         } = &self.command
@@ -97,6 +98,7 @@ impl RecordCmd<'_> {
             less_than: less_than.map(|m| m.into()),
             direction: *direction,
             mode: mode.clone(),
+            details: details.clone(),
             count: *count,
             category_id: self
                 .command

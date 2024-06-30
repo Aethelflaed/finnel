@@ -141,7 +141,12 @@ pub enum RecordCommands {
         category: CategoryArgs,
 
         /// Create category with given name and use it
-        #[arg(long, value_name = "NAME", group = "category_args", help_heading = "Category")]
+        #[arg(
+            long,
+            value_name = "NAME",
+            group = "category_args",
+            help_heading = "Category"
+        )]
         create_category: Option<String>,
 
         #[allow(private_interfaces)]
@@ -149,7 +154,12 @@ pub enum RecordCommands {
         merchant: MerchantArgs,
 
         /// Create merchant with given name and use it
-        #[arg(long, value_name = "NAME", group = "merchant_args", help_heading = "Merchant")]
+        #[arg(
+            long,
+            value_name = "NAME",
+            group = "merchant_args",
+            help_heading = "Merchant"
+        )]
         create_merchant: Option<String>,
     },
     /// List records
@@ -205,6 +215,10 @@ pub enum RecordCommands {
         #[arg(short = 'm', long, help_heading = "Filter records")]
         mode: Option<Mode>,
 
+        /// Show only records with this text in the details
+        #[arg(long, help_heading = "Filter records")]
+        details: Option<String>,
+
         /// Maximum number of records to show
         #[arg(short = 'c', long, help_heading = "Filter records")]
         count: Option<usize>,
@@ -214,7 +228,11 @@ pub enum RecordCommands {
         category: CategoryArgs,
 
         /// Show only records without a category
-        #[arg(long, group = "category_args", help_heading = "Filter by category")]
+        #[arg(
+            long,
+            group = "category_args",
+            help_heading = "Filter by category"
+        )]
         no_category: bool,
 
         #[allow(private_interfaces)]
@@ -222,7 +240,11 @@ pub enum RecordCommands {
         merchant: MerchantArgs,
 
         /// Show only records without a merchant
-        #[arg(long, group = "merchant_args", help_heading = "Filter by merchant")]
+        #[arg(
+            long,
+            group = "merchant_args",
+            help_heading = "Filter by merchant"
+        )]
         no_merchant: bool,
     },
 }
