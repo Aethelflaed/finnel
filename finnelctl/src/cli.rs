@@ -113,8 +113,7 @@ pub enum RecordCommands {
         amount: Decimal,
 
         /// Describe the record
-        #[arg(required = true)]
-        description: Vec<String>,
+        details: String,
 
         /// Transaction direction
         ///

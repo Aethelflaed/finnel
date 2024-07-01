@@ -44,7 +44,7 @@ impl RecordCmd<'_> {
     fn add(&mut self) -> Result<()> {
         let RecordCommands::Add {
             amount,
-            description,
+            details,
             direction,
             mode,
             ..
@@ -61,7 +61,7 @@ impl RecordCmd<'_> {
             value_date: self.command.value_date()?,
             direction: *direction,
             mode: mode.clone(),
-            details: description.join(" "),
+            details: details.clone(),
             category_id: self
                 .command
                 .category(self.db)?
