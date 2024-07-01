@@ -8,6 +8,9 @@ use finnel::{
     Account, Database, Entity, Query,
 };
 
+use tabled::Table;
+
+mod display;
 mod import;
 
 struct RecordCmd<'a> {
@@ -120,7 +123,10 @@ impl RecordCmd<'_> {
             println!("{} => {:?}", key, value.to_sql()?);
         }
 
-        query.for_each(self.db, |record| println!("{:?}", record))?;
+        let mut records = Vec::<display::RecordToDisplay>::new();
+        query.for_each(self.db, |record| records.push(record.into()))?;
+
+        println!("{}", Table::new(records));
 
         Ok(())
     }

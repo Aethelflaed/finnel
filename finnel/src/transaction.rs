@@ -10,6 +10,15 @@ pub enum Direction {
     Credit,
 }
 
+impl Direction {
+    pub fn is_debit(&self) -> bool {
+        self == &Direction::Debit
+    }
+    pub fn is_credit(&self) -> bool {
+        self == &Direction::Credit
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode {
     Direct,
@@ -42,7 +51,7 @@ impl Display for Direction {
 impl Display for Mode {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            Transfer => f.write_str("transfer"),
+            Transfer => f.write_str("Transfer"),
             Atm => f.write_str("ATM"),
             Direct => f.write_str("Direct"),
             Other(string) => f.write_str(string.as_str()),

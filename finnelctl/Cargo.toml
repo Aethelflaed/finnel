@@ -13,6 +13,7 @@ clap-verbosity-flag = "2.2.0"
 csv = "1.3.0"
 derive_more = "0.99.18"
 finnel = { path = "../finnel" }
+tabled = "0.15.0"
 toml = "0.8.14"
 xdg = "2.5.2"
 

@@ -61,7 +61,7 @@ mod tests {
 
         db.execute(
             "CREATE TABLE money_test (
-                amount TEXT NOT NULL,
+                amount INTEGER NOT NULL,
                 currency TEXT NOT NULL
             );",
             (),

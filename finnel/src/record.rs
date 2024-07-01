@@ -22,7 +22,7 @@ pub struct Record {
     amount: Decimal,
     currency: Currency,
     operation_date: DateTime<Utc>,
-    value_date: DateTime<Utc>,
+    pub value_date: DateTime<Utc>,
     direction: Direction,
     mode: Mode,
     details: String,
@@ -35,8 +35,20 @@ impl Record {
         Amount(self.amount, self.currency)
     }
 
-    pub fn set_value_date(&mut self, value: DateTime<Utc>) {
-        self.value_date = value;
+    pub fn operation_date(&self) -> DateTime<Utc> {
+        self.operation_date
+    }
+
+    pub fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    pub fn mode(&self) -> Mode {
+        self.mode.clone()
+    }
+
+    pub fn details(&self) -> &str {
+        self.details.as_str()
     }
 
     pub fn category_id(&self) -> Option<Id> {
@@ -50,6 +62,7 @@ impl Record {
     pub fn merchant_id(&self) -> Option<Id> {
         self.merchant_id
     }
+
     pub fn set_merchant(&mut self, merchant: Option<&Merchant>) {
         self.merchant_id = merchant.and_then(Entity::id);
     }

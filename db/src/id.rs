@@ -3,6 +3,12 @@ use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, derive_more::From)]
 pub struct Id(i64);
 
+impl Id {
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+}
+
 impl FromSql for Id {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         Ok(value.as_i64()?.into())
