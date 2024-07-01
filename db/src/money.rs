@@ -21,7 +21,7 @@ impl FromSql for Decimal {
 
 impl ToSql for Decimal {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>> {
-        let mut value = self.0.clone();
+        let mut value = self.0;
         value.rescale(3);
         match TryInto::<i64>::try_into(value.mantissa()) {
             Ok(value) => Ok(ToSqlOutput::Owned(Value::Integer(value))),

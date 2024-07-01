@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::str::FromStr;
 
-use super::{parse_date_fmt, Data, Profile};
+use super::{parse_date_fmt, Data, Profile, RecordToImport};
 
 use finnel::{
     record::NewRecord,
@@ -15,11 +15,11 @@ use chrono::{offset::Utc, DateTime};
 pub struct Importer;
 
 impl Profile for Importer {
-    fn import<T: AsRef<Path>>(path: T) -> Result<Vec<Data>> {
+    fn import<T: AsRef<Path>>(path: T) -> Result<Data> {
         let mut reader =
             csv::ReaderBuilder::new().delimiter(b';').from_path(path)?;
 
-        let mut data = Vec::new();
+        let mut records = Vec::new();
 
         for result in reader.records() {
             let row = result?;
@@ -74,7 +74,7 @@ impl Profile for Importer {
                 ..Default::default()
             };
 
-            data.push(Data {
+            records.push(RecordToImport {
                 record,
                 merchant_name: merchant_name.to_string(),
                 category_name: category_name.to_string(),
@@ -82,7 +82,7 @@ impl Profile for Importer {
             });
         }
 
-        Ok(data)
+        Ok(Data::new(records))
     }
 }
 

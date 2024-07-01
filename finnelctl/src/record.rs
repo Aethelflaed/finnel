@@ -12,7 +12,7 @@ mod import;
 
 struct RecordCmd<'a> {
     _config: &'a Config,
-    db: &'a Database,
+    db: &'a mut Database,
     account: Account,
     command: RecordCommands,
 }
@@ -22,7 +22,7 @@ pub fn run(config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 
-    let db = &config.database()?;
+    let db = &mut config.database()?;
     let mut cmd = RecordCmd {
         account: config.account_or_default(db)?,
         db,
@@ -92,7 +92,7 @@ impl RecordCmd<'_> {
             anyhow::bail!("wrong command passed: {:?}", self.command);
         };
 
-        let criteria = QueryRecord {
+        let query = QueryRecord {
             account_id: self.account.id(),
             after: self.command.after()?,
             before: self.command.before()?,
@@ -115,7 +115,12 @@ impl RecordCmd<'_> {
                 .map(|m| m.as_ref().and_then(Entity::id)),
         };
 
-        criteria.for_each(self.db, |record| println!("{:?}", record))?;
+        println!("{}", query.query());
+        for (key, value) in query.params() {
+            println!("{} => {:?}", key, value.to_sql()?);
+        }
+
+        query.for_each(self.db, |record| println!("{:?}", record))?;
 
         Ok(())
     }
@@ -125,7 +130,7 @@ impl RecordCmd<'_> {
             anyhow::bail!("wrong command passed: {:?}", self.command);
         };
 
-        println!("{:#?}", import::import(profile, file)?);
+        import::import(profile, file)?.persist(&self.account, self.db)?;
 
         Ok(())
     }
