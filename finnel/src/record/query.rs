@@ -6,9 +6,9 @@ use db::{Decimal, Id, Query};
 
 use rusqlite::ToSql;
 
-use derive::Query;
+use derive::{Query, QueryDebug};
 
-#[derive(Debug, Default, Query)]
+#[derive(Default, Query, QueryDebug)]
 #[query(entity = Record, table = "records")]
 pub struct QueryRecord {
     #[param(mandatory)]
@@ -56,11 +56,7 @@ mod tests {
             ..Default::default()
         };
 
-        println!("{}", query.query());
-
-        for (key, value) in query.params() {
-            println!("{} => {:?}", key, value.to_sql()?);
-        }
+        println!("{:#?}", query);
 
         Ok(())
     }
