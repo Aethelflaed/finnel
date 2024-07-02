@@ -1,6 +1,6 @@
 use crate::category::Category;
 use crate::Database;
-use db::{Connection, Entity, Error, Id, Result, Upgrade};
+use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
 #[derive(Debug, Default)]
 pub struct Merchant {
@@ -41,7 +41,8 @@ impl Merchant {
         let query = "SELECT * FROM merchants WHERE name = ? LIMIT 1;";
         let mut statement = db.prepare(query)?;
 
-        match statement.query_row([name], |row| row.try_into()) {
+        match statement.query_row([name], |row| Self::try_from(&Row::from(row)))
+        {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
             Err(e) => Err(e.into()),
@@ -49,10 +50,10 @@ impl Merchant {
     }
 }
 
-impl TryFrom<&rusqlite::Row<'_>> for Merchant {
+impl TryFrom<&Row<'_>> for Merchant {
     type Error = rusqlite::Error;
 
-    fn try_from(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    fn try_from(row: &Row) -> rusqlite::Result<Self> {
         Ok(Merchant {
             id: row.get("id")?,
             name: row.get("name")?,
@@ -68,7 +69,10 @@ impl Entity for Merchant {
 
     fn find(db: &Connection, id: Id) -> Result<Self> {
         let query = "SELECT * FROM merchants WHERE id = ? LIMIT 1;";
-        match db.prepare(query)?.query_row([id], |row| row.try_into()) {
+        match db
+            .prepare(query)?
+            .query_row([id], |row| Self::try_from(&Row::from(row)))
+        {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
             Err(e) => Err(e.into()),

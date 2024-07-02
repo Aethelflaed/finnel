@@ -16,6 +16,9 @@ pub use money::{Currency, Decimal};
 mod query;
 pub use query::Query;
 
+mod row;
+pub use row::Row;
+
 pub trait DatabaseTrait:
     From<Connection>
     + Into<Connection>
@@ -133,7 +136,7 @@ pub trait DatabaseTrait:
     fn upgrade_from(&self, version: &Version) -> Result<()>;
 }
 
-pub trait Entity: Sized {
+pub trait Entity: for<'a> TryFrom<&'a Row<'a>> + Sized {
     fn id(&self) -> Option<Id>;
 
     fn find(db: &Connection, id: Id) -> Result<Self>;

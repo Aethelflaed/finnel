@@ -3,7 +3,9 @@ use chrono::{offset::Utc, DateTime};
 use oxydized_money::{Amount, Currency, Decimal};
 
 use crate::Database;
-use db::{self as database, Connection, Entity, Error, Id, Result, Upgrade};
+use db::{
+    self as database, Connection, Entity, Error, Id, Result, Row, Upgrade,
+};
 
 use crate::category::Category;
 use crate::merchant::Merchant;
@@ -79,7 +81,7 @@ impl Record {
     {
         match db
             .prepare("SELECT * FROM records WHERE account_id = ?")?
-            .query_and_then([account_id], |row| Self::try_from(row))
+            .query_and_then([account_id], |row| Self::try_from(&Row::from(row)))
         {
             Ok(iter) => {
                 for entity in iter {
@@ -104,15 +106,15 @@ impl Record {
     }
 }
 
-impl TryFrom<&rusqlite::Row<'_>> for Record {
+impl TryFrom<&Row<'_>> for Record {
     type Error = rusqlite::Error;
 
-    fn try_from(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    fn try_from(row: &Row) -> rusqlite::Result<Self> {
         Ok(Record {
             id: row.get("id")?,
             account_id: row.get("account_id")?,
-            amount: row.get::<&str, database::Decimal>("amount")?.into(),
-            currency: row.get::<&str, database::Currency>("currency")?.into(),
+            amount: row.get::<database::Decimal>("amount")?.into(),
+            currency: row.get::<database::Currency>("currency")?.into(),
             operation_date: row.get("operation_date")?,
             value_date: row.get("value_date")?,
             direction: row.get("direction")?,
@@ -132,7 +134,7 @@ impl Entity for Record {
     fn find(db: &Connection, id: Id) -> Result<Self> {
         let query = "SELECT * FROM records WHERE id = ? LIMIT 1;";
         let mut statement = db.prepare(query)?;
-        match statement.query_row([id], |row| row.try_into()) {
+        match statement.query_row([id], |row| Self::try_from(&Row::from(row))) {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
             Err(e) => Err(e.into()),
