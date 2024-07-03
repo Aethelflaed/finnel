@@ -9,9 +9,9 @@ use rusqlite::ToSql;
 use derive::{Query, QueryDebug};
 
 pub struct FullRecord {
-    record: Record,
-    merchant: Merchant,
-    category: Category,
+    pub record: Record,
+    pub merchant: Merchant,
+    pub category: Category,
 }
 
 impl TryFrom<&Row<'_>> for FullRecord {

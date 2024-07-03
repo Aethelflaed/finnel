@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
-use finnel::{Entity, Record};
+use finnel::{Entity, record::FullRecord, Record};
 
 use tabled::Tabled;
 
 #[derive(derive_more::From)]
-pub struct RecordToDisplay(Record);
+pub struct RecordToDisplay(FullRecord);
 
 impl Tabled for RecordToDisplay {
     const LENGTH: usize = 7;
@@ -14,9 +14,9 @@ impl Tabled for RecordToDisplay {
         vec![
             self.id(),
             self.amount(),
-            self.0.mode().to_string().into(),
-            self.0.operation_date().date_naive().to_string().into(),
-            self.0.details().into(),
+            self.0.record.mode().to_string().into(),
+            self.0.record.operation_date().date_naive().to_string().into(),
+            self.0.record.details().into(),
             "".into(),
             "".into(),
         ]
@@ -37,7 +37,7 @@ impl Tabled for RecordToDisplay {
 
 impl RecordToDisplay {
     fn id(&self) -> Cow<'_, str> {
-        if let Some(id) = self.0.id() {
+        if let Some(id) = self.0.record.id() {
             id.value().to_string().into()
         } else {
             Default::default()
@@ -45,8 +45,8 @@ impl RecordToDisplay {
     }
 
     fn amount(&self) -> Cow<'_, str> {
-        let mut amount = self.0.amount();
-        amount.0.set_sign_negative(self.0.direction().is_debit());
+        let mut amount = self.0.record.amount();
+        amount.0.set_sign_negative(self.0.record.direction().is_debit());
 
         amount.to_string().into()
     }

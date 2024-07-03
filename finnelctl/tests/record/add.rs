@@ -10,7 +10,7 @@ fn required_arguments() -> Result<()> {
         .assert()
         .failure()
         .stderr(str::contains("  <AMOUNT>"))
-        .stderr(str::contains("  <DESCRIPTION>"));
+        .stderr(str::contains("  <DETAILS>"));
 
     env.command()?
         .arg("record")
@@ -19,7 +19,7 @@ fn required_arguments() -> Result<()> {
         .assert()
         .failure()
         .stderr(str::contains("  <AMOUNT>").not())
-        .stderr(str::contains("  <DESCRIPTION>"));
+        .stderr(str::contains("  <DETAILS>"));
 
     env.command()?
         .arg("record")

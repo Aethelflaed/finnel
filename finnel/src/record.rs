@@ -15,7 +15,7 @@ mod new;
 mod query;
 
 pub use new::NewRecord;
-pub use query::QueryRecord;
+pub use query::{FullRecord, QueryRecord};
 
 use derive::{Entity, EntityDescriptor};
 
