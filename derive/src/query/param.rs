@@ -185,7 +185,7 @@ impl Param {
         quote! {
             let cond = #cond;
             if !cond.is_empty() {
-                query.push_str(format!("{}{}", #join, cond).as_str());
+                sql_query.push_str(format!("{}{}", #join, cond).as_str());
             }
         }
     }
@@ -200,7 +200,7 @@ impl Param {
 
         quote! {
             if let Some(value) = self.#ident  {
-                query.push_str(format!("\nLIMIT {}", #var).as_str());
+                sql_query.push_str(format!("\nLIMIT {}", #var).as_str());
             }
         }
     }

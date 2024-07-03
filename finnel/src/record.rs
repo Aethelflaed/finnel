@@ -17,7 +17,10 @@ mod query;
 pub use new::NewRecord;
 pub use query::QueryRecord;
 
-#[derive(Debug)]
+use derive::EntityDescriptor;
+
+#[derive(Debug, EntityDescriptor)]
+#[entity(table = "records")]
 pub struct Record {
     id: Option<Id>,
     account_id: Id,
@@ -123,16 +126,6 @@ impl TryFrom<&Row<'_>> for Record {
             category_id: row.get("category_id")?,
             merchant_id: row.get("merchant_id")?,
         })
-    }
-}
-
-impl database::entity::EntityDescriptor for Record {
-    fn table_name() -> &'static str {
-        "records"
-    }
-
-    fn field_names() -> &'static [&'static str] {
-        &["id", "account_id", "amount"]
     }
 }
 

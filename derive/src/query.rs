@@ -5,25 +5,25 @@ use syn::{DeriveInput, Result};
 mod param;
 use param::Param;
 
-mod r#struct;
-use r#struct::Struct;
+mod query;
+use query::Query;
 
 pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
-    let query_struct = Struct::read(&input)?;
-    let Struct {
+    let query = Query::read(&input)?;
+    let Query {
         entity,
         result,
         ident: struct_ident,
         ..
-    } = &query_struct;
+    } = &query;
 
-    let mut query = quote! {
-        let mut query = String::from("SELECT\n");
+    let mut sql_query = quote! {
+        let mut sql_query = String::from("SELECT\n");
         let table_name = <#entity as db::entity::EntityDescriptor>::table_name();
         let fields = <#entity as db::entity::EntityDescriptor>::field_names().iter().map(|field| {
             format!("\t{table_name}.{field} AS {table_name}_{field}")
         }).collect::<Vec<String>>().join(",\n");
-        query.push_str(format!("{fields}\nFROM {table_name}\n").as_str());
+        sql_query.push_str(format!("{fields}\nFROM {table_name}\n").as_str());
     };
     let mut parameters = quote! {
         let mut params = Vec::<(&str, &dyn ToSql)>:: new();
@@ -33,7 +33,7 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
 
     let mut limit_param = Option::<Param>::None;
 
-    for result in query_struct.params() {
+    for result in query.params() {
         let param = result?;
 
         if param.limit() {
@@ -46,7 +46,7 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
         } else if param.ignore() {
             // no-op
         } else {
-            query.extend(param.add_query_criterion(join));
+            sql_query.extend(param.add_query_criterion(join));
             parameters.extend(param.add_push_expr());
             validations.extend(param.as_validation());
 
@@ -55,17 +55,17 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
     }
 
     if let Some(param) = &limit_param {
-        query.extend(param.add_query_limit());
+        sql_query.extend(param.add_query_limit());
         parameters.extend(param.add_push_expr());
     }
 
-    query.extend(quote!(query));
+    sql_query.extend(quote!(sql_query));
     parameters.extend(quote!(params));
 
-    let expanded = quote! {
+    Ok(quote! {
         impl Query<#result, #entity> for #struct_ident {
             fn query(&self) -> String {
-                #query
+                #sql_query
             }
 
             fn params(&self) -> Vec<(&str, &dyn ToSql)> {
@@ -78,14 +78,12 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
                 Ok(())
             }
         }
-    };
-
-    Ok(expanded)
+    })
 }
 
 pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
-    let query_struct = Struct::read(&input)?;
-    let struct_name = query_struct.name();
+    let query = Query::read(&input)?;
+    let struct_name = query.name();
 
     let mut debug = quote! {
         f.debug_struct(#struct_name)
@@ -94,7 +92,7 @@ pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
         let mut params = Vec::<(&str, String, String)>:: new();
     };
 
-    for result in query_struct.params() {
+    for result in query.params() {
         let param = result?;
 
         let var = param.var_name();

@@ -3,15 +3,15 @@ use syn::{DeriveInput, Error, Field, FieldsNamed, Ident, Result};
 
 use super::Param;
 
-pub struct Struct {
+pub struct Query {
     pub ident: Ident,
     pub entity: Ident,
     pub result: Ident,
     data: FieldsNamed,
 }
 
-impl Struct {
-    pub fn read(input: &DeriveInput) -> Result<Struct> {
+impl Query {
+    pub fn read(input: &DeriveInput) -> Result<Query> {
         let syn::Data::Struct(syn::DataStruct {
             fields: syn::Fields::Named(data),
             ..
@@ -61,7 +61,7 @@ impl Struct {
         };
         let result = result.unwrap_or(entity.clone());
 
-        Ok(Struct {
+        Ok(Query {
             ident,
             entity,
             result,
