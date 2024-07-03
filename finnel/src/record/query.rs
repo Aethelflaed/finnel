@@ -29,7 +29,7 @@ impl TryFrom<&Row<'_>> for FullRecord {
 }
 
 #[derive(Default, Query, QueryDebug)]
-#[query(result = FullRecord, entity = Record)]
+#[query(result = FullRecord, entity = Record, alias = "record")]
 pub struct QueryRecord {
     #[param(mandatory)]
     pub account_id: Option<Id>,
@@ -52,6 +52,7 @@ pub struct QueryRecord {
     pub less_than: Option<Decimal>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
+    #[param(join(inner, entity = Merchant, field = "id"))]
     pub merchant_id: Option<Option<Id>>,
     pub category_id: Option<Option<Id>>,
     #[param(operator = "LIKE")]

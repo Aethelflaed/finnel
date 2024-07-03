@@ -6,10 +6,10 @@ mod param;
 use param::Param;
 
 mod query;
-use query::Query;
+use query::{EntityRef, Query};
 
 pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
-    let query = Query::read(&input)?;
+    let query = Query::read(input)?;
     let Query {
         entity,
         result,
@@ -17,13 +17,15 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
         ..
     } = &query;
 
+    let EntityRef { entity, alias } = &entity;
+
     let mut sql_query = quote! {
         let mut sql_query = String::from("SELECT\n");
         let table_name = <#entity as db::entity::EntityDescriptor>::table_name();
         let fields = <#entity as db::entity::EntityDescriptor>::field_names().iter().map(|field| {
-            format!("\t{table_name}.{field} AS {table_name}_{field}")
+            format!("\t{}.{} AS {}_{}", #alias, field, #alias, field)
         }).collect::<Vec<String>>().join(",\n");
-        sql_query.push_str(format!("{fields}\nFROM {table_name}\n").as_str());
+        sql_query.push_str(format!("{fields}\nFROM {table_name} AS {}\n", #alias).as_str());
     };
     let mut parameters = quote! {
         let mut params = Vec::<(&str, &dyn ToSql)>:: new();
@@ -82,7 +84,7 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
 }
 
 pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
-    let query = Query::read(&input)?;
+    let query = Query::read(input)?;
     let struct_name = query.name();
 
     let mut debug = quote! {
@@ -127,7 +129,7 @@ pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
         .field("params", &self.params_debug())
     });
 
-    let struct_ident = &input.ident;
+    let struct_ident = query.ident;
 
     Ok(quote! {
         impl #struct_ident {

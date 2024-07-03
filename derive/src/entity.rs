@@ -37,24 +37,37 @@ pub fn impl_entity(input: DeriveInput) -> Result<TokenStream> {
         fields_from_row.extend(field.as_from_row());
 
         if field.insert() {
-            insert_query_start.push_str(format!("{insert_join}\t{}", field.name()).as_str());
-            insert_query_end.push_str(format!("{insert_join}\t{}", field.var_name()).as_str());
+            insert_query_start
+                .push_str(format!("{insert_join}\t{}", field.name()).as_str());
+            insert_query_end.push_str(
+                format!("{insert_join}\t{}", field.var_name()).as_str(),
+            );
             insert_join = ",\n";
 
             insert_params.extend(field.as_param());
         }
         if field.update() {
-            update_query.push_str(format!("{update_join}\t{} = {}", field.name(), field.var_name()).as_str());
+            update_query.push_str(
+                format!(
+                    "{update_join}\t{} = {}",
+                    field.name(),
+                    field.var_name()
+                )
+                .as_str(),
+            );
             update_join = ",\n";
 
             update_params.extend(field.as_param());
         }
     }
 
-    let insert_query = format!("{}{}\n)\nRETURNING id;", insert_query_start, insert_query_end);
+    let insert_query = format!(
+        "{}{}\n)\nRETURNING id;",
+        insert_query_start, insert_query_end
+    );
     update_query.push_str("\nWHERE\n\tid = :id");
 
-    Ok(quote!{
+    Ok(quote! {
         impl Entity for #struct_ident {
             fn id(&self) -> Option<Id> {
                 self.id

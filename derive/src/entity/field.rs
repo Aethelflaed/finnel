@@ -87,11 +87,11 @@ impl Field {
         let var_name = self.var_name();
 
         if let Some(db_type) = self.db_type() {
-            quote!{
+            quote! {
                 #var_name: #db_type::from(self.#ident),
             }
         } else {
-            quote!{
+            quote! {
                 #var_name: self.#ident,
             }
         }
@@ -102,11 +102,11 @@ impl Field {
         let name = self.name();
 
         if let Some(db_type) = self.db_type() {
-            quote!{
+            quote! {
                 #ident: row.get::<#db_type>(#name)?.into(),
             }
         } else {
-            quote!{
+            quote! {
                 #ident: row.get(#name)?,
             }
         }

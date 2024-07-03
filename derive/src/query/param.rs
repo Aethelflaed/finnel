@@ -1,78 +1,38 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-use quote::ToTokens;
+use proc_macro2::{Span, TokenStream};
+use quote::{ToTokens, quote};
+use syn::{Error, Expr, Field, Ident, LitStr, Result};
 use syn::spanned::Spanned;
-use syn::{Error, Expr, Field, Ident, Result};
 
-pub struct Param {
-    syn_field: Field,
-    ident: Ident,
+use super::EntityRef;
+
+pub struct FieldRef<'a> {
+    entity: &'a EntityRef,
+    field: TokenStream,
+}
+
+impl FieldRef<'_> {
+    fn new<'a>(entity: &'a EntityRef, ident: &Ident) -> FieldRef<'a> {
+        let name = ident.to_string();
+
+        FieldRef {
+            entity,
+            field: quote!(#name),
+        }
+    }
+
+    fn get(&self) -> (&str, &TokenStream) {
+        (self.entity.alias.as_str(), &self.field)
+    }
+}
+
+#[derive(Default)]
+pub struct ParamAttr {
     mandatory: bool,
     ignore: bool,
     limit: bool,
-    operator: Option<Expr>,
-    field: Option<Expr>,
 }
 
-impl Param {
-    pub fn read(input: &Field) -> Result<Param> {
-        let mut param = Param {
-            syn_field: input.clone(),
-            ident: input.ident.clone().unwrap(),
-            mandatory: false,
-            ignore: false,
-            limit: false,
-            operator: None,
-            field: None,
-        };
-
-        if let Some(attr) = input
-            .attrs
-            .iter()
-            .find(|attr| attr.path().is_ident("param"))
-        {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("mandatory") {
-                    return param.set_mandatory().map_err(|e| meta.error(e));
-                }
-
-                if meta.path.is_ident("ignore") {
-                    return param.set_ignore().map_err(|e| meta.error(e));
-                }
-
-                if meta.path.is_ident("limit") {
-                    return param.set_limit().map_err(|e| meta.error(e));
-                }
-
-                if meta.path.is_ident("operator") {
-                    param.operator = Some(meta.value()?.parse()?);
-                    return Ok(());
-                }
-
-                if meta.path.is_ident("field") {
-                    param.field = Some(meta.value()?.parse()?);
-                    return Ok(());
-                }
-
-                Err(meta.error("unrecognized param attribute"))
-            })?;
-        }
-
-        Ok(param)
-    }
-
-    pub fn error(&self, message: &str) -> Error {
-        Error::new(self.syn_field.span(), message)
-    }
-
-    pub fn ident(&self) -> &Ident {
-        &self.ident
-    }
-
-    pub fn name(&self) -> String {
-        self.ident.to_string()
-    }
-
+impl ParamAttr {
     pub fn mandatory(&self) -> bool {
         self.mandatory
     }
@@ -115,21 +75,109 @@ impl Param {
         Ok(())
     }
 
-    pub fn operator(&self) -> TokenStream {
-        if let Some(op) = &self.operator {
-            op.to_token_stream()
-        } else {
-            quote!("=")
+}
+
+pub struct Param<'a> {
+    ident: Ident,
+    field: FieldRef<'a>,
+    span: Span,
+    attr: ParamAttr,
+    operator: String,
+}
+
+impl Param<'_> {
+    pub fn read<'a>(entity: &'a EntityRef, input: &Field) -> Result<Param<'a>> {
+        let span = input.span();
+        let mut param_attr = ParamAttr::default();
+        let mut operator = Option::<LitStr>::None;
+
+        let ident = input.ident.clone().unwrap();
+        let mut field = FieldRef::new(entity, &ident);
+
+        if let Some(attr) = input
+            .attrs
+            .iter()
+            .find(|attr| attr.path().is_ident("param"))
+        {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("mandatory") {
+                    return param_attr.set_mandatory().map_err(|e| meta.error(e));
+                }
+
+                if meta.path.is_ident("ignore") {
+                    return param_attr.set_ignore().map_err(|e| meta.error(e));
+                }
+
+                if meta.path.is_ident("limit") {
+                    return param_attr.set_limit().map_err(|e| meta.error(e));
+                }
+
+                if meta.path.is_ident("operator") {
+                    operator = Some(meta.value()?.parse()?);
+                    return Ok(());
+                }
+
+                if meta.path.is_ident("field") {
+                    field.field = meta.value()?.parse::<Expr>()?.into_token_stream();
+                    return Ok(());
+                }
+
+                if meta.path.is_ident("join") {
+                    meta.parse_nested_meta(|meta| {
+                        if meta.path.is_ident("inner") {
+                            return Ok(());
+                        }
+                        if meta.path.is_ident("entity") {
+                            let _: Ident = meta.value()?.parse()?;
+                            return Ok(());
+                        }
+                        if meta.path.is_ident("field") {
+                            let _: Expr = meta.value()?.parse()?;
+                            return Ok(());
+                        }
+
+                        Err(meta.error("unrecognized join attribute"))
+                    })?;
+                    return Ok(());
+                }
+
+                Err(meta.error("unrecognized param attribute"))
+            })?;
         }
+
+        let operator = operator.map(|op| op.value()).unwrap_or("=".to_string());
+
+        Ok(Param{
+            ident,
+            span,
+            attr: param_attr,
+            operator,
+            field,
+        })
     }
 
-    pub fn field(&self) -> TokenStream {
-        if let Some(f) = &self.field {
-            f.to_token_stream()
-        } else {
-            let name = self.name();
-            quote!(#name)
-        }
+    pub fn error(&self, message: &str) -> Error {
+        Error::new(self.span, message)
+    }
+
+    pub fn ident(&self) -> &Ident {
+        &self.ident
+    }
+
+    pub fn name(&self) -> String {
+        self.ident.to_string()
+    }
+
+    pub fn mandatory(&self) -> bool {
+        self.attr.mandatory()
+    }
+
+    pub fn ignore(&self) -> bool {
+        self.attr.ignore()
+    }
+
+    pub fn limit(&self) -> bool {
+        self.attr.limit()
     }
 
     pub fn var_name(&self) -> TokenStream {
@@ -140,13 +188,13 @@ impl Param {
 
     pub fn as_condition(&self) -> TokenStream {
         let ident = &self.ident;
-        let field = self.field();
-        let operator = self.operator();
+        let operator = &self.operator;
         let var = self.var_name();
+        let (alias, field) = self.field.get();
 
         quote! {
             if let Some(_) = &self.#ident {
-                format!("{} {} {}", #field, #operator, #var)
+                format!("{}.{} {} {}", #alias, #field, #operator, #var)
             } else { String::new() }
         }
     }
@@ -163,7 +211,7 @@ impl Param {
     }
 
     pub fn as_validation(&self) -> TokenStream {
-        if !self.mandatory {
+        if !self.mandatory() {
             return quote!();
         }
 
@@ -191,7 +239,7 @@ impl Param {
     }
 
     pub fn add_query_limit(&self) -> TokenStream {
-        if !self.limit {
+        if !self.limit() {
             return quote!();
         }
 
