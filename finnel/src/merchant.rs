@@ -2,7 +2,10 @@ use crate::category::Category;
 use crate::Database;
 use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
-#[derive(Debug, Default)]
+use derive::{Entity, EntityDescriptor};
+
+#[derive(Debug, Default, Entity, EntityDescriptor)]
+#[entity(table = "merchants")]
 pub struct Merchant {
     id: Option<Id>,
     name: String,
@@ -46,80 +49,6 @@ impl Merchant {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
             Err(e) => Err(e.into()),
-        }
-    }
-}
-
-impl TryFrom<&Row<'_>> for Merchant {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &Row) -> rusqlite::Result<Self> {
-        Ok(Merchant {
-            id: row.get("id")?,
-            name: row.get("name")?,
-            default_category_id: row.get("default_category_id")?,
-        })
-    }
-}
-
-impl Entity for Merchant {
-    fn id(&self) -> Option<Id> {
-        self.id
-    }
-
-    fn find(db: &Connection, id: Id) -> Result<Self> {
-        let query = "SELECT * FROM merchants WHERE id = ? LIMIT 1;";
-        match db
-            .prepare(query)?
-            .query_row([id], |row| Self::try_from(&Row::from(row)))
-        {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn save(&mut self, db: &Connection) -> Result<()> {
-        use rusqlite::named_params;
-
-        if let Some(id) = self.id() {
-            let query = "
-                UPDATE merchants
-                SET
-                    name = :name,
-                    default_category_id = :default_category_id
-                WHERE
-                    id = :id";
-            let params = named_params! {
-                ":id": id,
-                ":name": self.name,
-                ":default_category_id": self.default_category_id,
-            };
-            match db.prepare(query)?.execute(params) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            let query = "
-                INSERT INTO merchants (
-                    name,
-                    default_category_id
-                )
-                VALUES (
-                    :name,
-                    :default_category_id
-                )
-                RETURNING id;";
-
-            let params = named_params! {
-                ":name": self.name,
-                ":default_category_id": self.default_category_id,
-            };
-
-            Ok(db.prepare(query)?.query_row(params, |row| {
-                self.id = row.get(0)?;
-                Ok(())
-            })?)
         }
     }
 }

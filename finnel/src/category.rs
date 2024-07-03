@@ -1,7 +1,10 @@
 use crate::Database;
 use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
-#[derive(Debug, Default)]
+use derive::{Entity, EntityDescriptor};
+
+#[derive(Debug, Default, Entity, EntityDescriptor)]
+#[entity(table = "categories")]
 pub struct Category {
     id: Option<Id>,
     name: String,
@@ -32,71 +35,6 @@ impl Category {
             Ok(record) => Ok(record),
             Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
             Err(e) => Err(e.into()),
-        }
-    }
-}
-
-impl TryFrom<&Row<'_>> for Category {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &Row) -> rusqlite::Result<Self> {
-        Ok(Category {
-            id: row.get("id")?,
-            name: row.get("name")?,
-        })
-    }
-}
-
-impl Entity for Category {
-    fn id(&self) -> Option<Id> {
-        self.id
-    }
-
-    fn find(db: &Connection, id: Id) -> Result<Self> {
-        let query = "SELECT * FROM categories WHERE id = ? LIMIT 1;";
-        let mut statement = db.prepare(query)?;
-        match statement.query_row([id], |row| Self::try_from(&Row::from(row))) {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn save(&mut self, db: &Connection) -> Result<()> {
-        use rusqlite::named_params;
-
-        if let Some(id) = self.id() {
-            let query = "
-                UPDATE categories
-                SET
-                    name = :name
-                WHERE
-                    id = :id";
-            let mut statement = db.prepare(query)?;
-            match statement
-                .execute(named_params! {":id": id, ":name": self.name})
-            {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            let query = "
-                INSERT INTO categories (
-                    name
-                )
-                VALUES (
-                    :name
-                )
-                RETURNING id;";
-            let mut statement = db.prepare(query)?;
-
-            Ok(statement.query_row(
-                &[(":name", self.name.as_str())],
-                |row| {
-                    self.id = row.get(0)?;
-                    Ok(())
-                },
-            )?)
         }
     }
 }

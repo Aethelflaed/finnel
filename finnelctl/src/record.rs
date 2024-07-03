@@ -118,10 +118,7 @@ impl RecordCmd<'_> {
                 .map(|m| m.as_ref().and_then(Entity::id)),
         };
 
-        println!("{}", query.query());
-        for (key, value) in query.params() {
-            println!("{} => {:?}", key, value.to_sql()?);
-        }
+        println!("{:?}", query);
 
         let mut records = Vec::<display::RecordToDisplay>::new();
         query.for_each(self.db, |record| records.push(record.into()))?;

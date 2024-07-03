@@ -181,7 +181,10 @@ mod tests {
         new_record.currency = account.currency();
         let mut record = new_record.save(&db)?;
         assert_eq!(record.account_id, account.id().unwrap());
-        assert_eq!(Amount(Decimal::new(314, 2), Currency::USD), record.amount());
+        assert_eq!(
+            Amount(Decimal::new(314, 2), Currency::USD),
+            record.amount()
+        );
 
         let mut category = Category::new("category");
         category.save(&db)?;

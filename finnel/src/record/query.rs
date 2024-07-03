@@ -10,26 +10,38 @@ use derive::{Query, QueryDebug};
 
 pub struct FullRecord {
     pub record: Record,
-    pub merchant: Merchant,
-    pub category: Category,
+    pub merchant: Option<Merchant>,
+    pub category: Option<Category>,
 }
 
 impl TryFrom<&Row<'_>> for FullRecord {
     type Error = rusqlite::Error;
 
     fn try_from(row: &Row) -> rusqlite::Result<Self> {
+        let record = row.with_prefix("records_", |row| Record::try_from(row))?;
+        let merchant = row.with_prefix("merchants_", |row| Merchant::try_from(row).ok());
+        let category = row.with_prefix("categories_", |row| Category::try_from(row).ok());
+
         Ok(FullRecord {
-            record: row.with_prefix("records_", |row| Record::try_from(row))?,
-            merchant: row
-                .with_prefix("merchants_", |row| Merchant::try_from(row))?,
-            category: row
-                .with_prefix("categories_", |row| Category::try_from(row))?,
+            record,
+            merchant,
+            category,
         })
     }
 }
 
 #[derive(Default, Query, QueryDebug)]
-#[query(result = FullRecord, entity = Record, alias = "record")]
+#[query(result = FullRecord, entity = Record, alias = "records")]
+#[join(
+    type = "LEFT",
+    lhs(field = "merchant_id", entity = Record, alias = "records"),
+    rhs(field = "id", entity = Merchant, alias = "merchants")
+)]
+#[join(
+    type = "LEFT",
+    lhs(field = "category_id", entity = Record, alias = "records"),
+    rhs(field = "id", entity = Category, alias = "categories")
+)]
 pub struct QueryRecord {
     #[param(mandatory)]
     pub account_id: Option<Id>,
@@ -52,7 +64,6 @@ pub struct QueryRecord {
     pub less_than: Option<Decimal>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
-    #[param(join(inner, entity = Merchant, field = "id"))]
     pub merchant_id: Option<Option<Id>>,
     pub category_id: Option<Option<Id>>,
     #[param(operator = "LIKE")]

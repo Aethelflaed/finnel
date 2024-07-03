@@ -1,17 +1,17 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{ToTokens, quote};
-use syn::{Error, Expr, Field, Ident, LitStr, Result};
+use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
+use syn::{Error, Expr, Field, Ident, LitStr, Result};
 
 use super::EntityRef;
 
-pub struct FieldRef<'a> {
-    entity: &'a EntityRef,
+pub struct FieldRef {
+    entity: EntityRef,
     field: TokenStream,
 }
 
-impl FieldRef<'_> {
-    fn new<'a>(entity: &'a EntityRef, ident: &Ident) -> FieldRef<'a> {
+impl FieldRef {
+    fn new(entity: EntityRef, ident: &Ident) -> FieldRef {
         let name = ident.to_string();
 
         FieldRef {
@@ -20,7 +20,7 @@ impl FieldRef<'_> {
         }
     }
 
-    fn get(&self) -> (&str, &TokenStream) {
+    pub fn get(&self) -> (&str, &TokenStream) {
         (self.entity.alias.as_str(), &self.field)
     }
 }
@@ -74,19 +74,18 @@ impl ParamAttr {
         self.limit = true;
         Ok(())
     }
-
 }
 
-pub struct Param<'a> {
+pub struct Param {
     ident: Ident,
-    field: FieldRef<'a>,
+    field: FieldRef,
     span: Span,
     attr: ParamAttr,
     operator: String,
 }
 
-impl Param<'_> {
-    pub fn read<'a>(entity: &'a EntityRef, input: &Field) -> Result<Param<'a>> {
+impl Param {
+    pub fn read(entity: EntityRef, input: &Field) -> Result<Param> {
         let span = input.span();
         let mut param_attr = ParamAttr::default();
         let mut operator = Option::<LitStr>::None;
@@ -101,7 +100,9 @@ impl Param<'_> {
         {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("mandatory") {
-                    return param_attr.set_mandatory().map_err(|e| meta.error(e));
+                    return param_attr
+                        .set_mandatory()
+                        .map_err(|e| meta.error(e));
                 }
 
                 if meta.path.is_ident("ignore") {
@@ -118,26 +119,8 @@ impl Param<'_> {
                 }
 
                 if meta.path.is_ident("field") {
-                    field.field = meta.value()?.parse::<Expr>()?.into_token_stream();
-                    return Ok(());
-                }
-
-                if meta.path.is_ident("join") {
-                    meta.parse_nested_meta(|meta| {
-                        if meta.path.is_ident("inner") {
-                            return Ok(());
-                        }
-                        if meta.path.is_ident("entity") {
-                            let _: Ident = meta.value()?.parse()?;
-                            return Ok(());
-                        }
-                        if meta.path.is_ident("field") {
-                            let _: Expr = meta.value()?.parse()?;
-                            return Ok(());
-                        }
-
-                        Err(meta.error("unrecognized join attribute"))
-                    })?;
+                    field.field =
+                        meta.value()?.parse::<Expr>()?.into_token_stream();
                     return Ok(());
                 }
 
@@ -147,7 +130,7 @@ impl Param<'_> {
 
         let operator = operator.map(|op| op.value()).unwrap_or("=".to_string());
 
-        Ok(Param{
+        Ok(Param {
             ident,
             span,
             attr: param_attr,

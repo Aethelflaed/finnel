@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use finnel::{Entity, record::FullRecord, Record};
+use finnel::{record::FullRecord, Entity};
 
 use tabled::Tabled;
 
@@ -15,10 +15,15 @@ impl Tabled for RecordToDisplay {
             self.id(),
             self.amount(),
             self.0.record.mode().to_string().into(),
-            self.0.record.operation_date().date_naive().to_string().into(),
+            self.0
+                .record
+                .operation_date()
+                .date_naive()
+                .to_string()
+                .into(),
             self.0.record.details().into(),
-            "".into(),
-            "".into(),
+            self.category(),
+            self.merchant(),
         ]
     }
 
@@ -46,8 +51,22 @@ impl RecordToDisplay {
 
     fn amount(&self) -> Cow<'_, str> {
         let mut amount = self.0.record.amount();
-        amount.0.set_sign_negative(self.0.record.direction().is_debit());
+        amount
+            .0
+            .set_sign_negative(self.0.record.direction().is_debit());
 
         amount.to_string().into()
+    }
+
+    fn category(&self) -> Cow<'_, str> {
+        Default::default()
+    }
+
+    fn merchant(&self) -> Cow<'_, str> {
+        if let Some(merchant) = &self.0.merchant {
+            merchant.name().into()
+        } else {
+            Default::default()
+        }
     }
 }

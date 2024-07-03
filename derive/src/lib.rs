@@ -4,7 +4,7 @@ use syn::{parse_macro_input, DeriveInput, Error};
 mod entity;
 mod query;
 
-#[proc_macro_derive(Query, attributes(query, param))]
+#[proc_macro_derive(Query, attributes(query, join, param))]
 pub fn derive_query(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -13,7 +13,7 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(QueryDebug, attributes(query, param))]
+#[proc_macro_derive(QueryDebug, attributes(query, join, param))]
 pub fn derive_query_debug(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 

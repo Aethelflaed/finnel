@@ -11,33 +11,62 @@ use query::{EntityRef, Query};
 pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
     let query = Query::read(input)?;
     let Query {
-        entity,
+        entity: EntityRef { entity, .. },
         result,
         ident: struct_ident,
+        params,
         ..
     } = &query;
 
-    let EntityRef { entity, alias } = &entity;
-
     let mut sql_query = quote! {
         let mut sql_query = String::from("SELECT\n");
-        let table_name = <#entity as db::entity::EntityDescriptor>::table_name();
-        let fields = <#entity as db::entity::EntityDescriptor>::field_names().iter().map(|field| {
-            format!("\t{}.{} AS {}_{}", #alias, field, #alias, field)
-        }).collect::<Vec<String>>().join(",\n");
-        sql_query.push_str(format!("{fields}\nFROM {table_name} AS {}\n", #alias).as_str());
+
     };
+
+    {
+        let mut join = "";
+        for entity in &query.entities {
+            let field_names = entity.field_names();
+            let alias = &entity.alias;
+
+            sql_query.extend(quote! {
+                let mut join = #join;
+                for field in #field_names {
+                    sql_query.push_str(format!("{}\t{}.{} AS {}_{}",
+                            join, #alias, field, #alias, field
+                            ).as_str());
+                    join = ",\n"
+                }
+            });
+
+            join = ",\n"
+        }
+    }
+
+    {
+        let (table_name, alias) = query.entity.get();
+
+        sql_query.extend(quote!{
+            sql_query.push_str(format!("\nFROM {} AS {}\n", #table_name, #alias).as_str());
+        });
+    }
+
+    for join in &query.joins {
+        let clause = join.join_clause();
+        sql_query.extend(quote! {
+            sql_query.push_str(#clause.as_str());
+        });
+    }
+
     let mut parameters = quote! {
         let mut params = Vec::<(&str, &dyn ToSql)>:: new();
     };
     let mut validations = quote!();
     let mut join = "WHERE\n\t";
 
-    let mut limit_param = Option::<Param>::None;
+    let mut limit_param = Option::<&Param>::None;
 
-    for result in query.params() {
-        let param = result?;
-
+    for param in params {
         if param.limit() {
             if limit_param.is_some() {
                 return Err(
@@ -94,9 +123,7 @@ pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
         let mut params = Vec::<(&str, String, String)>:: new();
     };
 
-    for result in query.params() {
-        let param = result?;
-
+    for param in query.params {
         let var = param.var_name();
         let ident = &param.ident();
 
