@@ -22,6 +22,15 @@ pub fn derive_query_debug(input: TokenStream) -> TokenStream {
         .into()
 }
 
+#[proc_macro_derive(Entity, attributes(entity, field))]
+pub fn derive_entity(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    entity::impl_entity(input)
+        .unwrap_or_else(Error::into_compile_error)
+        .into()
+}
+
 #[proc_macro_derive(EntityDescriptor, attributes(entity, field))]
 pub fn derive_entity_descriptor(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

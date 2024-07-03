@@ -17,18 +17,24 @@ mod query;
 pub use new::NewRecord;
 pub use query::QueryRecord;
 
-use derive::EntityDescriptor;
+use derive::{Entity, EntityDescriptor};
 
-#[derive(Debug, EntityDescriptor)]
+#[derive(Debug, Entity, EntityDescriptor)]
 #[entity(table = "records")]
 pub struct Record {
     id: Option<Id>,
+    #[field(update = false)]
     account_id: Id,
+    #[field(db_type = database::Decimal, update = false)]
     amount: Decimal,
+    #[field(db_type = database::Currency, update = false)]
     currency: Currency,
+    #[field(update = false)]
     operation_date: DateTime<Utc>,
     pub value_date: DateTime<Utc>,
+    #[field(update = false)]
     direction: Direction,
+    #[field(update = false)]
     mode: Mode,
     details: String,
     category_id: Option<Id>,
@@ -109,102 +115,6 @@ impl Record {
     }
 }
 
-impl TryFrom<&Row<'_>> for Record {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &Row) -> rusqlite::Result<Self> {
-        Ok(Record {
-            id: row.get("id")?,
-            account_id: row.get("account_id")?,
-            amount: row.get::<database::Decimal>("amount")?.into(),
-            currency: row.get::<database::Currency>("currency")?.into(),
-            operation_date: row.get("operation_date")?,
-            value_date: row.get("value_date")?,
-            direction: row.get("direction")?,
-            mode: row.get("mode")?,
-            details: row.get("details")?,
-            category_id: row.get("category_id")?,
-            merchant_id: row.get("merchant_id")?,
-        })
-    }
-}
-
-impl Entity for Record {
-    fn id(&self) -> Option<Id> {
-        self.id
-    }
-
-    fn find(db: &Connection, id: Id) -> Result<Self> {
-        let query = "SELECT * FROM records WHERE id = ? LIMIT 1;";
-        let mut statement = db.prepare(query)?;
-        match statement.query_row([id], |row| Self::try_from(&Row::from(row))) {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn save(&mut self, db: &Connection) -> Result<()> {
-        use rusqlite::named_params;
-
-        if let Some(id) = self.id() {
-            let query = "
-                UPDATE records
-                SET
-                    value_date = :value_date,
-                    category_id = :category_id,
-                    merchant_id = :merchant_id
-                WHERE
-                    id = :id";
-            let mut statement = db.prepare(query)?;
-            let params = named_params! {
-                ":id": id,
-                ":value_date": self.value_date,
-                ":category_id": self.category_id,
-                ":merchant_id": self.merchant_id
-            };
-            match statement.execute(params) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            let query = "
-                INSERT INTO records (
-                    account_id, amount, currency,
-                    operation_date, value_date,
-                    direction, mode, details,
-                    category_id,
-                    merchant_id
-                ) VALUES (
-                    :account_id, :amount, :currency,
-                    :operation_date, :value_date,
-                    :direction, :mode, :details,
-                    :category_id,
-                    :merchant_id
-                )
-                RETURNING id;";
-            let mut statement = db.prepare(query)?;
-            let params = named_params! {
-                ":account_id": self.account_id,
-                ":amount": database::Decimal::from(self.amount),
-                ":currency": database::Currency::from(self.currency),
-                ":operation_date": self.operation_date,
-                ":value_date": self.value_date,
-                ":direction": self.direction,
-                ":mode": self.mode,
-                ":details": self.details,
-                ":category_id": self.category_id,
-                ":merchant_id": self.merchant_id,
-            };
-
-            Ok(statement.query_row(params, |row| {
-                self.id = row.get(0)?;
-                Ok(())
-            })?)
-        }
-    }
-}
-
 impl Upgrade<Record> for Database {
     fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
         match self.execute(
@@ -255,7 +165,7 @@ mod tests {
         account.currency = Currency::USD;
 
         let mut new_record = NewRecord {
-            amount: Decimal::from_str_exact("3.14")?,
+            amount: Decimal::new(314, 2),
             ..Default::default()
         };
         let error = new_record.save(&db).unwrap_err();
@@ -271,7 +181,7 @@ mod tests {
         new_record.currency = account.currency();
         let mut record = new_record.save(&db)?;
         assert_eq!(record.account_id, account.id().unwrap());
-        assert_eq!(Currency::USD, record.currency);
+        assert_eq!(Amount(Decimal::new(314, 2), Currency::USD), record.amount());
 
         let mut category = Category::new("category");
         category.save(&db)?;

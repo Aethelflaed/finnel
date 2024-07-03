@@ -54,7 +54,7 @@ impl Param {
                     return Ok(());
                 }
 
-                Err(meta.error("unrecognized query attribute"))
+                Err(meta.error("unrecognized param attribute"))
             })?;
         }
 
