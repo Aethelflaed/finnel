@@ -1,9 +1,10 @@
-use crate::{Connection, Result, Row};
+use crate::{entity::EntityDescriptor, Connection, Result, Row};
 use rusqlite::ToSql;
 
-pub trait Query<T>
+pub trait Query<T, U = T>
 where
     T: for<'a> TryFrom<&'a Row<'a>, Error = rusqlite::Error>,
+    U: EntityDescriptor,
 {
     fn query(&self) -> String;
     fn params(&self) -> Vec<(&str, &dyn ToSql)>;

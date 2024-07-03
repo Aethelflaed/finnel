@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::ToTokens;
-use syn::{Expr, Field, Ident, Result};
+use syn::spanned::Spanned;
+use syn::{Error, Expr, Field, Ident, Result};
 
-#[derive(Debug)]
 pub struct Param {
+    syn_field: Field,
     ident: Ident,
     mandatory: bool,
     ignore: bool,
@@ -15,7 +16,15 @@ pub struct Param {
 
 impl Param {
     pub fn read(input: &Field) -> Result<Param> {
-        let mut param = Param::new(input.ident.clone().unwrap());
+        let mut param = Param {
+            syn_field: input.clone(),
+            ident: input.ident.clone().unwrap(),
+            mandatory: false,
+            ignore: false,
+            limit: false,
+            operator: None,
+            field: None,
+        };
 
         if let Some(attr) = input
             .attrs
@@ -52,15 +61,8 @@ impl Param {
         Ok(param)
     }
 
-    pub fn new(ident: Ident) -> Self {
-        Self {
-            ident,
-            mandatory: false,
-            ignore: false,
-            limit: false,
-            operator: None,
-            field: None,
-        }
+    pub fn error(&self, message: &str) -> Error {
+        Error::new(self.syn_field.span(), message)
     }
 
     pub fn ident(&self) -> &Ident {
@@ -198,7 +200,7 @@ impl Param {
 
         quote! {
             if let Some(value) = self.#ident  {
-                query.push_str(format!(" LIMIT {}", #var).as_str());
+                query.push_str(format!("\nLIMIT {}", #var).as_str());
             }
         }
     }

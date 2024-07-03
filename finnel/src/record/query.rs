@@ -1,15 +1,35 @@
 use chrono::{offset::Utc, DateTime};
 
-use crate::record::Record;
 use crate::transaction::{Direction, Mode};
-use db::{Decimal, Id, Query};
+use crate::{Category, Merchant, Record};
+use db::{Decimal, Id, Query, Row};
 
 use rusqlite::ToSql;
 
 use derive::{Query, QueryDebug};
 
+pub struct FullRecord {
+    record: Record,
+    merchant: Merchant,
+    category: Category,
+}
+
+impl TryFrom<&Row<'_>> for FullRecord {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: &Row) -> rusqlite::Result<Self> {
+        Ok(FullRecord {
+            record: row.with_prefix("records_", |row| Record::try_from(row))?,
+            merchant: row
+                .with_prefix("merchants_", |row| Merchant::try_from(row))?,
+            category: row
+                .with_prefix("categories_", |row| Category::try_from(row))?,
+        })
+    }
+}
+
 #[derive(Default, Query, QueryDebug)]
-#[query(entity = Record, table = "records")]
+#[query(result = FullRecord, entity = Record)]
 pub struct QueryRecord {
     #[param(mandatory)]
     pub account_id: Option<Id>,

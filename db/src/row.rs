@@ -21,8 +21,8 @@ impl<'a> From<&'a PrefixedRow<'a>> for Row<'a> {
 }
 
 pub struct PrefixedRow<'a> {
-    pub row: &'a rusqlite::Row<'a>,
-    pub prefix: &'a str,
+    row: &'a Row<'a>,
+    prefix: &'a str,
 }
 
 impl PrefixedRow<'_> {
@@ -72,5 +72,12 @@ impl Row<'_> {
             Row::Prefixed(row) => row.get_ref_unwrap(idx),
             Row::Standard(row) => row.get_ref_unwrap(idx),
         }
+    }
+
+    pub fn with_prefix<T, R>(&self, prefix: &str, callback: T) -> R
+    where
+        T: FnOnce(&Row) -> R,
+    {
+        callback(&Row::Prefixed(&PrefixedRow { row: self, prefix }))
     }
 }

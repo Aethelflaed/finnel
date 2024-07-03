@@ -126,6 +126,16 @@ impl TryFrom<&Row<'_>> for Record {
     }
 }
 
+impl database::entity::EntityDescriptor for Record {
+    fn table_name() -> &'static str {
+        "records"
+    }
+
+    fn field_names() -> &'static [&'static str] {
+        &["id", "account_id", "amount"]
+    }
+}
+
 impl Entity for Record {
     fn id(&self) -> Option<Id> {
         self.id
