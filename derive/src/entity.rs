@@ -17,6 +17,7 @@ pub fn impl_entity(input: DeriveInput) -> Result<TokenStream> {
         ..
     } = &entity;
     let table = table.value();
+    let prefix = format!("{table}_");
 
     let find_query = format!("SELECT * FROM {table} WHERE id = ? LIMIT 1;");
 
@@ -35,7 +36,7 @@ pub fn impl_entity(input: DeriveInput) -> Result<TokenStream> {
     for result in entity.fields() {
         let field = result?;
 
-        fields_from_row.extend(field.as_from_row());
+        fields_from_row.extend(field.as_from_row(prefix.as_str()));
 
         if field.insert() {
             insert_query_start

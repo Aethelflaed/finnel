@@ -23,9 +23,12 @@ impl TryFrom<&Row<'_>> for FullRecord {
     type Error = rusqlite::Error;
 
     fn try_from(row: &Row) -> rusqlite::Result<Self> {
-        let record = row.with_prefix("records_", |row| Record::try_from(row))?;
-        let merchant = row.with_prefix("merchants_", |row| Merchant::try_from(row).ok());
-        let category = row.with_prefix("categories_", |row| Category::try_from(row).ok());
+        let record =
+            row.with_prefix("records_", |row| Record::try_from(row))?;
+        let merchant =
+            row.with_prefix("merchants_", |row| Merchant::try_from(row).ok());
+        let category =
+            row.with_prefix("categories_", |row| Category::try_from(row).ok());
 
         Ok(FullRecord {
             record,

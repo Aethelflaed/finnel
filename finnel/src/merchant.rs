@@ -4,6 +4,8 @@ use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
 use derive::{Entity, EntityDescriptor};
 
+mod query;
+
 #[derive(Debug, Default, Entity, EntityDescriptor)]
 #[entity(table = "merchants")]
 pub struct Merchant {

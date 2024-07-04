@@ -97,17 +97,17 @@ impl Field {
         }
     }
 
-    pub fn as_from_row(&self) -> TokenStream {
+    pub fn as_from_row(&self, prefix: &str) -> TokenStream {
         let ident = self.ident();
         let name = self.name();
 
         if let Some(db_type) = self.db_type() {
             quote! {
-                #ident: row.get::<#db_type>(#name)?.into(),
+                #ident: row.get_maybe_prefixed::<#db_type>(#name, #prefix)?.into(),
             }
         } else {
             quote! {
-                #ident: row.get(#name)?,
+                #ident: row.get_maybe_prefixed(#name, #prefix)?,
             }
         }
     }
