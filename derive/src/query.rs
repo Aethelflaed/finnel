@@ -60,7 +60,7 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
     }
 
     let mut parameters = quote! {
-        let mut params = Vec::<(&str, &dyn ToSql)>:: new();
+        let mut params = Vec::<(&str, &dyn rusqlite::ToSql)>:: new();
     };
     let mut validations = quote!();
     let mut join = "WHERE\n\t";
@@ -95,12 +95,12 @@ pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
     parameters.extend(quote!(params));
 
     Ok(quote! {
-        impl Query<#result, #entity> for #struct_ident {
+        impl db::Query<#result, #entity> for #struct_ident {
             fn query(&self) -> String {
                 #sql_query
             }
 
-            fn params(&self) -> Vec<(&str, &dyn ToSql)> {
+            fn params(&self) -> Vec<(&str, &dyn rusqlite::ToSql)> {
                 #parameters
             }
 
@@ -131,7 +131,7 @@ pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
         if !param.ignore() {
             params.extend(quote! {
                 if let Some(value) = &self.#ident {
-                    let sql = match value.to_sql().unwrap() {
+                    let sql = match rusqlite::ToSql::to_sql(value).unwrap() {
                         rusqlite::types::ToSqlOutput::Borrowed(v) => match v {
                             rusqlite::types::ValueRef::Text(text) => {
                                 format!("Text(\"{}\")", std::str::from_utf8(text).unwrap())
@@ -169,7 +169,7 @@ pub fn impl_query_debug(input: DeriveInput) -> Result<TokenStream> {
 
         impl std::fmt::Debug for #struct_ident {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str(self.query().as_str())?;
+                f.write_str(db::Query::query(self).as_str())?;
                 f.write_str("\n")?;
                 #debug.finish()
             }

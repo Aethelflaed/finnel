@@ -188,7 +188,7 @@ impl Param {
 
         quote! {
             if let Some(value) = &self.#ident {
-                params.push((#var, value as &dyn ToSql));
+                params.push((#var, value as &dyn rusqlite::ToSql));
             }
         }
     }

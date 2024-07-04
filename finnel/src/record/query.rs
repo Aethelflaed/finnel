@@ -2,9 +2,7 @@ use chrono::{offset::Utc, DateTime};
 
 use crate::transaction::{Direction, Mode};
 use crate::{Category, Merchant, Record};
-use db::{Decimal, Id, Query, Row};
-
-use rusqlite::ToSql;
+use db::{Decimal, Id, Row};
 
 use derive::{Query, QueryDebug};
 
