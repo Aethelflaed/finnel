@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 pub mod account;
+pub mod category;
+pub mod merchant;
 pub mod record;
 
 /// Finnel control
@@ -63,6 +65,12 @@ pub enum Commands {
     /// Record related commands
     #[command(subcommand)]
     Record(record::Command),
+    /// Category related commands
+    #[command(subcommand)]
+    Category(category::Command),
+    /// Merchant related commands
+    #[command(subcommand)]
+    Merchant(merchant::Command),
     /// Reset the database
     #[command(hide = true)]
     Reset {

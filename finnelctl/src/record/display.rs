@@ -64,7 +64,7 @@ impl RecordToDisplay {
 
     fn merchant(&self) -> Cow<'_, str> {
         if let Some(merchant) = &self.0.merchant {
-            merchant.name().into()
+            merchant.name.clone().into()
         } else {
             Default::default()
         }

@@ -3,11 +3,14 @@ use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
 use derive::{Entity, EntityDescriptor};
 
+mod query;
+pub use query::QueryCategory;
+
 #[derive(Debug, Default, Entity, EntityDescriptor)]
 #[entity(table = "categories")]
 pub struct Category {
     id: Option<Id>,
-    name: String,
+    pub name: String,
 }
 
 impl Category {
@@ -16,14 +19,6 @@ impl Category {
             name: name.into(),
             ..Default::default()
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn set_name<T: Into<String>>(&mut self, name: T) {
-        self.name = name.into();
     }
 
     pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
@@ -71,10 +66,10 @@ mod tests {
         category.save(&db)?;
         assert_eq!(Some(Id::from(1)), category.id());
 
-        assert_eq!("Uraidla Pub", category.name());
-        category.set_name("Chariot");
+        assert_eq!("Uraidla Pub", category.name);
+        category.name = "Chariot".to_string();
         category.save(&db)?;
-        assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name());
+        assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name);
 
         Ok(())
     }

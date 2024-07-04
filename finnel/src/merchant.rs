@@ -5,12 +5,13 @@ use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 use derive::{Entity, EntityDescriptor};
 
 mod query;
+pub use query::QueryMerchant;
 
 #[derive(Debug, Default, Entity, EntityDescriptor)]
 #[entity(table = "merchants")]
 pub struct Merchant {
     id: Option<Id>,
-    name: String,
+    pub name: String,
     default_category_id: Option<Id>,
 }
 
@@ -20,14 +21,6 @@ impl Merchant {
             name: name.into(),
             ..Default::default()
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn set_name<T: Into<String>>(&mut self, name: T) {
-        self.name = name.into();
     }
 
     pub fn default_category_id(&self) -> Option<Id> {
@@ -86,10 +79,10 @@ mod tests {
         merchant.save(&db)?;
         assert_eq!(Some(Id::from(1)), merchant.id());
 
-        assert_eq!("Uraidla Pub", merchant.name());
-        merchant.set_name("Chariot");
+        assert_eq!("Uraidla Pub", merchant.name);
+        merchant.name = "Chariot".to_string();
         merchant.save(&db)?;
-        assert_eq!("Chariot", Merchant::find(&db, Id::from(1))?.name());
+        assert_eq!("Chariot", Merchant::find(&db, Id::from(1))?.name);
 
         Ok(())
     }

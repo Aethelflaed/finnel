@@ -3,8 +3,10 @@ use anyhow::Result;
 mod utils;
 
 mod account;
+mod category;
 mod cli;
 mod config;
+mod merchant;
 mod record;
 
 #[cfg(test)]
@@ -20,6 +22,8 @@ fn main() -> Result<()> {
         match command {
             Commands::Account { .. } => account::run(&config)?,
             Commands::Record { .. } => record::run(&config)?,
+            Commands::Category { .. } => category::run(&config)?,
+            Commands::Merchant { .. } => merchant::run(&config)?,
             Commands::Reset { confirm } => {
                 if *confirm {
                     std::fs::remove_file(config.database_path())?;
