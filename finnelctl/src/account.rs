@@ -7,8 +7,7 @@ use finnel::account::Account;
 use finnel::{Amount, Database, DatabaseTrait, Entity, Error};
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Account(command) = config.command().clone().unwrap()
-    else {
+    let Commands::Account(command) = config.command().clone().unwrap() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 

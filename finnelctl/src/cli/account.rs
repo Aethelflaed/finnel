@@ -24,4 +24,3 @@ pub enum AccountCommands {
         reset: bool,
     },
 }
-

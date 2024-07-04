@@ -8,8 +8,8 @@ use finnel::{
 };
 
 use anyhow::Result;
-use clap::{Args, Subcommand};
 use chrono::{offset::Utc, DateTime, NaiveDate};
+use clap::{Args, Subcommand};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum RecordCommands {
@@ -69,10 +69,18 @@ pub enum RecordCommands {
         )]
         create_merchant: Option<String>,
     },
+    /// Update a record
+    Update {
+        /// Id of the record to update
+        id: u32,
+
+        #[command(flatten)]
+        args: UpdateArgs,
+    },
     /// List records
     List {
         #[command(subcommand)]
-        set: Option<RecordListSetCommand>,
+        update: Option<ListUpdate>,
 
         /// Show only records from after this date
         #[arg(
@@ -169,13 +177,13 @@ pub enum RecordCommands {
 }
 
 #[derive(Subcommand, Clone, Debug)]
-pub enum RecordListSetCommand {
+pub enum ListUpdate {
     /// Update the listed records
-    Set(RecordUpdateArgs),
+    Update(UpdateArgs),
 }
 
 #[derive(Args, Clone, Debug)]
-pub struct RecordUpdateArgs {
+pub struct UpdateArgs {
     /// Change the record details
     details: Option<String>,
 
@@ -197,11 +205,7 @@ pub struct RecordUpdateArgs {
     create_category: Option<String>,
 
     /// Remove the category
-    #[arg(
-        long,
-        group = "category_args",
-        help_heading = "Category"
-    )]
+    #[arg(long, group = "category_args", help_heading = "Category")]
     no_category: bool,
 
     #[allow(private_interfaces)]
@@ -218,11 +222,7 @@ pub struct RecordUpdateArgs {
     create_merchant: Option<String>,
 
     /// Remove the merchant
-    #[arg(
-        long,
-        group = "merchant_args",
-        help_heading = "Merchant"
-    )]
+    #[arg(long, group = "merchant_args", help_heading = "Merchant")]
     no_merchant: bool,
 }
 
@@ -270,6 +270,26 @@ impl RecordCommands {
                 create_category,
                 ..
             } => (category, create_category, false),
+            Self::Update {
+                args:
+                    UpdateArgs {
+                        category,
+                        create_category,
+                        no_category,
+                        ..
+                    },
+                ..
+            } => (category, create_category, *no_category),
+            Self::List {
+                update:
+                    Some(ListUpdate::Update(UpdateArgs {
+                        category,
+                        create_category,
+                        no_category,
+                        ..
+                    })),
+                ..
+            } => (category, create_category, *no_category),
             Self::List {
                 category,
                 no_category,
@@ -301,7 +321,7 @@ impl RecordCommands {
     /// indicates whether or not a preference has been expressed by the user,
     /// and the second the eventual object if there is one.
     ///
-    /// <no category_args> => Ok(None)
+    /// <no merchant_args> => Ok(None)
     /// --no-merchant => Ok(Some(None))
     /// --merchant-id 1 => Ok(Some(Some(Merchant{..})))
     pub fn merchant(
@@ -314,6 +334,26 @@ impl RecordCommands {
                 create_merchant,
                 ..
             } => (merchant, create_merchant, false),
+            Self::Update {
+                args:
+                    UpdateArgs {
+                        merchant,
+                        create_merchant,
+                        no_merchant,
+                        ..
+                    },
+                ..
+            } => (merchant, create_merchant, *no_merchant),
+            Self::List {
+                update:
+                    Some(ListUpdate::Update(UpdateArgs {
+                        merchant,
+                        create_merchant,
+                        no_merchant,
+                        ..
+                    })),
+                ..
+            } => (merchant, create_merchant, *no_merchant),
             Self::List {
                 merchant,
                 no_merchant,
@@ -342,7 +382,7 @@ impl RecordCommands {
     pub fn operation_date(&self) -> Result<DateTime<Utc>> {
         let date = match self {
             Self::Add { operation_date, .. } => operation_date,
-            Self::List { .. } | Self::Import { .. } => {
+            Self::Update { .. } | Self::List { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
@@ -353,6 +393,14 @@ impl RecordCommands {
     pub fn value_date(&self) -> Result<DateTime<Utc>> {
         let date = match self {
             Self::Add { value_date, .. } => value_date,
+            Self::Update {
+                args: UpdateArgs { value_date, .. },
+                ..
+            } => value_date,
+            Self::List {
+                update: Some(ListUpdate::Update(UpdateArgs { value_date, .. })),
+                ..
+            } => value_date,
             Self::List { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
@@ -364,7 +412,7 @@ impl RecordCommands {
     pub fn after(&self) -> Result<Option<DateTime<Utc>>> {
         let date = match self {
             Self::List { after, .. } => after,
-            Self::Add { .. } | Self::Import { .. } => {
+            Self::Add { .. } | Self::Update { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };
@@ -375,7 +423,7 @@ impl RecordCommands {
     pub fn before(&self) -> Result<Option<DateTime<Utc>>> {
         let date = match self {
             Self::List { before, .. } => before,
-            Self::Add { .. } | Self::Import { .. } => {
+            Self::Add { .. } | Self::Update { .. } | Self::Import { .. } => {
                 anyhow::bail!("Not defined on this variant")
             }
         };

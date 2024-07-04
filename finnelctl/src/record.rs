@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cli::{Commands, record::RecordCommands};
+use crate::cli::{record::RecordCommands, Commands};
 use crate::config::Config;
 
 use finnel::{
@@ -35,6 +35,7 @@ pub fn run(config: &Config) -> Result<()> {
 
     match command {
         RecordCommands::Add { .. } => cmd.add(),
+        RecordCommands::Update { .. } => cmd.add(),
         RecordCommands::List { .. } => cmd.list(),
         RecordCommands::Import { .. } => cmd.import(),
     }
@@ -78,6 +79,10 @@ impl RecordCmd<'_> {
 
         record.save(self.db)?;
         Ok(())
+    }
+
+    fn update(&mut self) -> Result<()> {
+        todo!()
     }
 
     fn list(&mut self) -> Result<()> {
