@@ -14,6 +14,13 @@ pub struct FullRecord {
     pub category: Option<Category>,
 }
 
+impl TryFrom<Row<'_>> for FullRecord {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: Row) -> rusqlite::Result<Self> {
+        Self::try_from(&row)
+    }
+}
 impl TryFrom<&Row<'_>> for FullRecord {
     type Error = rusqlite::Error;
 

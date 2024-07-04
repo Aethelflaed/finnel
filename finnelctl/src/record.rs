@@ -5,9 +5,10 @@ use crate::config::Config;
 
 use finnel::{
     record::{NewRecord, QueryRecord},
-    Account, Database, Entity, Query, Record,
+    Account, Category, Connection, Database, Entity, Merchant, Query, Record,
 };
 
+use chrono::{DateTime, Utc};
 use tabled::Table;
 
 mod display;
@@ -76,18 +77,28 @@ impl CommandContext<'_> {
 
     fn update(&mut self, args: &Update) -> Result<()> {
         let mut record = Record::find(self.db, args.id())?;
-        let args = &args.args;
 
+        self.update_record(
+            &mut record,
+            &ResolvedUpdateArgs::try_from(self.db, &args.args)?,
+        )
+    }
+
+    fn update_record(
+        &self,
+        record: &mut Record,
+        args: &ResolvedUpdateArgs,
+    ) -> Result<()> {
         if let Some(details) = args.details.clone() {
             record.details = details;
         }
-        if let Some(date) = args.value_date()? {
+        if let Some(date) = args.value_date {
             record.value_date = date;
         }
-        if let Some(category) = args.category(self.db)? {
+        if let Some(category) = &args.category {
             record.set_category(category.as_ref());
         }
-        if let Some(merchant) = args.merchant(self.db)? {
+        if let Some(merchant) = &args.merchant {
             record.set_merchant(merchant.as_ref());
         }
 
@@ -131,10 +142,21 @@ impl CommandContext<'_> {
 
         println!("{:?}", query);
 
-        let mut records = Vec::<display::RecordToDisplay>::new();
-        query.for_each(self.db, |record| records.push(record.into()))?;
+        if let Some(ListUpdate::Update(args)) = &args.update {
+            let resolved_args = ResolvedUpdateArgs::try_from(self.db, &args)?;
 
-        println!("{}", Table::new(records));
+            for record in query.statement(&self.db)?.iter()? {
+                self.update_record(&mut record?.record, &resolved_args)?;
+            }
+        } else {
+            let mut records = Vec::<display::RecordToDisplay>::new();
+
+            for record in query.statement(&self.db)?.iter()? {
+                records.push(record?.into());
+            }
+
+            println!("{}", Table::new(records));
+        }
 
         Ok(())
     }
@@ -145,5 +167,23 @@ impl CommandContext<'_> {
         import::import(profile, file)?.persist(&self.account, self.db)?;
 
         Ok(())
+    }
+}
+
+struct ResolvedUpdateArgs {
+    details: Option<String>,
+    value_date: Option<DateTime<Utc>>,
+    category: Option<Option<Category>>,
+    merchant: Option<Option<Merchant>>,
+}
+
+impl ResolvedUpdateArgs {
+    fn try_from(db: &Connection, args: &UpdateArgs) -> Result<Self> {
+        Ok(ResolvedUpdateArgs {
+            details: args.details.clone(),
+            value_date: args.value_date()?,
+            category: args.category(&db)?,
+            merchant: args.merchant(&db)?,
+        })
     }
 }

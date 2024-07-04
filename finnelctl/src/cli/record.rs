@@ -128,7 +128,7 @@ impl Update {
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
-    update: Option<ListUpdate>,
+    pub update: Option<ListUpdate>,
 
     /// Show only records from after this date
     #[arg(
@@ -219,22 +219,14 @@ impl List {
         &self,
         db: &Connection,
     ) -> Result<Option<Option<Category>>> {
-        self.category.resolve(
-            db,
-            None,
-            self.no_category,
-        )
+        self.category.resolve(db, None, self.no_category)
     }
 
     pub fn merchant(
         &self,
         db: &Connection,
     ) -> Result<Option<Option<Merchant>>> {
-        self.merchant.resolve(
-            db,
-            None,
-            self.no_merchant,
-        )
+        self.merchant.resolve(db, None, self.no_merchant)
     }
 }
 
@@ -405,11 +397,11 @@ impl MerchantArgs {
 }
 
 #[derive(Args, Clone, Debug)]
-    pub struct Import {
-        /// File to import
-        pub file: PathBuf,
+pub struct Import {
+    /// File to import
+    pub file: PathBuf,
 
-        /// Import profile to use
-        #[arg(short = 'P', long, help_heading = "Import records")]
-        pub profile: String,
-    }
+    /// Import profile to use
+    #[arg(short = 'P', long, help_heading = "Import records")]
+    pub profile: String,
+}
