@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cli::{Commands, RecordCommands};
+use crate::cli::{Commands, record::RecordCommands};
 use crate::config::Config;
 
 use finnel::{
@@ -21,7 +21,7 @@ struct RecordCmd<'a> {
 }
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Record { command } = config.command().clone().unwrap() else {
+    let Commands::Record(command) = config.command().clone().unwrap() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 

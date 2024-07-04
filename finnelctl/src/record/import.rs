@@ -146,5 +146,5 @@ trait Profile {
 }
 
 fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
-    crate::cli::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
+    crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
 }

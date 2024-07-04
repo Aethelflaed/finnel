@@ -1,13 +1,13 @@
 use anyhow::Result;
 
-use crate::cli::{AccountCommands, Commands};
+use crate::cli::{account::AccountCommands, Commands};
 use crate::config::Config;
 
 use finnel::account::Account;
 use finnel::{Amount, Database, DatabaseTrait, Entity, Error};
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Account { command } = config.command().clone().unwrap()
+    let Commands::Account(command) = config.command().clone().unwrap()
     else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };

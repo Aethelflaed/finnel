@@ -1,5 +1,7 @@
 use anyhow::Result;
 
+mod utils;
+
 mod account;
 mod cli;
 mod config;
