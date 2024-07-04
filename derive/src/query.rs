@@ -5,6 +5,7 @@ use syn::{DeriveInput, Result};
 mod param;
 use param::Param;
 
+#[allow(clippy::module_inception)]
 mod query;
 use query::{EntityRef, Query};
 

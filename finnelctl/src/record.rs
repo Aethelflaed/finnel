@@ -1,11 +1,11 @@
 use anyhow::Result;
 
-use crate::cli::{record::RecordCommands, Commands};
+use crate::cli::{record::*, Commands};
 use crate::config::Config;
 
 use finnel::{
     record::{NewRecord, QueryRecord},
-    Account, Database, Entity, Query,
+    Account, Database, Entity, Query, Record,
 };
 
 use tabled::Table;
@@ -13,11 +13,10 @@ use tabled::Table;
 mod display;
 mod import;
 
-struct RecordCmd<'a> {
+struct CommandContext<'a> {
     _config: &'a Config,
     db: &'a mut Database,
     account: Account,
-    command: RecordCommands,
 }
 
 pub fn run(config: &Config) -> Result<()> {
@@ -26,51 +25,45 @@ pub fn run(config: &Config) -> Result<()> {
     };
 
     let db = &mut config.database()?;
-    let mut cmd = RecordCmd {
+    let mut cmd = CommandContext {
         account: config.account_or_default(db)?,
         db,
         _config: config,
-        command: command.clone(),
     };
 
-    match command {
-        RecordCommands::Add { .. } => cmd.add(),
-        RecordCommands::Update { .. } => cmd.add(),
-        RecordCommands::List { .. } => cmd.list(),
-        RecordCommands::Import { .. } => cmd.import(),
+    match &command {
+        Command::Add(args) => cmd.add(args),
+        Command::Update(args) => cmd.update(args),
+        Command::List(args) => cmd.list(args),
+        Command::Import(args) => cmd.import(args),
     }
 }
 
-impl RecordCmd<'_> {
-    fn add(&mut self) -> Result<()> {
-        let RecordCommands::Add {
+impl CommandContext<'_> {
+    fn add(&mut self, args: &Add) -> Result<()> {
+        let Add {
             amount,
             details,
             direction,
             mode,
             ..
-        } = &self.command
-        else {
-            anyhow::bail!("wrong command passed: {:?}", self.command);
-        };
+        } = args;
 
         let mut record = NewRecord {
             account_id: self.account.id(),
             amount: *amount,
             currency: self.account.currency(),
-            operation_date: self.command.operation_date()?,
-            value_date: self.command.value_date()?,
+            operation_date: args.operation_date()?,
+            value_date: args.value_date()?,
             direction: *direction,
             mode: mode.clone(),
             details: details.clone(),
-            category_id: self
-                .command
+            category_id: args
                 .category(self.db)?
                 .flatten()
                 .as_ref()
                 .and_then(Entity::id),
-            merchant_id: self
-                .command
+            merchant_id: args
                 .merchant(self.db)?
                 .flatten()
                 .as_ref()
@@ -81,12 +74,30 @@ impl RecordCmd<'_> {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<()> {
-        todo!()
+    fn update(&mut self, args: &Update) -> Result<()> {
+        let mut record = Record::find(self.db, args.id())?;
+        let args = &args.args;
+
+        if let Some(details) = args.details.clone() {
+            record.details = details;
+        }
+        if let Some(date) = args.value_date()? {
+            record.value_date = date;
+        }
+        if let Some(category) = args.category(self.db)? {
+            record.set_category(category.as_ref());
+        }
+        if let Some(merchant) = args.merchant(self.db)? {
+            record.set_merchant(merchant.as_ref());
+        }
+
+        record.save(self.db)?;
+
+        Ok(())
     }
 
-    fn list(&mut self) -> Result<()> {
-        let RecordCommands::List {
+    fn list(&mut self, args: &List) -> Result<()> {
+        let List {
             operation_date,
             greater_than,
             less_than,
@@ -95,15 +106,12 @@ impl RecordCmd<'_> {
             details,
             count,
             ..
-        } = &self.command
-        else {
-            anyhow::bail!("wrong command passed: {:?}", self.command);
-        };
+        } = args;
 
         let query = QueryRecord {
             account_id: self.account.id(),
-            after: self.command.after()?,
-            before: self.command.before()?,
+            after: args.after()?,
+            before: args.before()?,
             operation_date: *operation_date,
             greater_than: greater_than.map(|m| m.into()),
             less_than: less_than.map(|m| m.into()),
@@ -111,13 +119,11 @@ impl RecordCmd<'_> {
             mode: mode.clone(),
             details: details.clone(),
             count: *count,
-            category_id: self
-                .command
+            category_id: args
                 .category(self.db)?
                 .as_ref()
                 .map(|c| c.as_ref().and_then(Entity::id)),
-            merchant_id: self
-                .command
+            merchant_id: args
                 .merchant(self.db)?
                 .as_ref()
                 .map(|m| m.as_ref().and_then(Entity::id)),
@@ -133,10 +139,8 @@ impl RecordCmd<'_> {
         Ok(())
     }
 
-    fn import(&mut self) -> Result<()> {
-        let RecordCommands::Import { file, profile, .. } = &self.command else {
-            anyhow::bail!("wrong command passed: {:?}", self.command);
-        };
+    fn import(&mut self, args: &Import) -> Result<()> {
+        let Import { file, profile, .. } = args;
 
         import::import(profile, file)?.persist(&self.account, self.db)?;
 

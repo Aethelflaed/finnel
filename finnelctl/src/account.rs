@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cli::{account::AccountCommands, Commands};
+use crate::cli::{account::Command, Commands};
 use crate::config::Config;
 
 use finnel::account::Account;
@@ -12,11 +12,11 @@ pub fn run(config: &Config) -> Result<()> {
     };
 
     match command {
-        AccountCommands::List {} => list(command, config),
-        AccountCommands::Create { .. } => create(command, config),
-        AccountCommands::Show { .. } => show(command, config),
-        AccountCommands::Delete { .. } => delete(command, config),
-        AccountCommands::Default { .. } => command_default(command, config),
+        Command::List {} => list(command, config),
+        Command::Create { .. } => create(command, config),
+        Command::Show { .. } => show(command, config),
+        Command::Delete { .. } => delete(command, config),
+        Command::Default { .. } => command_default(command, config),
     }
 }
 
@@ -35,7 +35,7 @@ pub fn default(db: &Database) -> Result<Option<Account>> {
     }
 }
 
-fn list(_command: AccountCommands, config: &Config) -> Result<()> {
+fn list(_command: Command, config: &Config) -> Result<()> {
     let db = &config.database()?;
 
     Account::for_each(db, |account| {
@@ -45,8 +45,8 @@ fn list(_command: AccountCommands, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn create(command: AccountCommands, config: &Config) -> Result<()> {
-    let AccountCommands::Create { account_name } = command else {
+fn create(command: Command, config: &Config) -> Result<()> {
+    let Command::Create { account_name } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
@@ -57,8 +57,8 @@ fn create(command: AccountCommands, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn show(command: AccountCommands, config: &Config) -> Result<()> {
-    let AccountCommands::Show { .. } = command else {
+fn show(command: Command, config: &Config) -> Result<()> {
+    let Command::Show { .. } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
@@ -70,8 +70,8 @@ fn show(command: AccountCommands, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn delete(command: AccountCommands, config: &Config) -> Result<()> {
-    let AccountCommands::Delete { confirm } = command else {
+fn delete(command: Command, config: &Config) -> Result<()> {
+    let Command::Delete { confirm } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
@@ -87,8 +87,8 @@ fn delete(command: AccountCommands, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn command_default(command: AccountCommands, config: &Config) -> Result<()> {
-    let AccountCommands::Default { reset } = command else {
+fn command_default(command: Command, config: &Config) -> Result<()> {
+    let Command::Default { reset } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 

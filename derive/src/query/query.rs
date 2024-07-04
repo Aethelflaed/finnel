@@ -202,7 +202,7 @@ impl QueryAttr {
         let entity = EntityRef::new(entity, parsed.alias);
 
         Ok(Query {
-            ident: ident,
+            ident,
             entity,
             result,
             params: Vec::new(),
@@ -241,7 +241,7 @@ impl Query {
                 }
             };
 
-        let mut query: Self = QueryAttr::parse(ident, &query_attr)?;
+        let mut query: Self = QueryAttr::parse(ident, query_attr)?;
 
         query.entities.push(query.entity.clone());
 

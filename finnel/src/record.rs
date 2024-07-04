@@ -36,7 +36,7 @@ pub struct Record {
     direction: Direction,
     #[field(update = false)]
     mode: Mode,
-    details: String,
+    pub details: String,
     category_id: Option<Id>,
     merchant_id: Option<Id>,
 }

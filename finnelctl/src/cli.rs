@@ -59,10 +59,10 @@ pub struct Cli {
 pub enum Commands {
     /// Account related commands
     #[command(subcommand)]
-    Account(account::AccountCommands),
+    Account(account::Command),
     /// Record related commands
     #[command(subcommand)]
-    Record(record::RecordCommands),
+    Record(record::Command),
     /// Reset the database
     #[command(hide = true)]
     Reset {

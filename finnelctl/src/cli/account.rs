@@ -1,7 +1,7 @@
 use clap::Subcommand;
 
 #[derive(Debug, Clone, Subcommand)]
-pub enum AccountCommands {
+pub enum Command {
     /// List registered accounts
     List {},
     /// Create a new account

@@ -2,6 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Result};
 
+#[allow(clippy::module_inception)]
 mod entity;
 use entity::Entity;
 
