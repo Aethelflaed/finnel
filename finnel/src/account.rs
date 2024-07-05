@@ -6,11 +6,16 @@ use oxydized_money::{Amount, Currency, Decimal};
 
 use crate::record::Record;
 
-#[derive(Debug)]
+use derive::{Entity, EntityDescriptor};
+
+#[derive(Debug, Entity, EntityDescriptor)]
+#[entity(table = "accounts")]
 pub struct Account {
     id: Option<Id>,
-    name: String,
+    pub name: String,
+    #[field(db_type = database::Decimal)]
     balance: Decimal,
+    #[field(db_type = database::Currency, update = false)]
     pub(crate) currency: Currency,
 }
 
@@ -20,14 +25,6 @@ impl Account {
             name: name.into(),
             ..Default::default()
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn set_name<T: Into<String>>(&mut self, name: T) {
-        self.name = name.into();
     }
 
     pub fn balance(&self) -> Amount {
@@ -41,6 +38,7 @@ impl Account {
     pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
         if let Some(id) = self.id() {
             let tx = db.transaction()?;
+
             Record::delete_by_account_id(&tx, id)?;
             tx.execute(
                 "DELETE FROM accounts
@@ -97,81 +95,6 @@ impl Default for Account {
     }
 }
 
-impl TryFrom<&Row<'_>> for Account {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &Row) -> rusqlite::Result<Self> {
-        Ok(Account {
-            id: row.get("id")?,
-            name: row.get("name")?,
-            balance: row.get::<database::Decimal>("balance")?.into(),
-            currency: row.get::<database::Currency>("currency")?.into(),
-        })
-    }
-}
-
-impl Entity for Account {
-    fn id(&self) -> Option<Id> {
-        self.id
-    }
-
-    fn find(db: &Connection, id: Id) -> Result<Self> {
-        let query = "SELECT * FROM accounts WHERE id = ? LIMIT 1;";
-        let mut statement = db.prepare(query)?;
-        match statement.query_row([id], |row| Self::try_from(&Row::from(row))) {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn save(&mut self, db: &Connection) -> Result<()> {
-        use rusqlite::named_params;
-
-        if let Some(id) = self.id() {
-            let query = "
-                UPDATE accounts
-                SET
-                    name = :name,
-                    balance = :balance
-                WHERE
-                    id = :id";
-            let mut statement = db.prepare(query)?;
-            let params = named_params! {
-                ":id": id,
-                ":name": self.name,
-                ":balance": database::Decimal::from(self.balance),
-            };
-            match statement.execute(params) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            let query = "
-                INSERT INTO accounts (
-                    name,
-                    balance,
-                    currency
-                )
-                VALUES (
-                    :name, :balance, :currency
-                )
-                RETURNING id;";
-            let mut statement = db.prepare(query)?;
-            let params = named_params! {
-                ":name": self.name.as_str(),
-                ":balance": database::Decimal::from(self.balance),
-                ":currency": database::Currency::from(self.currency),
-            };
-
-            Ok(statement.query_row(params, |row| {
-                self.id = row.get(0)?;
-                Ok(())
-            })?)
-        }
-    }
-}
-
 impl Upgrade<Account> for Database {
     fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
         match self.execute(
@@ -192,24 +115,29 @@ impl Upgrade<Account> for Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
     fn crud() -> Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
+        let db = &mut test::db()?;
 
         let mut account = Account::new("Uraidla Pub");
         assert_eq!(None, account.id());
         account.save(&db)?;
         assert_eq!(Some(Id::from(1)), account.id());
 
-        assert_eq!("Uraidla Pub", account.name());
-        account.set_name("Chariot");
+        assert_eq!("Uraidla Pub", account.name);
+        account.name = "Chariot".to_string();
         account.save(&db)?;
-        assert_eq!("Chariot", Account::find(&db, Id::from(1))?.name());
+        assert_eq!("Chariot", account.reload(&db)?.name);
 
         assert_eq!(Decimal::ZERO, account.balance);
+
+        let mut record = test::record(db, &account)?;
+        account.delete(db)?;
+
+        assert!(record.reload(db).is_err());
+        assert!(account.reload(db).is_err());
 
         Ok(())
     }
@@ -229,8 +157,8 @@ mod tests {
             accounts.push(account);
         })?;
 
-        assert_eq!("Account 1", accounts[0].name());
-        assert_eq!("Account 2", accounts[1].name());
+        assert_eq!("Account 1", accounts[0].name);
+        assert_eq!("Account 2", accounts[1].name);
 
         Ok(())
     }

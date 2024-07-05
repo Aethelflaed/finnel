@@ -1,4 +1,4 @@
-use crate::Database;
+use crate::{Database, Record};
 use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
 use derive::{Entity, EntityDescriptor};
@@ -18,6 +18,26 @@ impl Category {
         Self {
             name: name.into(),
             ..Default::default()
+        }
+    }
+}
+
+impl Category {
+    pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
+        if let Some(id) = self.id() {
+            let tx = db.transaction()?;
+
+            Record::clear_category_id(&tx, id)?;
+            tx.execute(
+                "DELETE FROM categories
+                WHERE id = :id",
+                rusqlite::named_params! {":id": id},
+            )?;
+
+            tx.commit()?;
+            Ok(())
+        } else {
+            Err(Error::NotPersisted)
         }
     }
 
@@ -54,12 +74,13 @@ impl Upgrade<Category> for Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use crate::test::prelude::{assert_eq, Result, *};
+
+    use crate::record::NewRecord;
 
     #[test]
-    fn crud() -> Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
+    fn create_update() -> Result<()> {
+        let db = test::db()?;
 
         let mut category = Category::new("Uraidla Pub");
         assert_eq!(None, category.id());
@@ -70,6 +91,36 @@ mod tests {
         category.name = "Chariot".to_string();
         category.save(&db)?;
         assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name);
+
+        Ok(())
+    }
+
+    #[test]
+    fn find_by_name() -> Result<()> {
+        let db = test::db()?;
+        let category = test::category(&db, "Foo")?;
+
+        assert_eq!(category.id(), Category::find_by_name(&db, "Foo")?.id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete() -> Result<()> {
+        let mut db = test::db()?;
+        let account = test::account(&db, "Cash")?;
+        let mut category = test::category(&db, "Uraidla Pub")?;
+
+        let mut record = NewRecord {
+            account_id: account.id(),
+            currency: account.currency,
+            category_id: category.id(),
+            ..Default::default()
+        };
+        let mut record = record.save(&db)?;
+
+        category.delete(&mut db)?;
+        assert_eq!(None, record.reload(&db)?.category_id());
 
         Ok(())
     }

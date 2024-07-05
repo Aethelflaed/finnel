@@ -80,26 +80,30 @@ impl Record {
 }
 
 impl Record {
-    pub fn by_account_id<F>(
+    pub(crate) fn clear_merchant_id(
         db: &Connection,
-        account_id: Id,
-        mut f: F,
-    ) -> Result<()>
-    where
-        F: FnMut(Self),
-    {
-        match db
-            .prepare("SELECT * FROM records WHERE account_id = ?")?
-            .query_and_then([account_id], |row| Self::try_from(&Row::from(row)))
-        {
-            Ok(iter) => {
-                for entity in iter {
-                    f(entity?);
-                }
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
-        }
+        merchant_id: Id,
+    ) -> Result<()> {
+        db.execute(
+            "UPDATE records
+            SET merchant_id = NULL
+            WHERE merchant_id = :merchant_id",
+            rusqlite::named_params! {":merchant_id": merchant_id},
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn clear_category_id(
+        db: &Connection,
+        category_id: Id,
+    ) -> Result<()> {
+        db.execute(
+            "UPDATE records
+            SET category_id = NULL
+            WHERE category_id = :category_id",
+            rusqlite::named_params! {":category_id": category_id},
+        )?;
+        Ok(())
     }
 
     pub(crate) fn delete_by_account_id(
@@ -142,58 +146,85 @@ impl Upgrade<Record> for Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
-
-    use crate::Account;
-
-    fn error_contains_msg<E, S>(error: E, message: S) -> bool
-    where
-        E: std::error::Error,
-        S: AsRef<str>,
-    {
-        use predicates::{str::contains, Predicate};
-
-        contains(message.as_ref()).eval(format!("{:?}", error).as_str())
-    }
+    use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn crud() -> anyhow::Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
+    fn update() -> Result<()> {
+        let db = &test::db()?;
+        let account = test::account(db, "Cash")?;
+        let mut record = test::record(db, &account)?;
 
-        let mut account = Account::new("Cash");
-        account.currency = Currency::USD;
-
-        let mut new_record = NewRecord {
-            amount: Decimal::new(314, 2),
-            ..Default::default()
-        };
-        let error = new_record.save(&db).unwrap_err();
-        assert!(error_contains_msg(error, "Account not provided"));
-
-        account.save(&db)?;
-
-        new_record.account_id = account.id();
-
-        let error = new_record.save(&db).unwrap_err();
-        assert!(error_contains_msg(error, "Currency mismatch"));
-
-        new_record.currency = account.currency();
-        let mut record = new_record.save(&db)?;
-        assert_eq!(record.account_id, account.id().unwrap());
-        assert_eq!(
-            Amount(Decimal::new(314, 2), Currency::USD),
-            record.amount()
-        );
-
-        let mut category = Category::new("category");
-        category.save(&db)?;
-
+        let category = test::category(db, "Foo")?;
         record.set_category(Some(&category));
         record.save(&db)?;
 
-        let record = Record::find(&db, record.id().unwrap())?;
+        let merchant = test::merchant(db, "Bar")?;
+        record.set_merchant(Some(&merchant));
+        record.save(&db)?;
+
+        record.reload(&db)?;
         assert_eq!(category.id(), record.category_id());
+        assert_eq!(merchant.id(), record.merchant_id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn clear_merchant_id() -> Result<()> {
+        let db = &mut test::db()?;
+        let account = test::account(db, "Cash")?;
+        let merchant_1 = test::merchant(db, "Foo")?;
+        let merchant_2 = test::merchant(db, "Bar")?;
+
+        let mut record_1 = NewRecord::new(&account);
+        record_1.merchant_id = Some(merchant_1.id().unwrap());
+        let mut record_1 = record_1.save(db)?;
+
+        let mut record_2 = NewRecord::new(&account);
+        record_2.merchant_id = Some(merchant_2.id().unwrap());
+        let mut record_2 = record_2.save(db)?;
+
+        Record::clear_merchant_id(db, merchant_1.id().unwrap())?;
+        assert_eq!(None, record_1.reload(db)?.merchant_id());
+        assert_eq!(merchant_2.id(), record_2.reload(db)?.merchant_id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn clear_category_id() -> Result<()> {
+        let db = &mut test::db()?;
+        let account = test::account(db, "Cash")?;
+        let category_1 = test::category(db, "Foo")?;
+        let category_2 = test::category(db, "Bar")?;
+
+        let mut record_1 = NewRecord::new(&account);
+        record_1.category_id = Some(category_1.id().unwrap());
+        let mut record_1 = record_1.save(db)?;
+
+        let mut record_2 = NewRecord::new(&account);
+        record_2.category_id = Some(category_2.id().unwrap());
+        let mut record_2 = record_2.save(db)?;
+
+        Record::clear_category_id(db, category_1.id().unwrap())?;
+        assert_eq!(None, record_1.reload(db)?.category_id());
+        assert_eq!(category_2.id(), record_2.reload(db)?.category_id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete_by_account_id() -> Result<()> {
+        let db = &mut test::db()?;
+        let account_1 = test::account(db, "Cash")?;
+        let account_2 = test::account(db, "Account")?;
+
+        let mut record_1 = test::record(db, &account_1)?;
+        let mut record_2 = test::record(db, &account_2)?;
+
+        Record::delete_by_account_id(db, account_1.id().unwrap())?;
+        assert!(record_1.reload(db).is_err());
+        assert!(record_2.reload(db).is_ok());
 
         Ok(())
     }

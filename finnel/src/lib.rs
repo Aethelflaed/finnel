@@ -4,6 +4,9 @@ pub mod merchant;
 pub mod record;
 pub mod transaction;
 
+#[cfg(test)]
+pub mod test;
+
 pub use account::Account;
 pub use category::Category;
 pub use merchant::Merchant;

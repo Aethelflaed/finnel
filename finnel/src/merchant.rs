@@ -1,5 +1,4 @@
-use crate::category::Category;
-use crate::Database;
+use crate::{Category, Database, Record};
 use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
 
 use derive::{Entity, EntityDescriptor};
@@ -34,6 +33,26 @@ impl Merchant {
     pub fn set_default_category(&mut self, category: Option<&Category>) {
         self.default_category_id = category.and_then(Entity::id);
     }
+}
+
+impl Merchant {
+    pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
+        if let Some(id) = self.id() {
+            let tx = db.transaction()?;
+
+            Record::clear_merchant_id(&tx, id)?;
+            tx.execute(
+                "DELETE FROM merchants
+                WHERE id = :id",
+                rusqlite::named_params! {":id": id},
+            )?;
+
+            tx.commit()?;
+            Ok(())
+        } else {
+            Err(Error::NotPersisted)
+        }
+    }
 
     pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
         let query = "SELECT * FROM merchants WHERE name = ? LIMIT 1;";
@@ -67,12 +86,13 @@ impl Upgrade<Merchant> for Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use crate::test::prelude::{assert_eq, assert_ne, Result, *};
+
+    use crate::record::NewRecord;
 
     #[test]
-    fn crud() -> Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
+    fn create_update() -> Result<()> {
+        let db = test::db()?;
 
         let mut merchant = Merchant::new("Uraidla Pub");
         assert_eq!(None, merchant.id());
@@ -88,9 +108,38 @@ mod tests {
     }
 
     #[test]
+    fn find_by_name() -> Result<()> {
+        let db = test::db()?;
+        let merchant = test::merchant(&db, "Foo")?;
+
+        assert_eq!(merchant.id(), Merchant::find_by_name(&db, "Foo")?.id());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete() -> Result<()> {
+        let mut db = test::db()?;
+        let account = test::account(&db, "Cash")?;
+        let mut merchant = test::merchant(&db, "Uraidla Pub")?;
+
+        let mut record = NewRecord {
+            account_id: account.id(),
+            currency: account.currency,
+            merchant_id: merchant.id(),
+            ..Default::default()
+        };
+        let mut record = record.save(&db)?;
+
+        merchant.delete(&mut db)?;
+        assert_eq!(None, record.reload(&db)?.merchant_id());
+
+        Ok(())
+    }
+
+    #[test]
     fn default_category() -> Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
+        let db = test::db()?;
 
         let mut category = Category::new("foo");
         let mut merchant = Merchant::new("bar");
@@ -105,10 +154,7 @@ mod tests {
 
         // Check that default_category_id is correctly persisted
         merchant.save(&db)?;
-        assert_eq!(
-            category.id(),
-            Merchant::find(&db, merchant.id().unwrap())?.default_category_id()
-        );
+        assert_eq!(category.id(), merchant.reload(&db)?.default_category_id());
 
         Ok(())
     }
