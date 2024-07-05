@@ -6,12 +6,12 @@ use finnel::Id;
 pub enum Command {
     /// List merchants
     List(List),
+    /// Show details about a merchant
+    Show(Show),
     /// Create a new merchant
     Create(Create),
     /// Update a merchant
     Update(Update),
-    /// Show details about a merchant
-    Show(Show),
     /// Delete a merchant
     Delete(Delete),
 }

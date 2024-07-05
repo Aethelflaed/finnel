@@ -10,7 +10,7 @@ mod merchant;
 mod record;
 
 #[cfg(test)]
-mod test;
+pub mod test;
 
 use cli::Commands;
 use config::Config;

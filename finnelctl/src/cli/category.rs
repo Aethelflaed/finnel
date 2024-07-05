@@ -6,12 +6,12 @@ use finnel::Id;
 pub enum Command {
     /// List categories
     List(List),
+    /// Show details about a category
+    Show(Show),
     /// Create a new category
     Create(Create),
     /// Update a category
     Update(Update),
-    /// Show details about a category
-    Show(Show),
     /// Delete a category
     Delete(Delete),
 }

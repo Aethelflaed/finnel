@@ -51,7 +51,10 @@ pub fn run(config: &Config) -> Result<()> {
 
     match &command {
         Command::List(args) => cmd.list(args),
-        _ => todo!(),
+        Command::Create(args) => cmd.create(args),
+        Command::Update(args) => cmd.update(args),
+        Command::Show(args) => cmd.show(args),
+        Command::Delete(args) => cmd.delete(args),
     }
 }
 
@@ -76,6 +79,45 @@ impl CommandContext<'_> {
         }
 
         println!("{}", Table::new(categories));
+
+        Ok(())
+    }
+
+    fn show(&mut self, args: &Show) -> Result<()> {
+        let category = Category::find(self.db, args.id())?;
+
+        println!("{}", Table::new(vec![CategoryToDisplay::from(category)]));
+        Ok(())
+    }
+
+    fn create(&mut self, args: &Create) -> Result<()> {
+        let mut category = Category::new(args.name.clone());
+
+        category.save(&self.db)?;
+
+        Ok(())
+    }
+
+    fn update(&mut self, args: &Update) -> Result<()> {
+        let mut category = Category::find(self.db, args.id())?;
+
+        if let Some(name) = args.name.clone() {
+            category.name = name;
+        }
+
+        category.save(&self.db)?;
+
+        Ok(())
+    }
+
+    fn delete(&mut self, args: &Delete) -> Result<()> {
+        let mut category = Category::find(self.db, args.id())?;
+
+        if args.confirm {
+            category.delete(&mut self.db)?;
+        } else {
+            anyhow::bail!("operation requires confirmation flag");
+        }
 
         Ok(())
     }

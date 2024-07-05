@@ -139,8 +139,7 @@ fn data_home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{assert_eq, with_dirs};
-    use assert_fs::fixture::{FileWriteStr, PathChild};
+    use crate::test::prelude::{assert_eq, *};
 
     #[test]
     fn parse() -> Result<()> {
