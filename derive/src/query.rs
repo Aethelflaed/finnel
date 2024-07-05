@@ -2,12 +2,18 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Result};
 
+mod entity_ref;
+use entity_ref::EntityRef;
+
 mod param;
 use param::Param;
 
+mod join;
+use join::{JoinAttr, Join};
+
 #[allow(clippy::module_inception)]
 mod query;
-use query::{EntityRef, Query};
+use query::Query;
 
 pub fn impl_query(input: DeriveInput) -> Result<TokenStream> {
     let query = Query::read(input)?;

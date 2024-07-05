@@ -15,6 +15,8 @@ where
         Ok(())
     }
 
+    // TODO: add count()
+
     fn statement<'a>(&'a self, db: &'a Connection) -> Result<Statement<'a, T>> {
         self.valid()?;
 

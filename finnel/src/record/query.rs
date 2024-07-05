@@ -43,7 +43,9 @@ impl TryFrom<&Row<'_>> for FullRecord {
 #[join(
     type = "LEFT",
     lhs(field = "merchant_id", entity = Record, alias = "records"),
-    rhs(field = "id", entity = Merchant, alias = "merchants")
+    rhs(field = "id", entity = Merchant, alias = "merchants",
+        select(add = ["foo", ("a", "b")])
+        )
 )]
 #[join(
     type = "LEFT",

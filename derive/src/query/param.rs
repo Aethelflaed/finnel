@@ -109,6 +109,7 @@ impl Param {
                     return param_attr.set_ignore().map_err(|e| meta.error(e));
                 }
 
+                // TODO: add offset
                 if meta.path.is_ident("limit") {
                     return param_attr.set_limit().map_err(|e| meta.error(e));
                 }
