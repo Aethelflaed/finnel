@@ -2,10 +2,9 @@
 
 pub mod prelude {
     pub use crate::test::{self, with_dirs};
-    pub use pretty_assertions::assert_eq;
     pub use assert_fs::fixture::{FileWriteStr, PathChild};
+    pub use pretty_assertions::assert_eq;
 }
-
 
 pub fn with_temp_dir<F, R>(function: F) -> R
 where

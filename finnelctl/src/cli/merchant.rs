@@ -1,6 +1,8 @@
+use anyhow::Result;
+
 use clap::{Args, Subcommand};
 
-use finnel::Id;
+use finnel::{Category, Connection, Entity};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -40,48 +42,114 @@ pub enum ListUpdate {
 pub struct Create {
     /// Name of the new merchant
     pub name: String,
+
+    #[allow(private_interfaces)]
+    #[command(flatten, next_help_heading = "Category")]
+    category: CategoryArgs,
+
+    /// Create category with given name and use it
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "category_args",
+        help_heading = "Category"
+    )]
+    create_default_category: Option<String>,
+}
+
+impl Create {
+    pub fn default_category(
+        &self,
+        db: &Connection,
+    ) -> Result<Option<Option<Category>>> {
+        self.category
+            .resolve(db, self.create_default_category.clone(), false)
+    }
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Update {
-    /// Id of the merchant to update
-    id: u32,
+    /// Name of the merchant to update
+    pub name: String,
 
     /// New name of the merchant
     #[arg(long)]
-    pub name: Option<String>,
+    pub new_name: Option<String>,
+
+    #[allow(private_interfaces)]
+    #[command(flatten, next_help_heading = "Category")]
+    category: CategoryArgs,
+
+    /// Remove the category
+    #[arg(long, group = "category_args", help_heading = "Category")]
+    no_default_category: bool,
 }
 
 impl Update {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
+    pub fn default_category(
+        &self,
+        db: &Connection,
+    ) -> Result<Option<Option<Category>>> {
+        self.category.resolve(db, None, self.no_default_category)
     }
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
-    /// Id of the merchant to show
-    id: u32,
-}
-
-impl Show {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
-    }
+    /// Name of the merchant to show
+    pub name: String,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Delete {
-    /// Id of the merchant to delete
-    id: u32,
+    /// Name of the merchant to delete
+    pub name: String,
 
     /// Confirm deletion
     #[arg(long)]
     pub confirm: bool,
 }
 
-impl Delete {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
+#[derive(Args, Clone, Debug)]
+#[group(id = "category_args", multiple = false)]
+struct CategoryArgs {
+    /// Name of the category to use
+    #[arg(long, value_name = "NAME")]
+    default_category: Option<String>,
+
+    /// Id of the category to use
+    #[arg(long, value_name = "ID")]
+    default_category_id: Option<u32>,
+}
+
+impl CategoryArgs {
+    /// Fetch the category selected by the user, if any
+    ///
+    /// Returns a Result of the eventual database operation. The first Option
+    /// indicates whether or not a preference has been expressed by the user,
+    /// and the second the eventual object if there is one.
+    ///
+    /// <no category_args> => Ok(None)
+    /// --no-category => Ok(Some(None))
+    /// --category-id 1 => Ok(Some(Some(Category{..})))
+    pub fn resolve(
+        &self,
+        db: &Connection,
+        create: Option<String>,
+        absence: bool,
+    ) -> Result<Option<Option<Category>>> {
+        if let Some(name) = &self.default_category {
+            Ok(Some(Some(Category::find_by_name(db, name.as_str())?)))
+        } else if let Some(id) = self.default_category_id {
+            Ok(Some(Some(Category::find(db, (id as i64).into())?)))
+        } else if let Some(name) = create {
+            let mut category = Category::new(name);
+            category.save(db)?;
+            Ok(Some(Some(category)))
+        } else if absence {
+            Ok(Some(None))
+        } else {
+            Ok(None)
+        }
     }
 }

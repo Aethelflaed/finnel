@@ -83,9 +83,8 @@ where
     type Item = rusqlite::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.rows
-            .next()
-            .transpose()
-            .map(move |row_result| row_result.and_then(|row| T::try_from(&Row::from(row))))
+        self.rows.next().transpose().map(move |row_result| {
+            row_result.and_then(|row| T::try_from(&Row::from(row)))
+        })
     }
 }

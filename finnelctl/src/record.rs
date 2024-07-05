@@ -11,7 +11,7 @@ use finnel::{
 use chrono::{DateTime, Utc};
 use tabled::Table;
 
-mod display;
+pub mod display;
 mod import;
 
 struct CommandContext<'a> {

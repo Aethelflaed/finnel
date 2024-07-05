@@ -46,12 +46,16 @@ impl PrefixedRow<'_> {
 }
 
 impl Row<'_> {
-    pub fn get_maybe_prefixed<T: FromSql>(&self, idx: &str, prefix: &str) -> Result<T> {
+    pub fn get_maybe_prefixed<T: FromSql>(
+        &self,
+        idx: &str,
+        prefix: &str,
+    ) -> Result<T> {
         match self {
             Row::Prefixed(row) => row.get(idx),
             Row::Standard(row) => match row.get::<&str, T>(idx) {
                 Ok(r) => Ok(r),
-                Err(_) => self.with_prefix(prefix, |row| row.get(idx))
+                Err(_) => self.with_prefix(prefix, |row| row.get(idx)),
             },
         }
     }

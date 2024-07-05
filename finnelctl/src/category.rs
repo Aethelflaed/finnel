@@ -1,15 +1,19 @@
 use anyhow::Result;
 use std::borrow::Cow;
 
-use finnel::{category::QueryCategory, Database, Entity, Category, Query};
+use finnel::{
+    category::QueryCategory, record::QueryRecord, Category, Database, Entity,
+    Query,
+};
 
 use crate::cli::{category::*, Commands};
 use crate::config::Config;
+use crate::record::display;
 
-use tabled::{Table, Tabled};
+use tabled::{settings::Panel, Table, Tabled};
 
 struct CommandContext<'a> {
-    _config: &'a Config,
+    config: &'a Config,
     db: &'a mut Database,
 }
 
@@ -44,10 +48,7 @@ pub fn run(config: &Config) -> Result<()> {
     };
 
     let db = &mut config.database()?;
-    let mut cmd = CommandContext {
-        db,
-        _config: config,
-    };
+    let mut cmd = CommandContext { db, config };
 
     match &command {
         Command::List(args) => cmd.list(args),
@@ -60,11 +61,7 @@ pub fn run(config: &Config) -> Result<()> {
 
 impl CommandContext<'_> {
     fn list(&mut self, args: &List) -> Result<()> {
-        let List {
-            name,
-            count,
-            ..
-        } = args;
+        let List { name, count, .. } = args;
 
         let query = QueryCategory {
             name: name.clone(),
@@ -84,9 +81,40 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let category = Category::find(self.db, args.id())?;
+        let category = Category::find_by_name(self.db, &args.name)?;
 
-        println!("{}", Table::new(vec![CategoryToDisplay::from(category)]));
+        println!("{} | {}", category.id().unwrap().value(), category.name);
+
+        println!();
+        if let Ok(account) = self.config.account_or_default(self.db) {
+            let query = QueryRecord {
+                account_id: account.id(),
+                category_id: Some(category.id()),
+                ..Default::default()
+            };
+
+            let mut records = Vec::<display::RecordToDisplay>::new();
+
+            for record in query.statement(&self.db)?.iter()? {
+                records.push(record?.into());
+            }
+            let count = records.len();
+
+            if count > 0 {
+                println!(
+                    "{}",
+                    Table::new(records).with(Panel::header(format!(
+                        "{} associated records for account {}",
+                        count, account.name
+                    )))
+                );
+            } else {
+                println!("No associated records for account {}", account.name);
+            }
+        } else {
+            println!("Specify an account to see associated records");
+        }
+
         Ok(())
     }
 
@@ -99,9 +127,9 @@ impl CommandContext<'_> {
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let mut category = Category::find(self.db, args.id())?;
+        let mut category = Category::find_by_name(self.db, &args.name)?;
 
-        if let Some(name) = args.name.clone() {
+        if let Some(name) = args.new_name.clone() {
             category.name = name;
         }
 
@@ -111,7 +139,7 @@ impl CommandContext<'_> {
     }
 
     fn delete(&mut self, args: &Delete) -> Result<()> {
-        let mut category = Category::find(self.db, args.id())?;
+        let mut category = Category::find_by_name(self.db, &args.name)?;
 
         if args.confirm {
             category.delete(&mut self.db)?;

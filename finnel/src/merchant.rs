@@ -104,6 +104,9 @@ mod tests {
         merchant.save(&db)?;
         assert_eq!("Chariot", Merchant::find(&db, Id::from(1))?.name);
 
+        let mut merchant = Merchant::new("Chariot");
+        assert!(merchant.save(&db).is_err());
+
         Ok(())
     }
 

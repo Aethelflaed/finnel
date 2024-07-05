@@ -20,20 +20,36 @@ macro_rules! cmd {
     ($env:ident, $($tail:tt)*) => {
         cmd!(@args $env.command()?, $($tail)* )
     };
+
     (@args $cmd:expr, --$arg:tt) => {
-        $cmd.arg(concat!("--", stringify!($arg))).assert()
+        $cmd.arg(cmd!(@arg --$arg)).assert()
+    };
+    (@args $cmd:expr, -$arg:tt) => {
+        $cmd.arg(cmd!(@arg -$arg)).assert()
     };
     (@args $cmd:expr, $arg:tt) => {
-        $cmd.arg(stringify!($arg)).assert()
+        $cmd.arg(cmd!(@arg $arg)).assert()
     };
+
     (@args $cmd:expr, --$arg:tt $($tail:tt)*) => {
         cmd!(@args $cmd.arg(cmd!(@arg --$arg)), $($tail)*)
+    };
+    (@args $cmd:expr, -$arg:tt $($tail:tt)*) => {
+        cmd!(@args $cmd.arg(cmd!(@arg -$arg)), $($tail)*)
     };
     (@args $cmd:expr, $arg:tt $($tail:tt)*) => {
         cmd!(@args $cmd.arg(cmd!(@arg $arg)), $($tail)*)
     };
-    (@arg --$arg:tt) => { concat!("--", stringify!($arg)) };
-    (@arg $arg:tt) => { stringify!($arg) };
+
+    (@arg --$arg:tt) => {
+        concat!("--", stringify!($arg)).to_string().replace("_", "-")
+    };
+    (@arg -$arg:tt) => {
+        concat!("-", stringify!($arg))
+    };
+    (@arg $arg:tt) => {
+        stringify!($arg)
+    };
 }
 
 impl Env {

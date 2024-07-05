@@ -17,13 +17,8 @@ fn empty() -> Result<()> {
 fn list() -> Result<()> {
     let env = Env::new()?;
 
-    cmd!(env, merchant create Chariot)
-        .success()
-        .stdout(str::is_empty());
-
-    cmd!(env, merchant create Grognon)
-        .success()
-        .stdout(str::is_empty());
+    cmd!(env, merchant create Chariot).success();
+    cmd!(env, merchant create Grognon).success();
 
     cmd!(env, merchant list)
         .success()
@@ -39,19 +34,38 @@ fn show() -> Result<()> {
 
     cmd!(env, merchant show)
         .failure()
-        .stderr(str::contains("  <ID>"));
+        .stderr(str::contains("  <NAME>"));
 
-    cmd!(env, merchant show 1)
+    cmd!(env, merchant show Chariot)
         .failure()
         .stderr(str::contains("Not found"));
 
-    cmd!(env, merchant create Chariot)
+    cmd!(env, merchant create Chariot).success();
+    cmd!(env, merchant show Chariot)
         .success()
-        .stdout(str::is_empty());
+        .stdout(str::contains("1 | Chariot"))
+        .stdout(str::contains("Specify an account"))
+        .stdout(str::contains("Default category").not());
 
-    cmd!(env, merchant show 1)
+    cmd!(env, category create Bar).success();
+    cmd!(env, merchant update Chariot --default_category Bar).success();
+
+    cmd!(env, merchant show Chariot)
         .success()
-        .stdout(str::contains("1  | Chariot"));
+        .stdout(str::contains("1 | Chariot"))
+        .stdout(str::contains("Default category: Bar"));
+
+    cmd!(env, account create Cash).success();
+
+    cmd!(env, merchant show Chariot -A Cash)
+        .success()
+        .stdout(str::contains("No associated"));
+
+    cmd!(env, record add -A Cash 5 beer --merchant Chariot).success();
+
+    cmd!(env, merchant show Chariot -A Cash)
+        .success()
+        .stdout(str::contains("€ -5.00"));
 
     Ok(())
 }
@@ -68,6 +82,28 @@ fn create() -> Result<()> {
         .success()
         .stdout(str::is_empty());
 
+    cmd!(env, merchant create Chariot)
+        .failure()
+        .stderr(str::contains("Conflict with existing data"));
+
+    cmd!(env, merchant create Grognon --create_default_category Bar)
+        .success()
+        .stdout(str::is_empty());
+
+    cmd!(env, merchant show Grognon)
+        .success()
+        .stdout(str::contains("Default category: Bar"));
+
+    cmd!(env, merchant create Grochion --default_category Bar).success();
+    cmd!(env, merchant show Grochion)
+        .success()
+        .stdout(str::contains("Default category: Bar"));
+
+    cmd!(env, merchant create Uraidla --default_category_id 1).success();
+    cmd!(env, merchant show Uraidla)
+        .success()
+        .stdout(str::contains("Default category: Bar"));
+
     Ok(())
 }
 
@@ -77,9 +113,9 @@ fn update() -> Result<()> {
 
     cmd!(env, merchant update)
         .failure()
-        .stderr(str::contains("  <ID>"));
+        .stderr(str::contains("  <NAME>"));
 
-    cmd!(env, merchant update 1)
+    cmd!(env, merchant update Chariot)
         .failure()
         .stderr(str::contains("Not found"));
 
@@ -87,21 +123,43 @@ fn update() -> Result<()> {
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, merchant update 1)
+    cmd!(env, merchant update Chariot)
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, merchant show 1)
+    cmd!(env, merchant show Chariot)
         .success()
-        .stdout(str::contains("1  | Chariot"));
+        .stdout(str::contains("1 | Chariot"));
 
-    cmd!(env, merchant update 1 --name Grognon)
+    cmd!(env, merchant update Chariot --new_name Grognon)
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, merchant show 1)
+    cmd!(env, merchant show Chariot)
+        .failure()
+        .stderr(str::contains("Not found"));
+
+    cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("1  | Grognon"));
+        .stdout(str::contains("1 | Grognon"));
+
+    cmd!(env, category create Restaurant).success();
+    cmd!(env, category create Bar).success();
+
+    cmd!(env, merchant update Grognon --default_category Restaurant).success();
+    cmd!(env, merchant show Grognon)
+        .success()
+        .stdout(str::contains("Default category: Restaurant"));
+
+    cmd!(env, merchant update Grognon --default_category_id 2).success();
+    cmd!(env, merchant show Grognon)
+        .success()
+        .stdout(str::contains("Default category: Bar"));
+
+    cmd!(env, merchant update Grognon --no_default_category).success();
+    cmd!(env, merchant show Grognon)
+        .success()
+        .stdout(str::contains("Default category").not());
 
     Ok(())
 }
@@ -112,9 +170,9 @@ fn delete() -> Result<()> {
 
     cmd!(env, merchant delete)
         .failure()
-        .stderr(str::contains("  <ID>"));
+        .stderr(str::contains("  <NAME>"));
 
-    cmd!(env, merchant delete 1)
+    cmd!(env, merchant delete Chariot)
         .failure()
         .stderr(str::contains("Not found"));
 
@@ -122,15 +180,15 @@ fn delete() -> Result<()> {
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, merchant delete 1)
+    cmd!(env, merchant delete Chariot)
         .failure()
         .stderr(str::contains("confirmation flag"));
 
-    cmd!(env, merchant delete 1 --confirm)
+    cmd!(env, merchant delete Chariot --confirm)
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, merchant show 1)
+    cmd!(env, merchant show Chariot)
         .failure()
         .stderr(str::contains("Not found"));
 

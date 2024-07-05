@@ -1,7 +1,5 @@
 use clap::{Args, Subcommand};
 
-use finnel::Id;
-
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// List categories
@@ -44,44 +42,26 @@ pub struct Create {
 
 #[derive(Args, Clone, Debug)]
 pub struct Update {
-    /// Id of the category to update
-    id: u32,
+    /// Name of the category to update
+    pub name: String,
 
     /// New name of the category
     #[arg(long)]
-    pub name: Option<String>,
-}
-
-impl Update {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
-    }
+    pub new_name: Option<String>,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
-    /// Id of the category to show
-    id: u32,
-}
-
-impl Show {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
-    }
+    /// Name of the category to show
+    pub name: String,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Delete {
-    /// Id of the category to delete
-    id: u32,
+    /// Name of the category to delete
+    pub name: String,
 
     /// Confirm deletion
     #[arg(long)]
     pub confirm: bool,
-}
-
-impl Delete {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
-    }
 }
