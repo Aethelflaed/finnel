@@ -1,10 +1,42 @@
 use anyhow::Result;
+use std::borrow::Cow;
 
 use crate::cli::{account::Command, Commands};
 use crate::config::Config;
 
 use finnel::account::Account;
 use finnel::{Amount, Database, DatabaseTrait, Entity, Error};
+
+use tabled::{Table, Tabled};
+
+#[derive(derive_more::From)]
+struct AccountToDisplay(Account);
+
+impl Tabled for AccountToDisplay {
+    const LENGTH: usize = 2;
+
+    fn fields(&self) -> Vec<Cow<'_, str>> {
+        vec![
+            self.id(),
+            self.0.name.clone().into(),
+            self.0.balance().to_string().into(),
+        ]
+    }
+
+    fn headers() -> Vec<Cow<'static, str>> {
+        vec!["id".into(), "name".into(), "balance".into()]
+    }
+}
+
+impl AccountToDisplay {
+    fn id(&self) -> Cow<'_, str> {
+        if let Some(id) = self.0.id() {
+            id.value().to_string().into()
+        } else {
+            Default::default()
+        }
+    }
+}
 
 pub fn run(config: &Config) -> Result<()> {
     let Commands::Account(command) = config.command().clone().unwrap() else {
@@ -38,21 +70,25 @@ pub fn default(db: &Database) -> Result<Option<Account>> {
 fn list(_command: Command, config: &Config) -> Result<()> {
     let db = &config.database()?;
 
+    let mut accounts = Vec::<AccountToDisplay>::new();
+
     Account::for_each(db, |account| {
-        println!("{}", account.name);
+        accounts.push(account.into());
     })?;
+
+    println!("{}", Table::new(accounts));
 
     Ok(())
 }
 
 fn create(command: Command, config: &Config) -> Result<()> {
-    let Command::Create { account_name } = command else {
+    let Command::Create { name } = command else {
         anyhow::bail!("wrong command passed: {:?}", command);
     };
 
     let db = &config.database()?;
 
-    let mut account = Account::new(account_name);
+    let mut account = Account::new(name);
     account.save(db)?;
     Ok(())
 }
@@ -65,8 +101,9 @@ fn show(command: Command, config: &Config) -> Result<()> {
     let db = &config.database()?;
     let account = config.account_or_default(db)?;
 
-    let Amount(amount, currency) = account.balance();
-    println!("{} {}", currency.code(), amount);
+    println!("{} | {}", account.id().unwrap().value(), account.name);
+    println!("\tBalance: {}", account.balance());
+
     Ok(())
 }
 

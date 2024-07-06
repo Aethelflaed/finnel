@@ -7,7 +7,7 @@ pub enum Command {
     /// Create a new account
     Create {
         /// Name of the new account
-        account_name: String,
+        name: String,
     },
     /// Show details about an account
     Show {},

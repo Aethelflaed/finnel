@@ -1,101 +1,128 @@
+#[macro_use]
 mod common;
 use common::prelude::*;
 
 #[test]
-fn operations() -> Result<()> {
+fn empty() -> Result<()> {
     let env = Env::new()?;
 
-    env.command()?
-        .arg("account")
-        .arg("create")
-        .arg("Cash")
-        .assert()
+    cmd!(env, account).failure().stderr(str::contains("Usage:"));
+
+    Ok(())
+}
+
+#[test]
+fn list() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, account create Cash).success();
+    cmd!(env, account create Bank).success();
+
+    cmd!(env, account list)
+        .success()
+        .stdout(str::contains("€ 0.00"))
+        .stdout(str::contains("1  | Cash"))
+        .stdout(str::contains("2  | Bank"));
+
+    Ok(())
+}
+
+#[test]
+fn create() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, account create)
+        .failure()
+        .stderr(str::contains("  <NAME>"));
+
+    cmd!(env, account create Cash)
         .success()
         .stdout(str::is_empty());
 
-    env.command()?
-        .arg("account")
-        .arg("list")
-        .assert()
-        .success()
-        .stdout(str::contains("Cash"));
+    Ok(())
+}
 
-    env.command()?
-        .arg("account")
-        .arg("show")
-        .assert()
+#[test]
+fn show() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, account create Cash).success();
+
+    cmd!(env, account show)
         .failure()
         .stderr(str::contains("Account not provided"));
 
-    env.command()?
-        .arg("-A")
-        .arg("Cash")
-        .arg("account")
-        .arg("show")
-        .assert()
-        .success()
-        .stdout(str::contains("EUR 0"));
+    cmd!(env, account show -A Bank)
+        .failure()
+        .stderr(str::contains("Account not found"));
 
-    env.command()?
-        .arg("account")
-        .arg("default")
-        .assert()
+    cmd!(env, account show -A Cash)
+        .success()
+        .stdout(str::contains("1 | Cash"))
+        .stdout(str::contains("Balance: € 0.00"));
+
+    cmd!(env, account default -A Cash).success();
+
+    cmd!(env, account show)
+        .success()
+        .stdout(str::contains("1 | Cash"))
+        .stdout(str::contains("Balance: € 0.00"));
+
+    Ok(())
+}
+
+#[test]
+fn delete() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, account create Cash).success();
+
+    cmd!(env, account delete)
+        .failure()
+        .stderr(str::contains("Account not provided"));
+
+    cmd!(env, account delete -A Cash)
+        .failure()
+        .stderr(str::contains("requires confirmation"));
+
+    cmd!(env, account delete -A Cash --confirm)
+        .success()
+        .stdout(str::is_empty());
+
+    cmd!(env, account show -A Cash)
+        .failure()
+        .stderr(str::contains("Account not found"));
+
+    Ok(())
+}
+
+#[test]
+fn default() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, account create Cash).success();
+
+    cmd!(env, account default)
         .success()
         .stdout(str::contains("<not set>"));
 
-    env.command()?
-        .arg("account")
-        .arg("-A")
-        .arg("Cash")
-        .arg("default")
-        .assert()
+    cmd!(env, account default --reset)
         .success()
         .stdout(str::is_empty());
 
-    env.command()?
-        .arg("account")
-        .arg("default")
-        .assert()
+    cmd!(env, account default -A Cash)
+        .success()
+        .stdout(str::is_empty());
+
+    cmd!(env, account default)
         .success()
         .stdout(str::contains("Cash"));
 
-    env.command()?
-        .arg("account")
-        .arg("show")
-        .assert()
-        .success()
-        .stdout(str::contains("EUR 0"));
-
-    env.command()?
-        .arg("account")
-        .arg("delete")
-        .assert()
-        .failure()
-        .stderr(str::contains("confirmation"));
-
-    env.command()?
-        .arg("account")
-        .arg("delete")
-        .arg("-A")
-        .arg("Cash")
-        .assert()
-        .failure()
-        .stderr(str::contains("confirmation"));
-
-    env.command()?
-        .arg("-A")
-        .arg("Cash")
-        .arg("account")
-        .arg("delete")
-        .arg("--confirm")
-        .assert()
+    cmd!(env, account default --reset)
         .success()
         .stdout(str::is_empty());
 
-    env.command()?
-        .arg("account")
-        .arg("default")
-        .assert()
+    cmd!(env, account default)
         .success()
         .stdout(str::contains("<not set>"));
 
