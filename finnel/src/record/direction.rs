@@ -10,8 +10,7 @@ use diesel::{
     sqlite::Sqlite,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq,
-    FromSqlRow, AsExpression)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
 #[diesel(sql_type = Text)]
 pub enum Direction {
     Debit,
@@ -27,34 +26,13 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq,
-    FromSqlRow, AsExpression)]
-#[diesel(sql_type = Text)]
-pub enum Mode {
-    Direct,
-    Transfer,
-    Atm,
-    Other(String),
-}
-
 use Direction::*;
-use Mode::*;
 
 impl Display for Direction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Debit => f.write_str("Debit"),
             Credit => f.write_str("Credit"),
-        }
-    }
-}
-impl Display for Mode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Transfer => f.write_str("Transfer"),
-            Atm => f.write_str("ATM"),
-            Direct => f.write_str("Direct"),
-            Other(string) => f.write_str(string.as_str()),
         }
     }
 }
@@ -82,23 +60,6 @@ impl FromStr for Direction {
     }
 }
 
-impl FromStr for Mode {
-    type Err = ParseTypeError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_lowercase().as_str() {
-            "direct" => Ok(Direct),
-            "transfer" => Ok(Transfer),
-            "atm" => Ok(Atm),
-            "" => Err(ParseTypeError),
-            other if other.chars().all(char::is_whitespace) => {
-                Err(ParseTypeError)
-            }
-            _ => Ok(Other(value.to_string())),
-        }
-    }
-}
-
 impl ToSql<Text, Sqlite> for Direction {
     fn to_sql<'b>(
         &'b self,
@@ -110,24 +71,6 @@ impl ToSql<Text, Sqlite> for Direction {
 }
 
 impl FromSql<Text, Sqlite> for Direction {
-    fn from_sql(
-        bytes: <Sqlite as Backend>::RawValue<'_>,
-    ) -> deserialize::Result<Self> {
-        Ok(<String as FromSql<Text, Sqlite>>::from_sql(bytes)?.parse()?)
-    }
-}
-
-impl ToSql<Text, Sqlite> for Mode {
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
-        out.set_value(self.to_string());
-        Ok(IsNull::No)
-    }
-}
-
-impl FromSql<Text, Sqlite> for Mode {
     fn from_sql(
         bytes: <Sqlite as Backend>::RawValue<'_>,
     ) -> deserialize::Result<Self> {
@@ -149,12 +92,6 @@ mod tests {
         assert_eq!(Credit, "Credit".parse::<Direction>()?);
         assert_eq!(Credit, "Crédit".parse::<Direction>()?);
         assert_eq!(Credit, "crédit".parse::<Direction>()?);
-
-        assert_eq!(Direct, "direct".parse::<Mode>()?);
-        assert_eq!(Direct, "Direct".parse::<Mode>()?);
-        assert_eq!(Transfer, "transfer".parse::<Mode>()?);
-        assert_eq!(Atm, "ATM".parse::<Mode>()?);
-        assert_eq!(Other("foo".to_string()), "foo".parse::<Mode>()?);
 
         Ok(())
     }

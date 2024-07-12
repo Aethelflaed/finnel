@@ -1,73 +1,57 @@
-use crate::{Database, Record};
-use db::{Connection, Entity, Error, Id, Result, Row, Upgrade};
+use crate::{essentials::*, schema::categories};
 
-use derive::{Entity, EntityDescriptor};
+use diesel::prelude::*;
 
-mod query;
-pub use query::QueryCategory;
-
-#[derive(Debug, Default, Entity, EntityDescriptor)]
-#[entity(table = "categories")]
+#[derive(Debug, Queryable, Selectable, Identifiable)]
+#[diesel(table_name = categories)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Category {
-    id: Option<Id>,
+    pub id: i64,
     pub name: String,
 }
 
 impl Category {
-    pub fn new<T: Into<String>>(name: T) -> Self {
-        Self {
-            name: name.into(),
-            ..Default::default()
-        }
+    pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {
+        categories::table
+            .find(id)
+            .select(Category::as_select())
+            .first(conn)
+            .map_err(|e| e.into())
+    }
+
+    pub fn find_by_name(conn: &mut Conn, name: &str) -> Result<Self> {
+        categories::table
+            .filter(categories::name.eq(name))
+            .select(Category::as_select())
+            .first(conn)
+            .map_err(|e| e.into())
+    }
+
+    /// Delete the current category, nulling references to it where possible
+    ///
+    /// This method executes multiple queries without wrapping them in a
+    /// transaction
+    pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
+        crate::record::clear_category_id(conn, self.id)?;
+        crate::merchant::clear_category_id(conn, self.id)?;
+        diesel::delete(&*self).execute(conn)?;
+
+        Ok(())
     }
 }
 
-impl Category {
-    pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
-        if let Some(id) = self.id() {
-            let tx = db.transaction()?;
-
-            Record::clear_category_id(&tx, id)?;
-            tx.execute(
-                "DELETE FROM categories
-                WHERE id = :id",
-                rusqlite::named_params! {":id": id},
-            )?;
-
-            tx.commit()?;
-            Ok(())
-        } else {
-            Err(Error::NotPersisted)
-        }
-    }
-
-    pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
-        let query = "SELECT * FROM categories WHERE name = ? LIMIT 1;";
-        let mut statement = db.prepare(query)?;
-
-        match statement.query_row([name], |row| Self::try_from(&Row::from(row)))
-        {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
+#[derive(Insertable)]
+#[diesel(table_name = categories)]
+pub struct NewCategory<'a> {
+    pub name: &'a str,
 }
 
-impl Upgrade<Category> for Database {
-    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
-        match self.execute(
-            "
-                CREATE TABLE IF NOT EXISTS categories (
-                    id INTEGER NOT NULL PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE
-                );
-            ",
-            (),
-        ) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
-        }
+impl NewCategory<'_> {
+    pub fn save(self, conn: &mut Conn) -> Result<Category> {
+        Ok(diesel::insert_into(categories::table)
+            .values(self)
+            .returning(Category::as_returning())
+            .get_result(conn)?)
     }
 }
 
@@ -76,51 +60,17 @@ mod tests {
     use super::*;
     use crate::test::prelude::{assert_eq, Result, *};
 
-    use crate::record::NewRecord;
-
     #[test]
-    fn create_update() -> Result<()> {
-        let db = test::db()?;
+    fn create_then_find_by_name() -> Result<()> {
+        let conn = &mut test::db()?;
 
-        let mut category = Category::new("Uraidla Pub");
-        assert_eq!(None, category.id());
-        category.save(&db)?;
-        assert_eq!(Some(Id::from(1)), category.id());
+        let category = NewCategory { name: "Bar" }.save(conn)?;
 
-        assert_eq!("Uraidla Pub", category.name);
-        category.name = "Chariot".to_string();
-        category.save(&db)?;
-        assert_eq!("Chariot", Category::find(&db, Id::from(1))?.name);
-
-        Ok(())
-    }
-
-    #[test]
-    fn find_by_name() -> Result<()> {
-        let db = test::db()?;
-        let category = test::category(&db, "Foo")?;
-
-        assert_eq!(category.id(), Category::find_by_name(&db, "Foo")?.id());
-
-        Ok(())
-    }
-
-    #[test]
-    fn delete() -> Result<()> {
-        let mut db = test::db()?;
-        let account = test::account(&db, "Cash")?;
-        let mut category = test::category(&db, "Uraidla Pub")?;
-
-        let mut record = NewRecord {
-            account_id: account.id(),
-            currency: account.currency,
-            category_id: category.id(),
-            ..Default::default()
-        };
-        let mut record = record.save(&db)?;
-
-        category.delete(&mut db)?;
-        assert_eq!(None, record.reload(&db)?.category_id());
+        assert_eq!(
+            category.id,
+            Category::find_by_name(conn, &category.name)?.id
+        );
+        assert_eq!(category.name, Category::find(conn, category.id)?.name);
 
         Ok(())
     }

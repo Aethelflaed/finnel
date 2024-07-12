@@ -1,44 +1,37 @@
-use chrono::{offset::Utc, DateTime};
-
-use oxydized_money::{Amount, Currency, Decimal};
-
-use crate::Database;
-use db::{
-    self as database, Connection, Entity, Error, Id, Result, Row, Upgrade,
+use crate::{
+    account::Account, category::Category, essentials::*, merchant::Merchant,
+    schema::records, Amount, Currency, Decimal,
 };
 
-use crate::category::Category;
-use crate::merchant::Merchant;
-use crate::transaction::{Direction, Mode};
+use chrono::{offset::Utc, DateTime};
+use diesel::prelude::*;
 
-mod new;
-mod query;
+mod direction;
+pub use direction::Direction;
 
-pub use new::NewRecord;
-pub use query::{FullRecord, QueryRecord};
+mod mode;
+pub use mode::Mode;
 
-use derive::{Entity, EntityDescriptor};
-
-#[derive(Debug, Entity, EntityDescriptor)]
-#[entity(table = "records")]
+#[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
+#[diesel(table_name = records)]
+#[diesel(belongs_to(Account, foreign_key = account_id))]
+#[diesel(belongs_to(Category, foreign_key = category_id))]
+#[diesel(belongs_to(Merchant, foreign_key = merchant_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Record {
-    id: Option<Id>,
-    #[field(update = false)]
-    account_id: Id,
-    #[field(db_type = database::Decimal, update = false)]
-    amount: Decimal,
-    #[field(db_type = database::Currency, update = false)]
-    currency: Currency,
-    #[field(update = false)]
-    operation_date: DateTime<Utc>,
+    pub id: i64,
+    pub account_id: i64,
+    #[diesel(deserialize_as = crate::db::Decimal)]
+    pub amount: Decimal,
+    #[diesel(deserialize_as = crate::db::Currency)]
+    pub currency: Currency,
+    pub operation_date: DateTime<Utc>,
     pub value_date: DateTime<Utc>,
-    #[field(update = false)]
-    direction: Direction,
-    #[field(update = false)]
-    mode: Mode,
+    pub direction: Direction,
+    pub mode: Mode,
     pub details: String,
-    category_id: Option<Id>,
-    merchant_id: Option<Id>,
+    pub category_id: Option<i64>,
+    pub merchant_id: Option<i64>,
 }
 
 impl Record {
@@ -46,101 +39,125 @@ impl Record {
         Amount(self.amount, self.currency)
     }
 
-    pub fn operation_date(&self) -> DateTime<Utc> {
-        self.operation_date
+    pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {
+        records::table
+            .find(id)
+            .select(Record::as_select())
+            .first(conn)
+            .map_err(|e| e.into())
     }
 
-    pub fn direction(&self) -> Direction {
-        self.direction
-    }
+    pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
+        diesel::delete(&*self).execute(conn)?;
 
-    pub fn mode(&self) -> Mode {
-        self.mode.clone()
-    }
-
-    pub fn details(&self) -> &str {
-        self.details.as_str()
-    }
-
-    pub fn category_id(&self) -> Option<Id> {
-        self.category_id
-    }
-
-    pub fn set_category(&mut self, category: Option<&Category>) {
-        self.category_id = category.and_then(Entity::id);
-    }
-
-    pub fn merchant_id(&self) -> Option<Id> {
-        self.merchant_id
-    }
-
-    pub fn set_merchant(&mut self, merchant: Option<&Merchant>) {
-        self.merchant_id = merchant.and_then(Entity::id);
-    }
-}
-
-impl Record {
-    pub(crate) fn clear_merchant_id(
-        db: &Connection,
-        merchant_id: Id,
-    ) -> Result<()> {
-        db.execute(
-            "UPDATE records
-            SET merchant_id = NULL
-            WHERE merchant_id = :merchant_id",
-            rusqlite::named_params! {":merchant_id": merchant_id},
-        )?;
-        Ok(())
-    }
-
-    pub(crate) fn clear_category_id(
-        db: &Connection,
-        category_id: Id,
-    ) -> Result<()> {
-        db.execute(
-            "UPDATE records
-            SET category_id = NULL
-            WHERE category_id = :category_id",
-            rusqlite::named_params! {":category_id": category_id},
-        )?;
-        Ok(())
-    }
-
-    pub(crate) fn delete_by_account_id(
-        db: &Connection,
-        account_id: Id,
-    ) -> Result<()> {
-        db.execute(
-            "DELETE FROM records
-            WHERE account_id = :account_id",
-            rusqlite::named_params! {":account_id": account_id},
-        )?;
         Ok(())
     }
 }
 
-impl Upgrade<Record> for Database {
-    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
-        match self.execute(
-            "CREATE TABLE IF NOT EXISTS records (
-                    id INTEGER NOT NULL PRIMARY KEY,
-                    account_id INTEGER NOT NULL,
-                    amount INTEGER NOT NULL,
-                    currency TEXT NOT NULL,
-                    operation_date TEXT NOT NULL,
-                    value_date TEXT NOT NULL,
-                    direction TEXT NOT NULL DEFAULT 'Debit',
-                    mode TEXT NOT NULL DEFAULT 'Direct',
-                    details TEXT NOT NULL DEFAULT '',
-                    category_id INTEGER,
-                    merchant_id INTEGER
-                );",
-            (),
-        ) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
+#[derive(Insertable)]
+#[diesel(table_name = records)]
+pub struct NewRecord<'a> {
+    pub account_id: i64,
+    #[diesel(serialize_as = crate::db::Decimal)]
+    pub amount: Decimal,
+    #[diesel(serialize_as = crate::db::Currency)]
+    pub currency: Currency,
+    pub operation_date: DateTime<Utc>,
+    pub value_date: DateTime<Utc>,
+    pub direction: Direction,
+    pub mode: Mode,
+    pub details: &'a str,
+    pub category_id: Option<i64>,
+    pub merchant_id: Option<i64>,
+}
+
+impl NewRecord<'_> {
+    pub fn new(account: &Account) -> Self {
+        Self {
+            account_id: account.id,
+            currency: account.currency,
+            ..Default::default()
         }
     }
+
+    pub fn save(self, conn: &mut Conn) -> Result<Record> {
+        Ok(diesel::insert_into(records::table)
+            .values(self)
+            .returning(Record::as_returning())
+            .get_result(conn)?)
+    }
+}
+
+impl Default for NewRecord<'_> {
+    fn default() -> Self {
+        let date = Utc::now();
+
+        Self {
+            account_id: 0,
+            amount: Decimal::ZERO,
+            currency: Currency::EUR,
+            operation_date: date,
+            value_date: date,
+            direction: Direction::Debit,
+            mode: Mode::Direct,
+            details: "",
+            category_id: None,
+            merchant_id: None,
+        }
+    }
+}
+
+#[derive(Default, Clone, Copy, AsChangeset)]
+#[diesel(table_name = records)]
+pub struct ChangeRecord<'a> {
+    pub value_date: Option<DateTime<Utc>>,
+    pub details: Option<&'a str>,
+    pub category_id: Option<Option<i64>>,
+    pub merchant_id: Option<Option<i64>>,
+}
+
+impl ChangeRecord<'_> {
+    pub fn apply(self, conn: &mut Conn, record: &mut Record) -> Result<()> {
+        diesel::update(&*record).set(self).execute(conn)?;
+
+        if let Some(value) = self.value_date {
+            record.value_date = value;
+        }
+        if let Some(value) = self.details {
+            record.details = value.to_string();
+        }
+        if let Some(value) = self.category_id {
+            record.category_id = value;
+        }
+        if let Some(value) = self.merchant_id {
+            record.merchant_id = value;
+        }
+
+        Ok(())
+    }
+}
+
+pub(crate) fn clear_category_id(conn: &mut Conn, id: i64) -> Result<()> {
+    diesel::update(records::table)
+        .filter(records::category_id.eq(id))
+        .set(records::category_id.eq(None::<i64>))
+        .execute(conn)?;
+    Ok(())
+}
+
+pub(crate) fn clear_merchant_id(conn: &mut Conn, id: i64) -> Result<()> {
+    diesel::update(records::table)
+        .filter(records::merchant_id.eq(id))
+        .set(records::merchant_id.eq(None::<i64>))
+        .execute(conn)?;
+    Ok(())
+}
+
+pub(crate) fn delete_by_account_id(conn: &mut Conn, id: i64) -> Result<()> {
+    diesel::delete(records::table)
+        .filter(records::account_id.eq(id))
+        .execute(conn)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -150,21 +167,27 @@ mod tests {
 
     #[test]
     fn update() -> Result<()> {
-        let db = &test::db()?;
+        let db = &mut test::db()?;
         let account = test::account(db, "Cash")?;
         let mut record = test::record(db, &account)?;
 
         let category = test::category(db, "Foo")?;
-        record.set_category(Some(&category));
-        record.save(&db)?;
+        diesel::update(&record)
+            .set(records::category_id.eq(category.id))
+            .execute(db)?;
+        //record.set_category(Some(&category));
+        //record.save(db)?;
 
         let merchant = test::merchant(db, "Bar")?;
-        record.set_merchant(Some(&merchant));
-        record.save(&db)?;
+        diesel::update(&record)
+            .set(records::merchant_id.eq(merchant.id))
+            .execute(db)?;
+        //record.set_merchant(Some(&merchant));
+        //record.save(db)?;
 
-        record.reload(&db)?;
-        assert_eq!(category.id(), record.category_id());
-        assert_eq!(merchant.id(), record.merchant_id());
+        record.reload(db)?;
+        assert_eq!(Some(category.id), record.category_id);
+        assert_eq!(Some(merchant.id), record.merchant_id);
 
         Ok(())
     }
@@ -177,16 +200,16 @@ mod tests {
         let merchant_2 = test::merchant(db, "Bar")?;
 
         let mut record_1 = NewRecord::new(&account);
-        record_1.merchant_id = Some(merchant_1.id().unwrap());
+        record_1.merchant_id = Some(merchant_1.id);
         let mut record_1 = record_1.save(db)?;
 
         let mut record_2 = NewRecord::new(&account);
-        record_2.merchant_id = Some(merchant_2.id().unwrap());
+        record_2.merchant_id = Some(merchant_2.id);
         let mut record_2 = record_2.save(db)?;
 
-        Record::clear_merchant_id(db, merchant_1.id().unwrap())?;
-        assert_eq!(None, record_1.reload(db)?.merchant_id());
-        assert_eq!(merchant_2.id(), record_2.reload(db)?.merchant_id());
+        super::clear_merchant_id(db, merchant_1.id)?;
+        assert_eq!(None, record_1.reload(db)?.merchant_id);
+        assert_eq!(Some(merchant_2.id), record_2.reload(db)?.merchant_id);
 
         Ok(())
     }
@@ -199,16 +222,16 @@ mod tests {
         let category_2 = test::category(db, "Bar")?;
 
         let mut record_1 = NewRecord::new(&account);
-        record_1.category_id = Some(category_1.id().unwrap());
+        record_1.category_id = Some(category_1.id);
         let mut record_1 = record_1.save(db)?;
 
         let mut record_2 = NewRecord::new(&account);
-        record_2.category_id = Some(category_2.id().unwrap());
+        record_2.category_id = Some(category_2.id);
         let mut record_2 = record_2.save(db)?;
 
-        Record::clear_category_id(db, category_1.id().unwrap())?;
-        assert_eq!(None, record_1.reload(db)?.category_id());
-        assert_eq!(category_2.id(), record_2.reload(db)?.category_id());
+        super::clear_category_id(db, category_1.id)?;
+        assert_eq!(None, record_1.reload(db)?.category_id);
+        assert_eq!(Some(category_2.id), record_2.reload(db)?.category_id);
 
         Ok(())
     }
@@ -222,7 +245,7 @@ mod tests {
         let mut record_1 = test::record(db, &account_1)?;
         let mut record_2 = test::record(db, &account_2)?;
 
-        Record::delete_by_account_id(db, account_1.id().unwrap())?;
+        super::delete_by_account_id(db, account_1.id)?;
         assert!(record_1.reload(db).is_err());
         assert!(record_2.reload(db).is_ok());
 

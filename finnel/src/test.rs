@@ -1,57 +1,50 @@
 #![cfg(test)]
 
-use crate::{
-    Account, Category, Connection, Database, Entity, Merchant, Record,
-};
+use crate::prelude::*;
+
 use anyhow::Result;
 
 pub mod prelude {
-    pub use crate::test::{self, Reload};
+    pub use crate::test::{self, Reloadable};
     pub use anyhow::Result;
     pub use pretty_assertions::{assert_eq, assert_ne};
 }
 
-pub trait Reload: Entity {
-    fn reload(&mut self, db: &Connection) -> Result<&mut Self> {
-        *self = Self::find(
-            db,
-            self.id()
-                .ok_or(anyhow::anyhow!("Can't reload entity without id"))?,
-        )?;
-        Ok(self)
-    }
+pub trait Reloadable {
+    fn reload(&mut self, conn: &mut Conn) -> Result<&mut Self>;
 }
 
-impl Reload for Account {}
-impl Reload for Record {}
-impl Reload for Merchant {}
-impl Reload for Category {}
+macro_rules! reloadable {
+    ($($struct:ident),*) => {
+        $(impl Reloadable for $struct {
+            fn reload(&mut self, conn: &mut Conn) -> Result<&mut Self> {
+                *self = Self::find(conn, self.id)?;
+                Ok(self)
+            }
+        })*
+    };
+}
 
-pub fn db() -> Result<Database> {
-    let db = Database::memory()?;
+reloadable!(Account, Category, Merchant, Record);
+
+pub fn db() -> Result<Conn> {
+    let mut db = crate::Database::memory()?;
     db.setup()?;
-    Ok(db)
+    Ok(db.into())
 }
 
-pub fn account(db: &Connection, name: &str) -> Result<Account> {
-    let mut account = Account::new(name);
-    account.save(db)?;
-    Ok(account)
+pub fn account(conn: &mut Conn, name: &str) -> Result<Account> {
+    Ok(crate::account::NewAccount::new(name).save(conn)?)
 }
 
-pub fn category(db: &Connection, name: &str) -> Result<Category> {
-    let mut category = Category::new(name);
-    category.save(db)?;
-    Ok(category)
+pub fn category(conn: &mut Conn, name: &str) -> Result<Category> {
+    Ok(crate::category::NewCategory { name: name }.save(conn)?)
 }
 
-pub fn merchant(db: &Connection, name: &str) -> Result<Merchant> {
-    let mut merchant = Merchant::new(name);
-    merchant.save(db)?;
-    Ok(merchant)
+pub fn merchant(conn: &mut Conn, name: &str) -> Result<Merchant> {
+    Ok(crate::merchant::NewMerchant { name: name }.save(conn)?)
 }
 
-pub fn record(db: &Connection, account: &Account) -> Result<Record> {
-    let mut record = crate::record::NewRecord::new(account);
-    Ok(record.save(db)?)
+pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {
+    Ok(crate::record::NewRecord::new(account).save(conn)?)
 }

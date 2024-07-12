@@ -1,20 +1,33 @@
+#[cfg(test)]
+pub mod test;
+
+pub mod db;
+
+pub mod result;
+
 pub mod account;
 pub mod category;
 pub mod merchant;
 pub mod record;
-pub mod transaction;
 
-#[cfg(test)]
-pub mod test;
+pub mod schema;
+use diesel::prelude::*;
 
-pub use account::Account;
-pub use category::Category;
-pub use merchant::Merchant;
-pub use record::Record;
+pub mod essentials {
+    pub use crate::result::{Error, OptionalExtension, Result};
+    pub use oxydized_money::{Amount, Currency, Decimal};
+    pub type Conn = diesel::sqlite::SqliteConnection;
+}
+pub use essentials::*;
 
-pub use db::{Connection, DatabaseTrait, Entity, Error, Id, Query};
+pub mod prelude {
+    pub use crate::essentials::*;
 
-pub use oxydized_money::{Amount, Currency, Decimal};
+    pub use crate::{
+        account::Account, category::Category, merchant::Merchant,
+        record::Record,
+    };
+}
 
 #[derive(
     derive_more::From,
@@ -22,32 +35,26 @@ pub use oxydized_money::{Amount, Currency, Decimal};
     derive_more::Deref,
     derive_more::DerefMut,
 )]
-pub struct Database(Connection);
+pub struct Database(SqliteConnection);
 
-use db::Result;
+use diesel_migrations::{
+    embed_migrations, EmbeddedMigrations, MigrationHarness,
+};
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 impl Database {
     pub fn open<T: AsRef<std::path::Path>>(path: T) -> Result<Self> {
-        <Self as DatabaseTrait>::open(path)
+        Ok(Database(SqliteConnection::establish(
+            &path.as_ref().to_string_lossy(),
+        )?))
     }
 
     pub fn memory() -> Result<Self> {
-        <Self as DatabaseTrait>::memory()
+        Self::open(":memory:")
     }
 
-    pub fn setup(&self) -> Result<()> {
-        DatabaseTrait::setup(self)
-    }
-}
-
-impl DatabaseTrait for Database {
-    fn upgrade_from(&self, version: &semver::Version) -> Result<()> {
-        use db::Upgrade;
-
-        Upgrade::<Category>::upgrade_from(self, version)?;
-        Upgrade::<Merchant>::upgrade_from(self, version)?;
-        Upgrade::<Account>::upgrade_from(self, version)?;
-        Upgrade::<Record>::upgrade_from(self, version)?;
+    pub fn setup(&mut self) -> Result<()> {
+        self.run_pending_migrations(MIGRATIONS)?;
 
         Ok(())
     }

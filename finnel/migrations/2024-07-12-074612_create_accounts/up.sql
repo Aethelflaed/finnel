@@ -1,0 +1,7 @@
+-- Your SQL goes here
+CREATE TABLE IF NOT EXISTS accounts (
+  id INTEGER NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  balance BIGINT NOT NULL,
+  currency TEXT NOT NULL
+);

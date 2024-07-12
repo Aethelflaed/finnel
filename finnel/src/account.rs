@@ -1,114 +1,76 @@
-use crate::Database;
-use db::{
-    self as database, Connection, Entity, Error, Id, Result, Row, Upgrade,
-};
-use oxydized_money::{Amount, Currency, Decimal};
+use crate::{essentials::*, schema::accounts, Amount, Currency, Decimal};
 
-use crate::record::Record;
+use diesel::prelude::*;
 
-use derive::{Entity, EntityDescriptor};
-
-#[derive(Debug, Entity, EntityDescriptor)]
-#[entity(table = "accounts")]
+#[derive(Debug, Queryable, Selectable, Identifiable)]
+#[diesel(table_name = accounts)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Account {
-    id: Option<Id>,
+    pub id: i64,
     pub name: String,
-    #[field(db_type = database::Decimal)]
-    balance: Decimal,
-    #[field(db_type = database::Currency, update = false)]
-    pub(crate) currency: Currency,
+    #[diesel(deserialize_as = crate::db::Decimal)]
+    pub balance: Decimal,
+    #[diesel(deserialize_as = crate::db::Currency)]
+    pub currency: Currency,
 }
 
 impl Account {
-    pub fn new<T: Into<String>>(name: T) -> Self {
-        Self {
-            name: name.into(),
-            ..Default::default()
-        }
-    }
-
     pub fn balance(&self) -> Amount {
         Amount(self.balance, self.currency)
     }
 
-    pub fn currency(&self) -> Currency {
-        self.currency
+    pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {
+        accounts::table
+            .find(id)
+            .select(Account::as_select())
+            .first(conn)
+            .map_err(|e| e.into())
     }
 
-    pub fn delete(&mut self, db: &mut Connection) -> Result<()> {
-        if let Some(id) = self.id() {
-            let tx = db.transaction()?;
-
-            Record::delete_by_account_id(&tx, id)?;
-            tx.execute(
-                "DELETE FROM accounts
-                WHERE id = :id",
-                rusqlite::named_params! {":id": id},
-            )?;
-
-            tx.commit()?;
-            Ok(())
-        } else {
-            Err(Error::NotPersisted)
-        }
+    pub fn find_by_name(conn: &mut Conn, name: &str) -> Result<Self> {
+        accounts::table
+            .filter(accounts::name.eq(name))
+            .select(Account::as_select())
+            .first(conn)
+            .map_err(|e| e.into())
     }
 
-    pub fn find_by_name(db: &Connection, name: &str) -> Result<Self> {
-        let query = "SELECT * FROM accounts WHERE name = ? LIMIT 1;";
-        let mut statement = db.prepare(query)?;
+    /// Delete the current account, removing associated records too
+    ///
+    /// This method executes multiple queries without wrapping them in a
+    /// transaction
+    pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
+        crate::record::delete_by_account_id(conn, self.id)?;
+        diesel::delete(&*self).execute(conn)?;
 
-        match statement.query_row([name], |row| Self::try_from(&Row::from(row)))
-        {
-            Ok(record) => Ok(record),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    pub fn for_each<F>(db: &Connection, mut f: F) -> Result<()>
-    where
-        F: FnMut(Self),
-    {
-        match db
-            .prepare("SELECT * FROM accounts")?
-            .query_and_then([], |row| Self::try_from(&Row::from(row)))
-        {
-            Ok(iter) => {
-                for entity in iter {
-                    f(entity?);
-                }
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
-        }
+        Ok(())
     }
 }
 
-impl Default for Account {
-    fn default() -> Self {
-        Self {
-            id: None,
-            name: String::new(),
+#[derive(Insertable)]
+#[diesel(table_name = accounts)]
+pub struct NewAccount<'a> {
+    pub name: &'a str,
+    #[diesel(serialize_as = crate::db::Decimal)]
+    pub balance: Decimal,
+    #[diesel(serialize_as = crate::db::Currency)]
+    pub currency: Currency,
+}
+
+impl NewAccount<'_> {
+    pub fn new<'a>(name: &'a str) -> NewAccount<'a> {
+        NewAccount {
+            name,
             balance: Decimal::ZERO,
             currency: Currency::EUR,
         }
     }
-}
 
-impl Upgrade<Account> for Database {
-    fn upgrade_from(&self, _version: &semver::Version) -> Result<()> {
-        match self.execute(
-            "CREATE TABLE IF NOT EXISTS accounts (
-                id INTEGER NOT NULL PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                balance INTEGER NOT NULL,
-                currency TEXT NOT NULL
-            );",
-            (),
-        ) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
-        }
+    pub fn save(self, conn: &mut Conn) -> Result<Account> {
+        Ok(diesel::insert_into(accounts::table)
+            .values(self)
+            .returning(Account::as_returning())
+            .get_result(conn)?)
     }
 }
 
@@ -118,47 +80,18 @@ mod tests {
     use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn crud() -> Result<()> {
-        let db = &mut test::db()?;
+    fn create_then_find_by_name() -> Result<()> {
+        let conn = &mut test::db()?;
 
-        let mut account = Account::new("Uraidla Pub");
-        assert_eq!(None, account.id());
-        account.save(&db)?;
-        assert_eq!(Some(Id::from(1)), account.id());
+        let account = NewAccount {
+            name: "Bar",
+            balance: Decimal::new(314, 3),
+            currency: Currency::EUR,
+        }
+        .save(conn)?;
 
-        assert_eq!("Uraidla Pub", account.name);
-        account.name = "Chariot".to_string();
-        account.save(&db)?;
-        assert_eq!("Chariot", account.reload(&db)?.name);
-
-        assert_eq!(Decimal::ZERO, account.balance);
-
-        let mut record = test::record(db, &account)?;
-        account.delete(db)?;
-
-        assert!(record.reload(db).is_err());
-        assert!(account.reload(db).is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn for_each() -> Result<()> {
-        let db = Database::memory()?;
-        db.setup()?;
-
-        let mut account1 = Account::new("Account 1");
-        account1.save(&db)?;
-        let mut account2 = Account::new("Account 2");
-        account2.save(&db)?;
-
-        let mut accounts = Vec::new();
-        Account::for_each(&db, |account| {
-            accounts.push(account);
-        })?;
-
-        assert_eq!("Account 1", accounts[0].name);
-        assert_eq!("Account 2", accounts[1].name);
+        assert_eq!(account.id, Account::find_by_name(conn, &account.name)?.id);
+        assert_eq!(account.name, Account::find(conn, account.id)?.name);
 
         Ok(())
     }

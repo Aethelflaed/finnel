@@ -8,12 +8,20 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.38"
 derive_more = "0.99.17"
-derive = { path = "../derive" }
-db = { path = "../db" }
 oxydized-money = "0.3.0"
-rusqlite = { version = "0.31.0", features = ["chrono"] }
 semver = "1.0.23"
 thiserror = "1.0.61"
+diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
+
+[dependencies.diesel]
+version = "2.2.1"
+default-features = false
+features = [
+  "chrono",
+  "sqlite",
+  "returning_clauses_for_sqlite_3_35",
+  "without-deprecated",
+]
 
 [dev-dependencies]
 anyhow = "1.0.86"
