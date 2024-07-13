@@ -3,10 +3,7 @@ use std::str::FromStr;
 
 use super::{parse_date_fmt, Data, Profile, RecordToImport};
 
-use finnel::{
-    record::{Direction, Mode, NewRecord},
-    Decimal,
-};
+use finnel::{prelude::*, record::NewRecord};
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime};
@@ -30,16 +27,17 @@ impl Profile for Importer {
             let mut operation_date = Self::parse_date(row.get(0).unwrap())?;
             let value_date = Self::parse_date(row.get(1).unwrap())?;
             let mut details = row.get(2).unwrap();
-            let mut mode = Mode::Direct;
+            let mut mode = Mode::Direct(PaymentMethod::Empty);
             let mut category_name = row.get(3).unwrap();
             let merchant_name = row.get(5).unwrap();
-            let mut payment_method = String::new();
             let amount = Self::parse_decimal(row.get(6).unwrap())?;
 
             if details.starts_with("CARTE ") || details.starts_with("AVOIR ") {
+                let payment_method;
                 operation_date = parse_date_fmt(&details[6..14], "%d/%m/%y")?;
                 (details, payment_method) =
                     Self::strip_cb_suffix(&details[15..]);
+                mode = Mode::Direct(payment_method);
             } else if details.starts_with("VIR ") {
                 mode = Mode::Transfer;
                 details = &details[4..];
@@ -47,10 +45,11 @@ impl Profile for Importer {
                     details = value;
                 }
             } else if details.starts_with("RETRAIT DAB ") {
+                let payment_method;
                 operation_date = parse_date_fmt(&details[12..20], "%d/%m/%y")?;
-                mode = Mode::Atm;
                 (details, payment_method) =
                     Self::strip_cb_suffix(&details[21..]);
+                mode = Mode::Atm(payment_method);
             }
 
             if category_name == "Non catégorisé" {
@@ -78,7 +77,6 @@ impl Profile for Importer {
                 record,
                 merchant_name: merchant_name.to_string(),
                 category_name: category_name.to_string(),
-                payment_method,
             });
         }
 
@@ -97,7 +95,7 @@ impl Importer {
         )?)
     }
 
-    fn strip_cb_suffix(mut details: &str) -> (&str, String) {
+    fn strip_cb_suffix(mut details: &str) -> (&str, PaymentMethod) {
         let mut count = 0;
         let mut cb = [' ', ' ', ' ', ' '];
 
@@ -116,6 +114,9 @@ impl Importer {
             }
         });
 
-        (details, cb.iter().collect())
+        (
+            details,
+            PaymentMethod::CardLast4Digit(cb[0], cb[1], cb[2], cb[3]),
+        )
     }
 }

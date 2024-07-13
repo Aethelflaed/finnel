@@ -36,7 +36,6 @@ impl Data {
                 mut record,
                 merchant_name,
                 category_name,
-                payment_method: _,
             } in self.records.clone()
             {
                 record.account_id = account.id;
@@ -118,7 +117,6 @@ pub struct RecordToImport {
     pub record: NewRecord<'static>,
     pub merchant_name: String,
     pub category_name: String,
-    pub payment_method: String,
 }
 
 pub fn import<T: AsRef<Path>, S: AsRef<str>>(

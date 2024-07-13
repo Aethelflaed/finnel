@@ -1,6 +1,8 @@
 use std::fmt::{Display, Error, Formatter};
 use std::str::FromStr;
 
+use crate::result::ParseTypeError;
+
 use diesel::{
     backend::Backend,
     deserialize::{self, FromSql, FromSqlRow},
@@ -37,15 +39,6 @@ impl Display for Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
-pub struct ParseTypeError;
-
-impl Display for ParseTypeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "Parse Type Error")
-    }
-}
-
 impl FromStr for Direction {
     type Err = ParseTypeError;
 
@@ -55,7 +48,7 @@ impl FromStr for Direction {
             "débit" => Ok(Debit),
             "credit" => Ok(Credit),
             "crédit" => Ok(Credit),
-            _ => Err(ParseTypeError),
+            _ => Err(ParseTypeError("Direction", value.to_string())),
         }
     }
 }
@@ -92,6 +85,9 @@ mod tests {
         assert_eq!(Credit, "Credit".parse::<Direction>()?);
         assert_eq!(Credit, "Crédit".parse::<Direction>()?);
         assert_eq!(Credit, "crédit".parse::<Direction>()?);
+
+        assert!(Debit.to_string().parse::<Direction>().is_ok());
+        assert!(Credit.to_string().parse::<Direction>().is_ok());
 
         Ok(())
     }

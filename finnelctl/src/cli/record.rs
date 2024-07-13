@@ -39,7 +39,7 @@ pub struct Add {
     /// Transaction mode
     ///
     /// Possible values include direct, transfer, ATM
-    #[arg(short = 'm', long, default_value_t = Mode::Direct, help_heading = "Record")]
+    #[arg(short = 'm', long, default_value_t, help_heading = "Record")]
     pub mode: Mode,
 
     /// Operation date

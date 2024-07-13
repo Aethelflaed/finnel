@@ -67,3 +67,15 @@ impl<T> OptionalExtension<T> for Result<T> {
         }
     }
 }
+
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub struct ParseTypeError(pub &'static str, pub String);
+
+impl std::fmt::Display for ParseTypeError {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "Parse Type Error: {} {}", self.0, self.1)
+    }
+}

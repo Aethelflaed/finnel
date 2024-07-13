@@ -29,7 +29,7 @@ pub mod prelude {
         account::Account,
         category::Category,
         merchant::Merchant,
-        record::{Direction, Mode, Record},
+        record::{Direction, Mode, PaymentMethod, Record},
     };
 
     pub use super::Database;

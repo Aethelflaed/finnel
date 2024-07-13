@@ -55,7 +55,7 @@ impl CommandContext<'_> {
             operation_date: args.operation_date()?,
             value_date: args.value_date()?,
             direction: *direction,
-            mode: mode.clone(),
+            mode: *mode,
             details: details.as_str(),
             category_id: args
                 .category(self.conn)?
@@ -102,7 +102,7 @@ impl CommandContext<'_> {
             greater_than: *greater_than,
             less_than: *less_than,
             direction: *direction,
-            mode: mode.clone(),
+            mode: *mode,
             details: details.as_deref(),
             count: *count,
             category_id: args.category(self.conn)?.map(|c| c.map(|c| c.id)),

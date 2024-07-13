@@ -11,7 +11,7 @@ mod direction;
 pub use direction::Direction;
 
 mod mode;
-pub use mode::Mode;
+pub use mode::{Mode, PaymentMethod};
 
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = records)]
@@ -100,7 +100,7 @@ impl Default for NewRecord<'_> {
             operation_date: date,
             value_date: date,
             direction: Direction::Debit,
-            mode: Mode::Direct,
+            mode: Mode::Direct(PaymentMethod::Empty),
             details: "",
             category_id: None,
             merchant_id: None,
@@ -162,10 +162,7 @@ pub struct QueryRecord<'a> {
 type QueryRecordResult = (Record, Option<Category>, Option<Merchant>);
 
 impl QueryRecord<'_> {
-    pub fn run(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Vec<QueryRecordResult>> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<QueryRecordResult>> {
         let Some(account_id) = self.account_id else {
             return Err(Error::Invalid("Missing account_id".to_owned()));
         };
