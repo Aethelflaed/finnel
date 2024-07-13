@@ -4,8 +4,7 @@ use std::str::FromStr;
 use super::{parse_date_fmt, Data, Profile, RecordToImport};
 
 use finnel::{
-    record::NewRecord,
-    transaction::{Direction, Mode},
+    record::{Direction, Mode, NewRecord},
     Decimal,
 };
 
@@ -70,11 +69,12 @@ impl Profile for Importer {
                 amount: amount.abs(),
                 direction,
                 mode,
-                details: details.to_string(),
+                details: "",
                 ..Default::default()
             };
 
             records.push(RecordToImport {
+                details: details.to_string(),
                 record,
                 merchant_name: merchant_name.to_string(),
                 category_name: category_name.to_string(),

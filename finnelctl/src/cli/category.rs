@@ -25,7 +25,7 @@ pub struct List {
 
     /// Maximum number of categories to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
-    pub count: Option<usize>,
+    pub count: Option<u32>,
 }
 
 #[derive(Subcommand, Clone, Debug)]

@@ -2,19 +2,20 @@ use anyhow::Result;
 use std::borrow::Cow;
 
 use finnel::{
-    category::QueryCategory, record::QueryRecord, Category, Database, Entity,
-    Query,
+    category::{ChangeCategory, NewCategory, QueryCategory},
+    prelude::*,
+    record::QueryRecord,
 };
 
 use crate::cli::{category::*, Commands};
 use crate::config::Config;
-use crate::record::display;
+use crate::record::display::RecordToDisplay;
 
 use tabled::{settings::Panel, Table, Tabled};
 
 struct CommandContext<'a> {
     config: &'a Config,
-    db: &'a mut Database,
+    conn: &'a mut Database,
 }
 
 #[derive(derive_more::From)]
@@ -24,21 +25,11 @@ impl Tabled for CategoryToDisplay {
     const LENGTH: usize = 2;
 
     fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![self.id(), self.0.name.clone().into()]
+        vec![self.0.id.to_string().into(), self.0.name.clone().into()]
     }
 
     fn headers() -> Vec<Cow<'static, str>> {
         vec!["id".into(), "name".into()]
-    }
-}
-
-impl CategoryToDisplay {
-    fn id(&self) -> Cow<'_, str> {
-        if let Some(id) = self.0.id() {
-            id.value().to_string().into()
-        } else {
-            Default::default()
-        }
     }
 }
 
@@ -47,8 +38,8 @@ pub fn run(config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 
-    let db = &mut config.database()?;
-    let mut cmd = CommandContext { db, config };
+    let conn = &mut config.database()?;
+    let mut cmd = CommandContext { conn, config };
 
     match &command {
         Command::List(args) => cmd.list(args),
@@ -63,17 +54,14 @@ impl CommandContext<'_> {
     fn list(&mut self, args: &List) -> Result<()> {
         let List { name, count, .. } = args;
 
-        let query = QueryCategory {
-            name: name.clone(),
-            count: *count,
-            ..Default::default()
-        };
-
-        let mut categories = Vec::<CategoryToDisplay>::new();
-
-        for category in query.statement(&self.db)?.iter()? {
-            categories.push(category?.into());
+        let categories = QueryCategory {
+            name: name.as_deref(),
+            count: count.map(|c| c as i64),
         }
+        .run(self.conn)?
+        .into_iter()
+        .map(CategoryToDisplay::from)
+        .collect::<Vec<_>>();
 
         println!("{}", Table::new(categories));
 
@@ -81,23 +69,22 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let category = Category::find_by_name(self.db, &args.name)?;
+        let category = Category::find_by_name(self.conn, &args.name)?;
 
-        println!("{} | {}", category.id().unwrap().value(), category.name);
+        println!("{} | {}", category.id, category.name);
 
         println!();
-        if let Ok(account) = self.config.account_or_default(self.db) {
-            let query = QueryRecord {
-                account_id: account.id(),
-                category_id: Some(category.id()),
+        if let Ok(account) = self.config.account_or_default(self.conn) {
+            let records = QueryRecord {
+                account_id: Some(account.id),
+                category_id: Some(Some(category.id)),
                 ..Default::default()
-            };
-
-            let mut records = Vec::<display::RecordToDisplay>::new();
-
-            for record in query.statement(&self.db)?.iter()? {
-                records.push(record?.into());
             }
+            .run(self.conn)?
+            .into_iter()
+            .map(RecordToDisplay::from)
+            .collect::<Vec<_>>();
+
             let count = records.len();
 
             if count > 0 {
@@ -119,30 +106,27 @@ impl CommandContext<'_> {
     }
 
     fn create(&mut self, args: &Create) -> Result<()> {
-        let mut category = Category::new(args.name.clone());
-
-        category.save(&self.db)?;
-
+        NewCategory::new(&args.name).save(self.conn)?;
         Ok(())
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let mut category = Category::find_by_name(self.db, &args.name)?;
+        let category = Category::find_by_name(self.conn, &args.name)?;
 
-        if let Some(name) = args.new_name.clone() {
-            category.name = name;
+        ChangeCategory {
+            name: args.new_name.as_deref(),
         }
-
-        category.save(&self.db)?;
+        .save(self.conn, &category)
+        .optional_empty_changeset()?;
 
         Ok(())
     }
 
     fn delete(&mut self, args: &Delete) -> Result<()> {
-        let mut category = Category::find_by_name(self.db, &args.name)?;
+        let mut category = Category::find_by_name(self.conn, &args.name)?;
 
         if args.confirm {
-            category.delete(&mut self.db)?;
+            category.delete(self.conn)?;
         } else {
             anyhow::bail!("operation requires confirmation flag");
         }

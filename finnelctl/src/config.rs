@@ -4,12 +4,12 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Result};
 use toml::{Table, Value};
 
-use finnel::{Account, Database, Error};
+use finnel::prelude::*;
 
 use crate::cli::{Cli, Commands};
 
 pub struct Config {
-    _dir: PathBuf,
+    dir: PathBuf,
     data_dir: PathBuf,
     cli: Cli,
     table: Table,
@@ -51,7 +51,7 @@ impl Config {
         }
 
         Ok(Config {
-            _dir: dir,
+            dir,
             data_dir,
             cli,
             table,
@@ -62,9 +62,9 @@ impl Config {
         self.cli.account.as_deref()
     }
 
-    pub fn account_or_default(&self, db: &Database) -> Result<Account> {
+    pub fn account_or_default(&self, conn: &mut Database) -> Result<Account> {
         if let Some(name) = self.account_name() {
-            match Account::find_by_name(db, name) {
+            match Account::find_by_name(conn, name) {
                 Ok(account) => Ok(account),
                 Err(Error::NotFound) => {
                     Err(anyhow!("Account not found: {}", name))
@@ -72,11 +72,29 @@ impl Config {
                 Err(e) => Err(e.into()),
             }
         } else {
-            match crate::account::default(db) {
+            match self.default_account(conn) {
                 Ok(None) => Err(anyhow!("Account not provided")),
                 Ok(Some(account)) => Ok(account),
                 Err(e) => Err(e),
             }
+        }
+    }
+
+    pub fn default_account(
+        &self,
+        conn: &mut Database,
+    ) -> Result<Option<Account>> {
+        if let Some(account_name) = self.get("default_account")? {
+            match Account::find_by_name(conn, &account_name) {
+                Ok(entity) => Ok(Some(entity)),
+                Err(Error::NotFound) => {
+                    self.reset("default_account")?;
+                    Ok(None)
+                }
+                Err(error) => Err(error.into()),
+            }
+        } else {
+            Ok(None)
         }
     }
 
@@ -100,9 +118,46 @@ impl Config {
     }
 
     pub fn database(&self) -> Result<Database> {
-        let db = Database::open(self.database_path())?;
-        db.setup()?;
-        Ok(db)
+        let mut conn = Database::open(self.database_path())?;
+        conn.setup()?;
+        Ok(conn)
+    }
+
+    pub fn kvdir(&self) -> Result<PathBuf> {
+        let dir = self.dir.join("key_value_store");
+
+        if !dir.is_dir() {
+            std::fs::create_dir(&dir)?;
+        }
+
+        Ok(dir)
+    }
+
+    pub fn path(&self, key: &str) -> Result<PathBuf> {
+        Ok(self.kvdir()?.join(key))
+    }
+
+    pub fn get(&self, key: &str) -> Result<Option<String>> {
+        let path = self.path(key)?;
+
+        match path.exists() {
+            true => Ok(Some(std::fs::read_to_string(self.path(key)?)?)),
+            false => Ok(None),
+        }
+    }
+
+    pub fn set(&self, key: &str, value: &str) -> Result<()> {
+        std::fs::write(self.path(key)?, value)?;
+        Ok(())
+    }
+
+    pub fn reset(&self, key: &str) -> Result<()> {
+        let path = self.path(key)?;
+
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
+        Ok(())
     }
 }
 
@@ -145,7 +200,7 @@ mod tests {
     fn parse() -> Result<()> {
         with_dirs(|confd, datad| {
             let mut config = Config::try_parse()?;
-            assert_eq!(config._dir, confd.path());
+            assert_eq!(config.dir, confd.path());
             assert_eq!(config.data_dir, datad.path());
 
             confd.child("config.toml").write_str(&format!(
@@ -163,7 +218,7 @@ mod tests {
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
             ])?;
-            assert_eq!(config._dir, datad.child("bar").path());
+            assert_eq!(config.dir, datad.child("bar").path());
 
             let _ = create_dir(datad.child("bar").path());
             config = Config::try_parse_from(&[

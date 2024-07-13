@@ -1,4 +1,5 @@
-use crate::{essentials::*, schema::accounts, Amount, Currency, Decimal};
+pub use crate::schema::accounts;
+use crate::{essentials::*, Amount, Currency, Decimal};
 
 use diesel::prelude::*;
 
@@ -57,20 +58,66 @@ pub struct NewAccount<'a> {
     pub currency: Currency,
 }
 
-impl NewAccount<'_> {
-    pub fn new<'a>(name: &'a str) -> NewAccount<'a> {
-        NewAccount {
+impl<'a> NewAccount<'a> {
+    pub fn new(name: &'a str) -> Self {
+        Self {
             name,
             balance: Decimal::ZERO,
             currency: Currency::EUR,
         }
     }
+}
 
+impl NewAccount<'_> {
     pub fn save(self, conn: &mut Conn) -> Result<Account> {
         Ok(diesel::insert_into(accounts::table)
             .values(self)
             .returning(Account::as_returning())
             .get_result(conn)?)
+    }
+}
+
+#[derive(Default, Clone, Copy, AsChangeset)]
+#[diesel(table_name = accounts)]
+pub struct ChangeAccount<'a> {
+    pub name: Option<&'a str>,
+}
+
+impl ChangeAccount<'_> {
+    pub fn save(&self, conn: &mut Conn, account: &Account) -> Result<()> {
+        diesel::update(account).set(self).execute(conn)?;
+        Ok(())
+    }
+
+    pub fn apply(self, conn: &mut Conn, account: &mut Account) -> Result<()> {
+        self.save(conn, account)?;
+
+        if let Some(value) = self.name {
+            account.name = value.to_string();
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct QueryAccount<'a> {
+    pub name: Option<&'a str>,
+    pub count: Option<i64>,
+}
+
+impl QueryAccount<'_> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Account>> {
+        let mut query = accounts::table.into_boxed();
+
+        if let Some(name) = self.name {
+            query = query.filter(accounts::name.like(name));
+        }
+        if let Some(count) = self.count {
+            query = query.limit(count);
+        }
+
+        Ok(query.select(Account::as_select()).load(conn)?)
     }
 }
 

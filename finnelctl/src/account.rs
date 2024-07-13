@@ -1,23 +1,30 @@
 use anyhow::Result;
 use std::borrow::Cow;
 
-use crate::cli::{account::Command, Commands};
+use finnel::{
+    account::{NewAccount, QueryAccount},
+    prelude::*,
+};
+
+use crate::cli::{account::*, Commands};
 use crate::config::Config;
 
-use finnel::account::Account;
-use finnel::{Amount, Database, DatabaseTrait, Entity, Error};
-
 use tabled::{Table, Tabled};
+
+struct CommandContext<'a> {
+    config: &'a Config,
+    conn: &'a mut Database,
+}
 
 #[derive(derive_more::From)]
 struct AccountToDisplay(Account);
 
 impl Tabled for AccountToDisplay {
-    const LENGTH: usize = 2;
+    const LENGTH: usize = 3;
 
     fn fields(&self) -> Vec<Cow<'_, str>> {
         vec![
-            self.id(),
+            self.0.id.to_string().into(),
             self.0.name.clone().into(),
             self.0.balance().to_string().into(),
         ]
@@ -28,119 +35,84 @@ impl Tabled for AccountToDisplay {
     }
 }
 
-impl AccountToDisplay {
-    fn id(&self) -> Cow<'_, str> {
-        if let Some(id) = self.0.id() {
-            id.value().to_string().into()
-        } else {
-            Default::default()
-        }
-    }
-}
-
 pub fn run(config: &Config) -> Result<()> {
     let Commands::Account(command) = config.command().clone().unwrap() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 
-    match command {
-        Command::List {} => list(command, config),
-        Command::Create { .. } => create(command, config),
-        Command::Show { .. } => show(command, config),
-        Command::Delete { .. } => delete(command, config),
-        Command::Default { .. } => command_default(command, config),
+    let conn = &mut config.database()?;
+    let mut cmd = CommandContext { conn, config };
+
+    match &command {
+        Command::List(args) => cmd.list(args),
+        Command::Create(args) => cmd.create(args),
+        Command::Show(args) => cmd.show(args),
+        Command::Delete(args) => cmd.delete(args),
+        Command::Default(args) => cmd.default(args),
     }
 }
 
-pub fn default(db: &Database) -> Result<Option<Account>> {
-    if let Some(account_name) = db.get("default_account")? {
-        match Account::find_by_name(db, &account_name) {
-            Ok(entity) => Ok(Some(entity)),
-            Err(Error::NotFound) => {
-                db.reset("default_account")?;
-                Ok(None)
-            }
-            Err(error) => Err(error.into()),
-        }
-    } else {
-        Ok(None)
+impl CommandContext<'_> {
+    fn get(&mut self, name: Option<&str>) -> Result<Account> {
+        Ok(if let Some(name) = name {
+            Account::find_by_name(self.conn, name)?
+        } else {
+            self.config.account_or_default(self.conn)?
+        })
     }
-}
 
-fn list(_command: Command, config: &Config) -> Result<()> {
-    let db = &config.database()?;
+    fn list(&mut self, _args: &List) -> Result<()> {
+        let accounts = QueryAccount::default()
+            .run(self.conn)?
+            .into_iter()
+            .map(AccountToDisplay::from)
+            .collect::<Vec<_>>();
 
-    let mut accounts = Vec::<AccountToDisplay>::new();
+        println!("{}", Table::new(accounts));
 
-    Account::for_each(db, |account| {
-        accounts.push(account.into());
-    })?;
-
-    println!("{}", Table::new(accounts));
-
-    Ok(())
-}
-
-fn create(command: Command, config: &Config) -> Result<()> {
-    let Command::Create { name } = command else {
-        anyhow::bail!("wrong command passed: {:?}", command);
-    };
-
-    let db = &config.database()?;
-
-    let mut account = Account::new(name);
-    account.save(db)?;
-    Ok(())
-}
-
-fn show(command: Command, config: &Config) -> Result<()> {
-    let Command::Show { .. } = command else {
-        anyhow::bail!("wrong command passed: {:?}", command);
-    };
-
-    let db = &config.database()?;
-    let account = config.account_or_default(db)?;
-
-    println!("{} | {}", account.id().unwrap().value(), account.name);
-    println!("\tBalance: {}", account.balance());
-
-    Ok(())
-}
-
-fn delete(command: Command, config: &Config) -> Result<()> {
-    let Command::Delete { confirm } = command else {
-        anyhow::bail!("wrong command passed: {:?}", command);
-    };
-
-    let mut db = config.database()?;
-
-    let mut account = config.account_or_default(&db)?;
-
-    if confirm {
-        account.delete(&mut db)?;
-    } else {
-        anyhow::bail!("operation requires confirmation flag");
-    }
-    Ok(())
-}
-
-fn command_default(command: Command, config: &Config) -> Result<()> {
-    let Command::Default { reset } = command else {
-        anyhow::bail!("wrong command passed: {:?}", command);
-    };
-
-    let db = config.database()?;
-
-    if let Some(name) = config.account_name() {
-        let account = Account::find_by_name(&db, name)?;
-        Ok(db.set("default_account", account.name)?)
-    } else if reset {
-        Ok(db.reset("default_account")?)
-    } else {
-        let account_name = default(&db)?
-            .map(|a| a.name.clone())
-            .unwrap_or("<not set>".to_string());
-        println!("{}", account_name);
         Ok(())
+    }
+
+    fn show(&mut self, args: &Show) -> Result<()> {
+        let account = self.get(args.name.as_deref())?;
+
+        println!("{} | {}", account.id, account.name);
+        println!("\tBalance: {}", account.balance());
+
+        Ok(())
+    }
+
+    fn create(&mut self, args: &Create) -> Result<()> {
+        NewAccount::new(&args.name).save(self.conn)?;
+        Ok(())
+    }
+
+    fn delete(&mut self, args: &Delete) -> Result<()> {
+        let mut account = self.get(args.name.as_deref())?;
+
+        if args.confirm {
+            account.delete(self.conn)?;
+        } else {
+            anyhow::bail!("operation requires confirmation flag");
+        }
+        Ok(())
+    }
+
+    fn default(&mut self, args: &Default) -> Result<()> {
+        if let Some(name) = args.name.as_deref().or(self.config.account_name())
+        {
+            let account = Account::find_by_name(self.conn, name)?;
+            Ok(self.config.set("default_account", &account.name)?)
+        } else if args.reset {
+            Ok(self.config.reset("default_account")?)
+        } else {
+            let account_name = self
+                .config
+                .default_account(self.conn)?
+                .map(|a| a.name.clone())
+                .unwrap_or("<not set>".to_string());
+            println!("{}", account_name);
+            Ok(())
+        }
     }
 }

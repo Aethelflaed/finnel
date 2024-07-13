@@ -19,7 +19,7 @@ use diesel::{
     AsExpression,
 )]
 #[diesel(sql_type = BigInt)]
-pub struct Decimal(oxydized_money::Decimal);
+pub struct Decimal(pub oxydized_money::Decimal);
 
 impl ToSql<BigInt, Sqlite> for Decimal {
     fn to_sql<'b>(
@@ -57,7 +57,7 @@ impl FromSql<BigInt, Sqlite> for Decimal {
     AsExpression,
 )]
 #[diesel(sql_type = Text)]
-pub struct Currency(oxydized_money::Currency);
+pub struct Currency(pub oxydized_money::Currency);
 
 impl ToSql<Text, Sqlite> for Currency {
     fn to_sql<'b>(

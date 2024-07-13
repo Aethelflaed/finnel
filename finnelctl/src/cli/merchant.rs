@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use clap::{Args, Subcommand};
 
-use finnel::{Category, Connection, Entity};
+use finnel::{category::NewCategory, prelude::*};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -60,10 +60,10 @@ pub struct Create {
 impl Create {
     pub fn default_category(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
         self.category
-            .resolve(db, self.create_default_category.clone(), false)
+            .resolve(conn, self.create_default_category.clone(), false)
     }
 }
 
@@ -88,9 +88,9 @@ pub struct Update {
 impl Update {
     pub fn default_category(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
-        self.category.resolve(db, None, self.no_default_category)
+        self.category.resolve(conn, None, self.no_default_category)
     }
 }
 
@@ -134,18 +134,16 @@ impl CategoryArgs {
     /// --category-id 1 => Ok(Some(Some(Category{..})))
     pub fn resolve(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
         create: Option<String>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.default_category {
-            Ok(Some(Some(Category::find_by_name(db, name.as_str())?)))
+            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.default_category_id {
-            Ok(Some(Some(Category::find(db, (id as i64).into())?)))
+            Ok(Some(Some(Category::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            let mut category = Category::new(name);
-            category.save(db)?;
-            Ok(Some(Some(category)))
+            Ok(Some(Some(NewCategory::new(&name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {

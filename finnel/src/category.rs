@@ -1,4 +1,5 @@
-use crate::{essentials::*, schema::categories};
+use crate::essentials::*;
+pub use crate::schema::categories;
 
 use diesel::prelude::*;
 
@@ -46,12 +47,62 @@ pub struct NewCategory<'a> {
     pub name: &'a str,
 }
 
+impl<'a> NewCategory<'a> {
+    pub fn new(name: &'a str) -> Self {
+        Self { name }
+    }
+}
+
 impl NewCategory<'_> {
     pub fn save(self, conn: &mut Conn) -> Result<Category> {
         Ok(diesel::insert_into(categories::table)
             .values(self)
             .returning(Category::as_returning())
             .get_result(conn)?)
+    }
+}
+
+#[derive(Default, Clone, Copy, AsChangeset)]
+#[diesel(table_name = categories)]
+pub struct ChangeCategory<'a> {
+    pub name: Option<&'a str>,
+}
+
+impl ChangeCategory<'_> {
+    pub fn save(&self, conn: &mut Conn, category: &Category) -> Result<()> {
+        diesel::update(category).set(self).execute(conn)?;
+        Ok(())
+    }
+
+    pub fn apply(self, conn: &mut Conn, category: &mut Category) -> Result<()> {
+        self.save(conn, category)?;
+
+        if let Some(value) = self.name {
+            category.name = value.to_string();
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct QueryCategory<'a> {
+    pub name: Option<&'a str>,
+    pub count: Option<i64>,
+}
+
+impl QueryCategory<'_> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Category>> {
+        let mut query = categories::table.into_boxed();
+
+        if let Some(name) = self.name {
+            query = query.filter(categories::name.like(name));
+        }
+        if let Some(count) = self.count {
+            query = query.limit(count);
+        }
+
+        Ok(query.select(Category::as_select()).load(conn)?)
     }
 }
 

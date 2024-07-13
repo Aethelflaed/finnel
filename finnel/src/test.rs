@@ -38,11 +38,11 @@ pub fn account(conn: &mut Conn, name: &str) -> Result<Account> {
 }
 
 pub fn category(conn: &mut Conn, name: &str) -> Result<Category> {
-    Ok(crate::category::NewCategory { name: name }.save(conn)?)
+    Ok(crate::category::NewCategory::new(name).save(conn)?)
 }
 
 pub fn merchant(conn: &mut Conn, name: &str) -> Result<Merchant> {
-    Ok(crate::merchant::NewMerchant { name: name }.save(conn)?)
+    Ok(crate::merchant::NewMerchant::new(name).save(conn)?)
 }
 
 pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {

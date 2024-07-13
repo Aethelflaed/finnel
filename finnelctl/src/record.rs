@@ -2,13 +2,13 @@ use anyhow::Result;
 
 use crate::cli::{record::*, Commands};
 use crate::config::Config;
+use crate::record::display::RecordToDisplay;
 
 use finnel::{
-    record::{NewRecord, QueryRecord},
-    Account, Category, Connection, Database, Entity, Merchant, Query, Record,
+    prelude::*,
+    record::{ChangeRecord, NewRecord, QueryRecord},
 };
 
-use chrono::{DateTime, Utc};
 use tabled::Table;
 
 pub mod display;
@@ -16,7 +16,7 @@ mod import;
 
 struct CommandContext<'a> {
     _config: &'a Config,
-    db: &'a mut Database,
+    conn: &'a mut Database,
     account: Account,
 }
 
@@ -25,10 +25,10 @@ pub fn run(config: &Config) -> Result<()> {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 
-    let db = &mut config.database()?;
+    let conn = &mut config.database()?;
     let mut cmd = CommandContext {
-        account: config.account_or_default(db)?,
-        db,
+        account: config.account_or_default(conn)?,
+        conn,
         _config: config,
     };
 
@@ -50,59 +50,34 @@ impl CommandContext<'_> {
             ..
         } = args;
 
-        let mut record = NewRecord {
-            account_id: self.account.id(),
+        let record = NewRecord {
             amount: *amount,
-            currency: self.account.currency(),
             operation_date: args.operation_date()?,
             value_date: args.value_date()?,
             direction: *direction,
             mode: mode.clone(),
-            details: details.clone(),
+            details: details.as_str(),
             category_id: args
-                .category(self.db)?
+                .category(self.conn)?
                 .flatten()
                 .as_ref()
-                .and_then(Entity::id),
+                .map(|c| c.id),
             merchant_id: args
-                .merchant(self.db)?
+                .merchant(self.conn)?
                 .flatten()
                 .as_ref()
-                .and_then(Entity::id),
+                .map(|m| m.id),
+            ..NewRecord::new(&self.account)
         };
 
-        record.save(self.db)?;
+        record.save(self.conn)?;
         Ok(())
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let mut record = Record::find(self.db, args.id())?;
+        let mut record = Record::find(self.conn, args.id())?;
 
-        self.update_record(
-            &mut record,
-            &ResolvedUpdateArgs::try_from(self.db, &args.args)?,
-        )
-    }
-
-    fn update_record(
-        &self,
-        record: &mut Record,
-        args: &ResolvedUpdateArgs,
-    ) -> Result<()> {
-        if let Some(details) = args.details.clone() {
-            record.details = details;
-        }
-        if let Some(date) = args.value_date {
-            record.value_date = date;
-        }
-        if let Some(category) = &args.category {
-            record.set_category(category.as_ref());
-        }
-        if let Some(merchant) = &args.merchant {
-            record.set_merchant(merchant.as_ref());
-        }
-
-        record.save(self.db)?;
+        args_to_change(self.conn, &args.args)?.apply(self.conn, &mut record)?;
 
         Ok(())
     }
@@ -120,40 +95,32 @@ impl CommandContext<'_> {
         } = args;
 
         let query = QueryRecord {
-            account_id: self.account.id(),
+            account_id: Some(self.account.id),
             after: args.after()?,
             before: args.before()?,
             operation_date: *operation_date,
-            greater_than: greater_than.map(|m| m.into()),
-            less_than: less_than.map(|m| m.into()),
+            greater_than: *greater_than,
+            less_than: *less_than,
             direction: *direction,
             mode: mode.clone(),
-            details: details.clone(),
+            details: details.as_deref(),
             count: *count,
-            category_id: args
-                .category(self.db)?
-                .as_ref()
-                .map(|c| c.as_ref().and_then(Entity::id)),
-            merchant_id: args
-                .merchant(self.db)?
-                .as_ref()
-                .map(|m| m.as_ref().and_then(Entity::id)),
+            category_id: args.category(self.conn)?.map(|c| c.map(|c| c.id)),
+            merchant_id: args.merchant(self.conn)?.map(|m| m.map(|m| m.id)),
         };
 
-        println!("{:?}", query);
-
         if let Some(ListUpdate::Update(args)) = &args.update {
-            let resolved_args = ResolvedUpdateArgs::try_from(self.db, &args)?;
+            let resolved_args = args_to_change(self.conn, args)?;
 
-            for record in query.statement(&self.db)?.iter()? {
-                self.update_record(&mut record?.record, &resolved_args)?;
+            for (record, _, _) in query.run(self.conn)? {
+                resolved_args.save(self.conn, &record)?;
             }
         } else {
-            let mut records = Vec::<display::RecordToDisplay>::new();
-
-            for record in query.statement(&self.db)?.iter()? {
-                records.push(record?.into());
-            }
+            let records = query
+                .run(self.conn)?
+                .into_iter()
+                .map(RecordToDisplay::from)
+                .collect::<Vec<_>>();
 
             println!("{}", Table::new(records));
         }
@@ -164,26 +131,20 @@ impl CommandContext<'_> {
     fn import(&mut self, args: &Import) -> Result<()> {
         let Import { file, profile, .. } = args;
 
-        import::import(profile, file)?.persist(&self.account, self.db)?;
+        import::import(profile, file)?.persist(&self.account, self.conn)?;
 
         Ok(())
     }
 }
 
-struct ResolvedUpdateArgs {
-    details: Option<String>,
-    value_date: Option<DateTime<Utc>>,
-    category: Option<Option<Category>>,
-    merchant: Option<Option<Merchant>>,
-}
-
-impl ResolvedUpdateArgs {
-    fn try_from(db: &Connection, args: &UpdateArgs) -> Result<Self> {
-        Ok(ResolvedUpdateArgs {
-            details: args.details.clone(),
-            value_date: args.value_date()?,
-            category: args.category(&db)?,
-            merchant: args.merchant(&db)?,
-        })
-    }
+fn args_to_change<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<ChangeRecord<'a>> {
+    Ok(ChangeRecord {
+        value_date: args.value_date()?,
+        details: args.details.as_deref(),
+        category_id: args.category(conn)?.map(|c| c.map(|c| c.id)),
+        merchant_id: args.merchant(conn)?.map(|m| m.map(|m| m.id)),
+    })
 }

@@ -1,4 +1,5 @@
-use crate::{category::Category, essentials::*, schema::merchants};
+pub use crate::schema::merchants;
+use crate::{category::Category, essentials::*};
 
 use diesel::prelude::*;
 
@@ -45,6 +46,16 @@ impl Merchant {
 #[diesel(table_name = merchants)]
 pub struct NewMerchant<'a> {
     pub name: &'a str,
+    pub default_category_id: Option<i64>,
+}
+
+impl<'a> NewMerchant<'a> {
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            default_category_id: None,
+        }
+    }
 }
 
 impl NewMerchant<'_> {
@@ -53,6 +64,33 @@ impl NewMerchant<'_> {
             .values(self)
             .returning(Merchant::as_returning())
             .get_result(conn)?)
+    }
+}
+
+#[derive(Default, Clone, Copy, AsChangeset)]
+#[diesel(table_name = merchants)]
+pub struct ChangeMerchant<'a> {
+    pub name: Option<&'a str>,
+    pub default_category_id: Option<Option<i64>>,
+}
+
+impl ChangeMerchant<'_> {
+    pub fn save(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+        diesel::update(merchant).set(self).execute(conn)?;
+        Ok(())
+    }
+
+    pub fn apply(self, conn: &mut Conn, merchant: &mut Merchant) -> Result<()> {
+        self.save(conn, merchant)?;
+
+        if let Some(value) = self.name {
+            merchant.name = value.to_string();
+        }
+        if let Some(value) = self.default_category_id {
+            merchant.default_category_id = value;
+        }
+
+        Ok(())
     }
 }
 
@@ -65,6 +103,27 @@ pub(crate) fn clear_category_id(conn: &mut Conn, id: i64) -> Result<()> {
     Ok(())
 }
 
+#[derive(Default)]
+pub struct QueryMerchant<'a> {
+    pub name: Option<&'a str>,
+    pub count: Option<i64>,
+}
+
+impl QueryMerchant<'_> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Merchant>> {
+        let mut query = merchants::table.into_boxed();
+
+        if let Some(name) = self.name {
+            query = query.filter(merchants::name.like(name));
+        }
+        if let Some(count) = self.count {
+            query = query.limit(count);
+        }
+
+        Ok(query.select(Merchant::as_select()).load(conn)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,7 +133,7 @@ mod tests {
     fn create_then_find_by_name() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let merchant = NewMerchant { name: "Bar" }.save(conn)?;
+        let merchant = NewMerchant::new("Bar").save(conn)?;
 
         assert_eq!(
             merchant.id,

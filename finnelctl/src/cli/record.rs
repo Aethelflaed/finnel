@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use crate::utils::naive_date_to_utc;
 
-use finnel::{
-    transaction::{Direction, Mode},
-    Category, Connection, Decimal, Entity, Id, Merchant,
-};
+use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
@@ -95,18 +92,18 @@ impl Add {
 
     pub fn category(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
         self.category
-            .resolve(db, self.create_category.clone(), false)
+            .resolve(conn, self.create_category.clone(), false)
     }
 
     pub fn merchant(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
         self.merchant
-            .resolve(db, self.create_merchant.clone(), false)
+            .resolve(conn, self.create_merchant.clone(), false)
     }
 }
 
@@ -120,8 +117,8 @@ pub struct Update {
 }
 
 impl Update {
-    pub fn id(&self) -> Id {
-        (self.id as i64).into()
+    pub fn id(&self) -> i64 {
+        self.id as i64
     }
 }
 
@@ -187,7 +184,7 @@ pub struct List {
 
     /// Maximum number of records to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
-    pub count: Option<usize>,
+    pub count: Option<i64>,
 
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by category")]
@@ -217,16 +214,16 @@ impl List {
 
     pub fn category(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
-        self.category.resolve(db, None, self.no_category)
+        self.category.resolve(conn, None, self.no_category)
     }
 
     pub fn merchant(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
-        self.merchant.resolve(db, None, self.no_merchant)
+        self.merchant.resolve(conn, None, self.no_merchant)
     }
 }
 
@@ -287,10 +284,10 @@ impl UpdateArgs {
 
     pub fn category(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
         self.category.resolve(
-            db,
+            conn,
             self.create_category.clone(),
             self.no_category,
         )
@@ -298,10 +295,10 @@ impl UpdateArgs {
 
     pub fn merchant(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
         self.merchant.resolve(
-            db,
+            conn,
             self.create_merchant.clone(),
             self.no_merchant,
         )
@@ -332,18 +329,16 @@ impl CategoryArgs {
     /// --category-id 1 => Ok(Some(Some(Category{..})))
     pub fn resolve(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
         create: Option<String>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.category {
-            Ok(Some(Some(Category::find_by_name(db, name.as_str())?)))
+            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.category_id {
-            Ok(Some(Some(Category::find(db, (id as i64).into())?)))
+            Ok(Some(Some(Category::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            let mut category = Category::new(name);
-            category.save(db)?;
-            Ok(Some(Some(category)))
+            Ok(Some(Some(NewCategory::new(&name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {
@@ -376,18 +371,16 @@ impl MerchantArgs {
     /// --merchant-id 1 => Ok(Some(Some(Merchant{..})))
     pub fn resolve(
         &self,
-        db: &Connection,
+        conn: &mut Conn,
         create: Option<String>,
         absence: bool,
     ) -> Result<Option<Option<Merchant>>> {
         if let Some(name) = &self.merchant {
-            Ok(Some(Some(Merchant::find_by_name(db, name.as_str())?)))
+            Ok(Some(Some(Merchant::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.merchant_id {
-            Ok(Some(Some(Merchant::find(db, (id as i64).into())?)))
+            Ok(Some(Some(Merchant::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            let mut merchant = Merchant::new(name);
-            merchant.save(db)?;
-            Ok(Some(Some(merchant)))
+            Ok(Some(Some(NewMerchant::new(&name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {

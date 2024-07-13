@@ -21,12 +21,18 @@ pub mod essentials {
 pub use essentials::*;
 
 pub mod prelude {
-    pub use crate::essentials::*;
+    pub use diesel::prelude::*;
+
+    pub use crate::essentials::{OptionalExtension, *};
 
     pub use crate::{
-        account::Account, category::Category, merchant::Merchant,
-        record::Record,
+        account::Account,
+        category::Category,
+        merchant::Merchant,
+        record::{Direction, Mode, Record},
     };
+
+    pub use super::Database;
 }
 
 #[derive(
