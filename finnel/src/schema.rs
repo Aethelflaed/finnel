@@ -17,6 +17,8 @@ diesel::table! {
     categories (id) {
         id -> BigInt,
         name -> Text,
+        parent_id -> Nullable<BigInt>,
+        replaced_by_id -> Nullable<BigInt>,
     }
 }
 
@@ -27,6 +29,7 @@ diesel::table! {
         id -> BigInt,
         name -> Text,
         default_category_id -> Nullable<BigInt>,
+        replaced_by_id -> Nullable<BigInt>,
     }
 }
 

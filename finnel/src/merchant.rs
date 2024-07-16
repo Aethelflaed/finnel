@@ -3,6 +3,9 @@ use crate::{category::Category, essentials::*};
 
 use diesel::prelude::*;
 
+mod query;
+pub use query::QueryMerchant;
+
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = merchants)]
 #[diesel(belongs_to(Category, foreign_key = default_category_id))]
@@ -11,6 +14,7 @@ pub struct Merchant {
     pub id: i64,
     pub name: String,
     pub default_category_id: Option<i64>,
+    pub replaced_by_id: Option<i64>,
 }
 
 impl Merchant {
@@ -28,6 +32,14 @@ impl Merchant {
             .select(Merchant::as_select())
             .first(conn)
             .map_err(|e| e.into())
+    }
+
+    pub fn resolve(self, conn: &mut Conn) -> Result<Self> {
+        if let Some(id) = self.replaced_by_id {
+            Self::find(conn, id)?.resolve(conn)
+        } else {
+            Ok(self)
+        }
     }
 
     /// Delete the current merchant, nulling references to it where possible
@@ -72,10 +84,38 @@ impl NewMerchant<'_> {
 pub struct ChangeMerchant<'a> {
     pub name: Option<&'a str>,
     pub default_category_id: Option<Option<i64>>,
+    pub replaced_by_id: Option<Option<i64>>,
 }
 
 impl ChangeMerchant<'_> {
+    fn check_loop(
+        conn: &mut Conn,
+        id: Option<Option<i64>>,
+        merchant: &Merchant,
+    ) -> Result<()> {
+        if let Some(Some(id)) = id {
+            if merchant.id == id {
+                return Err(Error::Invalid(
+                    "Merchant references itself".to_owned(),
+                ));
+            } else if merchant.id == Merchant::find(conn, id)?.resolve(conn)?.id
+            {
+                return Err(Error::Invalid(
+                    "Reference loop for merchant".to_owned(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn valid(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+        Self::check_loop(conn, self.replaced_by_id, merchant)?;
+
+        Ok(())
+    }
     pub fn save(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+        self.valid(conn, merchant)?;
         diesel::update(merchant).set(self).execute(conn)?;
         Ok(())
     }
@@ -88,6 +128,9 @@ impl ChangeMerchant<'_> {
         }
         if let Some(value) = self.default_category_id {
             merchant.default_category_id = value;
+        }
+        if let Some(value) = self.replaced_by_id {
+            merchant.replaced_by_id = value;
         }
 
         Ok(())
@@ -103,43 +146,62 @@ pub(crate) fn clear_category_id(conn: &mut Conn, id: i64) -> Result<()> {
     Ok(())
 }
 
-#[derive(Default)]
-pub struct QueryMerchant<'a> {
-    pub name: Option<&'a str>,
-    pub count: Option<i64>,
-}
-
-impl QueryMerchant<'_> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Merchant>> {
-        let mut query = merchants::table.into_boxed();
-
-        if let Some(name) = self.name {
-            query = query.filter(merchants::name.like(name));
-        }
-        if let Some(count) = self.count {
-            query = query.limit(count);
-        }
-
-        Ok(query.select(Merchant::as_select()).load(conn)?)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn create_then_find_by_name() -> Result<()> {
+    fn crud() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let merchant = NewMerchant::new("Bar").save(conn)?;
+        let mut merchant = NewMerchant::new("Bar").save(conn)?;
 
         assert_eq!(
             merchant.id,
             Merchant::find_by_name(conn, &merchant.name)?.id
         );
         assert_eq!(merchant.name, Merchant::find(conn, merchant.id)?.name);
+
+        ChangeMerchant {
+            name: Some("Foo"),
+            ..Default::default()
+        }
+        .apply(conn, &mut merchant)?;
+        assert_eq!("Foo", merchant.name);
+        assert_eq!("Foo", merchant.reload(conn)?.name);
+
+        merchant.delete(conn)?;
+        assert!(Merchant::find(conn, merchant.id).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_loop() -> Result<()> {
+        let conn = &mut test::db()?;
+        let merchant1 = &mut test::merchant(conn, "Foo")?;
+        let merchant1_1 = &mut test::merchant(conn, "Bar")?;
+
+        ChangeMerchant {
+            replaced_by_id: Some(Some(merchant1.id)),
+            ..Default::default()
+        }
+        .apply(conn, merchant1_1)?;
+
+        let change = ChangeMerchant {
+            replaced_by_id: Some(Some(merchant1_1.id)),
+            ..Default::default()
+        };
+
+        assert!(ChangeMerchant::check_loop(
+            conn,
+            change.replaced_by_id,
+            merchant1
+        )
+        .is_err());
+        assert!(change.save(conn, merchant1).is_err());
+        assert!(change.save(conn, merchant1_1).is_err());
 
         Ok(())
     }

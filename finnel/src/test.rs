@@ -5,6 +5,7 @@ use crate::prelude::*;
 use anyhow::Result;
 
 pub mod prelude {
+    pub use crate::essentials::{OptionalExtension, *};
     pub use crate::test::{self, Reloadable};
     pub use anyhow::Result;
     pub use pretty_assertions::{assert_eq, assert_ne};

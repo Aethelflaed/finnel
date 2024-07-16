@@ -3,12 +3,19 @@ pub use crate::schema::categories;
 
 use diesel::prelude::*;
 
-#[derive(Debug, Queryable, Selectable, Identifiable)]
+mod query;
+pub use query::QueryCategory;
+
+#[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = categories)]
+#[diesel(belongs_to(Category, foreign_key = parent_id))]
+//#[diesel(belongs_to(Category, foreign_key = replaced_by_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Category {
     pub id: i64,
     pub name: String,
+    pub parent_id: Option<i64>,
+    pub replaced_by_id: Option<i64>,
 }
 
 impl Category {
@@ -26,6 +33,14 @@ impl Category {
             .select(Category::as_select())
             .first(conn)
             .map_err(|e| e.into())
+    }
+
+    pub fn resolve(self, conn: &mut Conn) -> Result<Self> {
+        if let Some(id) = self.replaced_by_id {
+            Self::find(conn, id)?.resolve(conn)
+        } else {
+            Ok(self)
+        }
     }
 
     /// Delete the current category, nulling references to it where possible
@@ -66,10 +81,41 @@ impl NewCategory<'_> {
 #[diesel(table_name = categories)]
 pub struct ChangeCategory<'a> {
     pub name: Option<&'a str>,
+    pub parent_id: Option<Option<i64>>,
+    pub replaced_by_id: Option<Option<i64>>,
 }
 
 impl ChangeCategory<'_> {
+    fn check_loop(
+        conn: &mut Conn,
+        id: Option<Option<i64>>,
+        category: &Category,
+    ) -> Result<()> {
+        if let Some(Some(id)) = id {
+            if category.id == id {
+                return Err(Error::Invalid(
+                    "Category references itself".to_owned(),
+                ));
+            } else if category.id == Category::find(conn, id)?.resolve(conn)?.id
+            {
+                return Err(Error::Invalid(
+                    "Reference loop for category".to_owned(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn valid(&self, conn: &mut Conn, category: &Category) -> Result<()> {
+        Self::check_loop(conn, self.parent_id, category)?;
+        Self::check_loop(conn, self.replaced_by_id, category)?;
+
+        Ok(())
+    }
+
     pub fn save(&self, conn: &mut Conn, category: &Category) -> Result<()> {
+        self.valid(conn, category)?;
         diesel::update(category).set(self).execute(conn)?;
         Ok(())
     }
@@ -80,29 +126,14 @@ impl ChangeCategory<'_> {
         if let Some(value) = self.name {
             category.name = value.to_string();
         }
+        if let Some(value) = self.parent_id {
+            category.parent_id = value;
+        }
+        if let Some(value) = self.replaced_by_id {
+            category.replaced_by_id = value;
+        }
 
         Ok(())
-    }
-}
-
-#[derive(Default)]
-pub struct QueryCategory<'a> {
-    pub name: Option<&'a str>,
-    pub count: Option<i64>,
-}
-
-impl QueryCategory<'_> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Category>> {
-        let mut query = categories::table.into_boxed();
-
-        if let Some(name) = self.name {
-            query = query.filter(categories::name.like(name));
-        }
-        if let Some(count) = self.count {
-            query = query.limit(count);
-        }
-
-        Ok(query.select(Category::as_select()).load(conn)?)
     }
 }
 
@@ -112,16 +143,62 @@ mod tests {
     use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn create_then_find_by_name() -> Result<()> {
+    fn crud() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let category = NewCategory { name: "Bar" }.save(conn)?;
+        let mut category = NewCategory { name: "Bar" }.save(conn)?;
 
         assert_eq!(
             category.id,
             Category::find_by_name(conn, &category.name)?.id
         );
         assert_eq!(category.name, Category::find(conn, category.id)?.name);
+
+        ChangeCategory {
+            name: Some("Foo"),
+            ..Default::default()
+        }
+        .apply(conn, &mut category)?;
+        assert_eq!("Foo", category.name);
+        assert_eq!("Foo", category.reload(conn)?.name);
+
+        category.delete(conn)?;
+        assert!(Category::find(conn, category.id).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_loop() -> Result<()> {
+        let conn = &mut test::db()?;
+        let category1 = &mut test::category(conn, "Foo")?;
+        let category1_1 = &mut test::category(conn, "Bar")?;
+
+        ChangeCategory {
+            parent_id: Some(Some(category1.id)),
+            replaced_by_id: Some(Some(category1.id)),
+            ..Default::default()
+        }
+        .apply(conn, category1_1)?;
+
+        let change = ChangeCategory {
+            parent_id: Some(Some(category1_1.id)),
+            replaced_by_id: Some(Some(category1_1.id)),
+            ..Default::default()
+        };
+
+        assert!(
+            ChangeCategory::check_loop(conn, change.parent_id, category1)
+                .is_err()
+        );
+        assert!(ChangeCategory::check_loop(
+            conn,
+            change.replaced_by_id,
+            category1
+        )
+        .is_err());
+        assert!(change.save(conn, category1).is_err());
+        assert!(change.save(conn, category1_1).is_err());
 
         Ok(())
     }
