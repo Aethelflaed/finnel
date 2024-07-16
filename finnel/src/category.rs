@@ -56,15 +56,17 @@ impl Category {
     }
 }
 
-#[derive(Insertable)]
+#[derive(Default, Insertable)]
 #[diesel(table_name = categories)]
 pub struct NewCategory<'a> {
     pub name: &'a str,
+    pub parent_id: Option<i64>,
+    pub replaced_by_id: Option<i64>,
 }
 
 impl<'a> NewCategory<'a> {
     pub fn new(name: &'a str) -> Self {
-        Self { name }
+        Self { name, ..Default::default() }
     }
 }
 
@@ -85,18 +87,39 @@ pub struct ChangeCategory<'a> {
     pub replaced_by_id: Option<Option<i64>>,
 }
 
+fn resolve_self_reference<F>(
+    conn: &mut Conn,
+    id: i64,
+    get_id: F,
+) -> Result<Category>
+where
+    F: Fn(&Category) -> Option<i64>,
+{
+    let category = Category::find(conn, id)?;
+    if let Some(id) = get_id(&category) {
+        resolve_self_reference(conn, id, get_id)
+    } else {
+        Ok(category)
+    }
+}
+
 impl ChangeCategory<'_> {
-    fn check_loop(
+    fn check_self_reference<F>(
         conn: &mut Conn,
         id: Option<Option<i64>>,
         category: &Category,
-    ) -> Result<()> {
+        get_id: F,
+    ) -> Result<()>
+    where
+        F: Fn(&Category) -> Option<i64>,
+    {
         if let Some(Some(id)) = id {
             if category.id == id {
                 return Err(Error::Invalid(
                     "Category references itself".to_owned(),
                 ));
-            } else if category.id == Category::find(conn, id)?.resolve(conn)?.id
+            } else if category.id
+                == resolve_self_reference(conn, id, get_id)?.id
             {
                 return Err(Error::Invalid(
                     "Reference loop for category".to_owned(),
@@ -108,8 +131,12 @@ impl ChangeCategory<'_> {
     }
 
     pub fn valid(&self, conn: &mut Conn, category: &Category) -> Result<()> {
-        Self::check_loop(conn, self.parent_id, category)?;
-        Self::check_loop(conn, self.replaced_by_id, category)?;
+        Self::check_self_reference(conn, self.parent_id, category, |c| {
+            c.parent_id
+        })?;
+        Self::check_self_reference(conn, self.replaced_by_id, category, |c| {
+            c.replaced_by_id
+        })?;
 
         Ok(())
     }
@@ -146,7 +173,7 @@ mod tests {
     fn crud() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let mut category = NewCategory { name: "Bar" }.save(conn)?;
+        let mut category = NewCategory::new("Bar").save(conn)?;
 
         assert_eq!(
             category.id,
@@ -187,14 +214,18 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(
-            ChangeCategory::check_loop(conn, change.parent_id, category1)
-                .is_err()
-        );
-        assert!(ChangeCategory::check_loop(
+        assert!(ChangeCategory::check_self_reference(
+            conn,
+            change.parent_id,
+            category1,
+            |c| c.parent_id
+        )
+        .is_err());
+        assert!(ChangeCategory::check_self_reference(
             conn,
             change.replaced_by_id,
-            category1
+            category1,
+            |c| c.replaced_by_id
         )
         .is_err());
         assert!(change.save(conn, category1).is_err());

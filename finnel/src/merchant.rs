@@ -54,18 +54,19 @@ impl Merchant {
     }
 }
 
-#[derive(Insertable)]
+#[derive(Default, Insertable)]
 #[diesel(table_name = merchants)]
 pub struct NewMerchant<'a> {
     pub name: &'a str,
     pub default_category_id: Option<i64>,
+    pub replaced_by_id: Option<i64>,
 }
 
 impl<'a> NewMerchant<'a> {
     pub fn new(name: &'a str) -> Self {
         Self {
             name,
-            default_category_id: None,
+            ..Default::default()
         }
     }
 }
@@ -88,7 +89,7 @@ pub struct ChangeMerchant<'a> {
 }
 
 impl ChangeMerchant<'_> {
-    fn check_loop(
+    fn check_self_reference(
         conn: &mut Conn,
         id: Option<Option<i64>>,
         merchant: &Merchant,
@@ -110,7 +111,7 @@ impl ChangeMerchant<'_> {
     }
 
     pub fn valid(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
-        Self::check_loop(conn, self.replaced_by_id, merchant)?;
+        Self::check_self_reference(conn, self.replaced_by_id, merchant)?;
 
         Ok(())
     }
@@ -194,7 +195,7 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(ChangeMerchant::check_loop(
+        assert!(ChangeMerchant::check_self_reference(
             conn,
             change.replaced_by_id,
             merchant1

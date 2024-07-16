@@ -57,6 +57,7 @@ impl CommandContext<'_> {
         let categories = QueryCategory {
             name: name.as_deref(),
             count: count.map(|c| c as i64),
+            ..Default::default()
         }
         .run(self.conn)?
         .into_iter()
@@ -106,7 +107,14 @@ impl CommandContext<'_> {
     }
 
     fn create(&mut self, args: &Create) -> Result<()> {
-        NewCategory::new(&args.name).save(self.conn)?;
+        NewCategory {
+            name: &args.name,
+            parent_id: args.parent(self.conn)?.map(|p| p.id),
+            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
+            ..Default::default()
+        }
+        .save(self.conn)?;
+
         Ok(())
     }
 
@@ -115,6 +123,9 @@ impl CommandContext<'_> {
 
         ChangeCategory {
             name: args.new_name.as_deref(),
+            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.map(|r| r.id)),
+            parent_id: args.parent(self.conn)?.map(|r| r.map(|r| r.id)),
+            ..Default::default()
         }
         .save(self.conn, &category)
         .optional_empty_changeset()?;

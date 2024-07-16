@@ -57,6 +57,7 @@ impl CommandContext<'_> {
         let merchants = QueryMerchant {
             name: name.as_deref(),
             count: count.map(|c| c as i64),
+            ..Default::default()
         }
         .run(self.conn)?
         .into_iter()
@@ -112,12 +113,15 @@ impl CommandContext<'_> {
     }
 
     fn create(&mut self, args: &Create) -> Result<()> {
-        let mut merchant = NewMerchant::new(&args.name);
-        if let Some(category) = args.default_category(self.conn)? {
-            merchant.default_category_id = category.map(|c| c.id);
+        NewMerchant {
+            name: &args.name,
+            default_category_id: args
+                .default_category(self.conn)?
+                .map(|c| c.id),
+            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
+            ..Default::default()
         }
-
-        merchant.save(self.conn)?;
+        .save(self.conn)?;
 
         Ok(())
     }
@@ -130,6 +134,8 @@ impl CommandContext<'_> {
             default_category_id: args
                 .default_category(self.conn)?
                 .map(|c| c.map(|c| c.id)),
+            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.map(|r| r.id)),
+            ..Default::default()
         }
         .save(self.conn, &merchant)
         .optional_empty_changeset()?;

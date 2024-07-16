@@ -1,7 +1,7 @@
-use crate::essentials::*;
-pub use crate::schema::{categories, merchants};
 use super::Merchant;
 use crate::category::Category;
+use crate::essentials::*;
+pub use crate::schema::{categories, merchants};
 
 use diesel::{
     expression::SqlLiteral,
@@ -29,7 +29,8 @@ pub struct QueryMerchantWithCategoryAndReplacer<'a>(QueryMerchant<'a>);
 
 type MerchantWithCategory = (Merchant, Option<Category>);
 type MerchantWithReplacer = (Merchant, Option<Merchant>);
-type MerchantWithCategoryAndReplacer = (Merchant, Option<Category>, Option<Merchant>);
+type MerchantWithCategoryAndReplacer =
+    (Merchant, Option<Category>, Option<Merchant>);
 
 type QueryType<'a> = IntoBoxed<
     'a,
@@ -45,7 +46,8 @@ impl<'a> QueryMerchant<'a> {
         let mut query = MERCHANTS_ALIAS.into_boxed();
 
         if let Some(name) = self.name {
-            query = query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
+            query =
+                query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
         }
         if let Some(count) = self.count {
             query = query.limit(count);
@@ -144,8 +146,8 @@ impl QueryMerchantWithCategoryAndReplacer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::prelude::{assert_eq, Result, *};
     use crate::merchant::ChangeMerchant;
+    use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
     fn query() -> Result<()> {
@@ -175,7 +177,8 @@ mod tests {
         let result = QueryMerchant {
             name: Some("Bar"),
             ..Default::default()
-        }.with_category()
+        }
+        .with_category()
         .run(conn)?;
 
         assert_eq!(1, result.len());

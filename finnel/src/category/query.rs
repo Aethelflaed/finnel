@@ -1,6 +1,6 @@
+use super::Category;
 use crate::essentials::*;
 pub use crate::schema::categories;
-use super::Category;
 
 use diesel::{
     expression::SqlLiteral,
@@ -152,8 +152,8 @@ impl QueryCategoryWithParentAndReplacer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::prelude::{assert_eq, Result, *};
     use crate::category::ChangeCategory;
+    use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
     fn query() -> Result<()> {
@@ -182,7 +182,9 @@ mod tests {
         let result = QueryCategory {
             parent_id: Some(Some(parent.id)),
             ..Default::default()
-        }.with_replacer().with_parent()
+        }
+        .with_replacer()
+        .with_parent()
         .run(conn)?;
 
         assert_eq!(1, result.len());
