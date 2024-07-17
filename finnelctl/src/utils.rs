@@ -13,3 +13,12 @@ pub fn naive_date_to_utc(date: NaiveDate) -> Result<DateTime<Utc>> {
         }
     }
 }
+
+pub fn confirm() -> Result<bool> {
+    println!("Do you really want to do that?");
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    Ok(input == "yes")
+}

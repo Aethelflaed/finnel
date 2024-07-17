@@ -182,11 +182,13 @@ fn delete() -> Result<()> {
 
     cmd!(env, merchant delete Chariot)
         .failure()
-        .stderr(str::contains("confirmation flag"));
+        .stderr(str::contains("requires confirmation"));
 
-    cmd!(env, merchant delete Chariot --confirm)
+    raw_cmd!(env, merchant delete Chariot --confirm)
+        .write_stdin("yes")
+        .assert()
         .success()
-        .stdout(str::is_empty());
+        .stdout(str::contains("you really want"));
 
     cmd!(env, merchant show Chariot)
         .failure()

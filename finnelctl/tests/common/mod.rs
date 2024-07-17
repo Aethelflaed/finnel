@@ -18,27 +18,34 @@ pub struct Env {
 #[allow(unused_macros)]
 macro_rules! cmd {
     ($env:ident, $($tail:tt)*) => {
-        cmd!(@args $env.command()?, $($tail)* )
+        raw_cmd!($env, $($tail)*).assert()
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! raw_cmd {
+    ($env:ident, $($tail:tt)*) => {
+        raw_cmd!(@args $env.command()?, $($tail)* )
     };
 
     (@args $cmd:expr, --$arg:tt) => {
-        $cmd.arg(cmd!(@arg --$arg)).assert()
+        $cmd.arg(raw_cmd!(@arg --$arg))
     };
     (@args $cmd:expr, -$arg:tt) => {
-        $cmd.arg(cmd!(@arg -$arg)).assert()
+        $cmd.arg(raw_cmd!(@arg -$arg))
     };
     (@args $cmd:expr, $arg:tt) => {
-        $cmd.arg(cmd!(@arg $arg)).assert()
+        $cmd.arg(raw_cmd!(@arg $arg))
     };
 
     (@args $cmd:expr, --$arg:tt $($tail:tt)*) => {
-        cmd!(@args $cmd.arg(cmd!(@arg --$arg)), $($tail)*)
+        raw_cmd!(@args $cmd.arg(raw_cmd!(@arg --$arg)), $($tail)*)
     };
     (@args $cmd:expr, -$arg:tt $($tail:tt)*) => {
-        cmd!(@args $cmd.arg(cmd!(@arg -$arg)), $($tail)*)
+        raw_cmd!(@args $cmd.arg(raw_cmd!(@arg -$arg)), $($tail)*)
     };
     (@args $cmd:expr, $arg:tt $($tail:tt)*) => {
-        cmd!(@args $cmd.arg(cmd!(@arg $arg)), $($tail)*)
+        raw_cmd!(@args $cmd.arg(raw_cmd!(@arg $arg)), $($tail)*)
     };
 
     (@arg --$arg:tt) => {

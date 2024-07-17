@@ -148,10 +148,10 @@ impl CommandContext<'_> {
     fn delete(&mut self, args: &Delete) -> Result<()> {
         let mut merchant = Merchant::find_by_name(self.conn, &args.name)?;
 
-        if args.confirm {
+        if args.confirm && crate::utils::confirm()? {
             merchant.delete(self.conn)?;
         } else {
-            anyhow::bail!("operation requires confirmation flag");
+            anyhow::bail!("operation requires confirmation");
         }
 
         Ok(())

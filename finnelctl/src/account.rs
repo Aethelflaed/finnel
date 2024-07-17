@@ -90,10 +90,10 @@ impl CommandContext<'_> {
     fn delete(&mut self, args: &Delete) -> Result<()> {
         let mut account = self.get(args.name.as_deref())?;
 
-        if args.confirm {
+        if args.confirm && crate::utils::confirm()? {
             account.delete(self.conn)?;
         } else {
-            anyhow::bail!("operation requires confirmation flag");
+            anyhow::bail!("operation requires confirmation");
         }
         Ok(())
     }

@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             Commands::Category { .. } => category::run(&config)?,
             Commands::Merchant { .. } => merchant::run(&config)?,
             Commands::Reset { confirm } => {
-                if *confirm {
+                if *confirm && utils::confirm()? {
                     std::fs::remove_file(config.database_path())?;
                 }
             }

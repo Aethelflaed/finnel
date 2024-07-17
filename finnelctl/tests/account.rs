@@ -83,11 +83,26 @@ fn delete() -> Result<()> {
 
     cmd!(env, account delete -A Cash)
         .failure()
+        .stdout(str::is_empty())
         .stderr(str::contains("requires confirmation"));
 
     cmd!(env, account delete -A Cash --confirm)
+        .failure()
+        .stdout("Do you really want to do that?\n")
+        .stderr(str::contains("requires confirmation"));
+
+    raw_cmd!(env, account delete -A Cash --confirm)
+        .write_stdin("no")
+        .assert()
+        .failure()
+        .stdout("Do you really want to do that?\n")
+        .stderr(str::contains("requires confirmation"));
+
+    raw_cmd!(env, account delete -A Cash --confirm)
+        .write_stdin("yes")
+        .assert()
         .success()
-        .stdout(str::is_empty());
+        .stdout("Do you really want to do that?\n");
 
     cmd!(env, account show -A Cash)
         .failure()

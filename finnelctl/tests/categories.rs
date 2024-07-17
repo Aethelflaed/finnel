@@ -127,11 +127,13 @@ fn delete() -> Result<()> {
 
     cmd!(env, category delete Bar)
         .failure()
-        .stderr(str::contains("confirmation flag"));
+        .stderr(str::contains("requires confirmation"));
 
-    cmd!(env, category delete Bar --confirm)
+    raw_cmd!(env, category delete Bar --confirm)
+        .write_stdin("yes")
+        .assert()
         .success()
-        .stdout(str::is_empty());
+        .stdout(str::contains("you really want"));
 
     cmd!(env, category show Bar)
         .failure()
