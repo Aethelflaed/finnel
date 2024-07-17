@@ -13,6 +13,9 @@ pub use direction::Direction;
 mod mode;
 pub use mode::{Mode, PaymentMethod};
 
+mod consolidate;
+pub use consolidate::consolidate;
+
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = records)]
 #[diesel(belongs_to(Account, foreign_key = account_id))]

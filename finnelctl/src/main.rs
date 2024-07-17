@@ -24,6 +24,13 @@ fn main() -> Result<()> {
             Commands::Record { .. } => record::run(&config)?,
             Commands::Category { .. } => category::run(&config)?,
             Commands::Merchant { .. } => merchant::run(&config)?,
+            Commands::Consolidate { .. } => {
+                let conn = &mut config.database()?;
+
+                finnel::merchant::Merchant::consolidate(conn)?;
+                finnel::category::Category::consolidate(conn)?;
+                finnel::record::consolidate(conn)?;
+            }
             Commands::Reset { confirm } => {
                 if *confirm && utils::confirm()? {
                     std::fs::remove_file(config.database_path())?;

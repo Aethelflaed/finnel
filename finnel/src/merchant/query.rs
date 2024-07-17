@@ -1,7 +1,7 @@
 use super::Merchant;
 use crate::category::Category;
 use crate::essentials::*;
-pub use crate::schema::{categories, merchants};
+use crate::schema::{categories, merchants};
 
 use diesel::{
     expression::SqlLiteral,
@@ -13,8 +13,8 @@ use diesel::{
 };
 
 diesel::alias! {
-    const MERCHANTS_ALIAS: Alias<MerchantAlias> = merchants as merchants_alias;
-    const REPLACERS: Alias<Replacers> = merchants as replacers;
+    pub(super) const MERCHANTS_ALIAS: Alias<MerchantAlias> = merchants as merchants_alias;
+    pub(super) const REPLACERS: Alias<Replacers> = merchants as replacers;
 }
 
 #[derive(Default)]

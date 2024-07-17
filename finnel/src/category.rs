@@ -6,6 +6,9 @@ use diesel::prelude::*;
 mod query;
 pub use query::QueryCategory;
 
+mod consolidate;
+pub use consolidate::consolidate;
+
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = categories)]
 #[diesel(belongs_to(Category, foreign_key = parent_id))]

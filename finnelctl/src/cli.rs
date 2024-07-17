@@ -71,6 +71,8 @@ pub enum Commands {
     /// Merchant related commands
     #[command(subcommand)]
     Merchant(merchant::Command),
+    /// Consolidate the database
+    Consolidate {},
     /// Reset the database
     #[command(hide = true)]
     Reset {

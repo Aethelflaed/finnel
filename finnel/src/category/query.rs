@@ -1,6 +1,6 @@
 use super::Category;
 use crate::essentials::*;
-pub use crate::schema::categories;
+use crate::schema::categories;
 
 use diesel::{
     expression::SqlLiteral,
@@ -12,9 +12,9 @@ use diesel::{
 };
 
 diesel::alias! {
-    const CATEGORIES_ALIAS: Alias<CategoryAlias> = categories as categories_alias;
-    const PARENTS: Alias<Parents> = categories as parents;
-    const REPLACERS: Alias<Replacers> = categories as replacers;
+    pub(super) const CATEGORIES_ALIAS: Alias<CategoryAlias> = categories as categories_alias;
+    pub(super) const PARENTS: Alias<Parents> = categories as parents;
+    pub(super) const REPLACERS: Alias<Replacers> = categories as replacers;
 }
 
 #[derive(Default)]

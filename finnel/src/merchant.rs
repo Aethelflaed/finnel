@@ -6,6 +6,9 @@ use diesel::prelude::*;
 mod query;
 pub use query::QueryMerchant;
 
+mod consolidate;
+pub use consolidate::consolidate;
+
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = merchants)]
 #[diesel(belongs_to(Category, foreign_key = default_category_id))]
