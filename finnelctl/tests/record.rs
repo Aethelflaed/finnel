@@ -22,7 +22,6 @@ fn empty() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn list() -> Result<()> {
     let env = Env::new()?;

@@ -12,7 +12,9 @@ use diesel::{
     sqlite::Sqlite,
 };
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
+#[derive(
+    Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression,
+)]
 #[diesel(sql_type = Text)]
 pub enum Direction {
     #[default]

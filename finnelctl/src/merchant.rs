@@ -54,17 +54,26 @@ impl CommandContext<'_> {
     fn list(&mut self, args: &List) -> Result<()> {
         let List { name, count, .. } = args;
 
-        let merchants = QueryMerchant {
+        let query = QueryMerchant {
             name: name.as_deref(),
             count: count.map(|c| c as i64),
-            ..Default::default()
-        }
-        .run(self.conn)?
-        .into_iter()
-        .map(MerchantToDisplay::from)
-        .collect::<Vec<_>>();
+        };
 
-        println!("{}", Table::new(merchants));
+        if let Some(ListUpdate::Update(args)) = &args.update {
+            let resolved_args = args_to_change(self.conn, args)?;
+
+            for merchant in query.run(self.conn)? {
+                resolved_args.clone().save(self.conn, &merchant)?;
+            }
+        } else {
+            let merchants = query
+                .run(self.conn)?
+                .into_iter()
+                .map(MerchantToDisplay::from)
+                .collect::<Vec<_>>();
+
+            println!("{}", Table::new(merchants));
+        }
 
         Ok(())
     }
@@ -119,7 +128,6 @@ impl CommandContext<'_> {
                 .default_category(self.conn)?
                 .map(|c| c.id),
             replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
-            ..Default::default()
         }
         .save(self.conn)?;
 
@@ -129,18 +137,9 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let merchant = Merchant::find_by_name(self.conn, &args.name)?;
 
-        ChangeMerchant {
-            name: args.new_name.as_deref(),
-            default_category_id: args
-                .default_category(self.conn)?
-                .map(|c| c.map(|c| c.id)),
-            replaced_by_id: args
-                .replace_by(self.conn)?
-                .map(|r| r.map(|r| r.id)),
-            ..Default::default()
-        }
-        .save(self.conn, &merchant)
-        .optional_empty_changeset()?;
+        args_to_change(self.conn, &args.args)?
+            .save(self.conn, &merchant)
+            .optional_empty_changeset()?;
 
         Ok(())
     }
@@ -156,4 +155,17 @@ impl CommandContext<'_> {
 
         Ok(())
     }
+}
+
+fn args_to_change<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<ChangeMerchant<'a>> {
+    Ok(ChangeMerchant {
+        name: args.new_name.as_deref(),
+        default_category_id: args
+            .default_category(conn)?
+            .map(|c| c.map(|c| c.id)),
+        replaced_by_id: args.replace_by(conn)?.map(|r| r.map(|r| r.id)),
+    })
 }

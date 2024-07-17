@@ -35,7 +35,7 @@ pub struct List {
 #[derive(Subcommand, Clone, Debug)]
 pub enum ListUpdate {
     /// Update the listed categories
-    Update {},
+    Update(UpdateArgs),
 }
 
 #[derive(Args, Clone, Debug)]
@@ -93,6 +93,12 @@ pub struct Update {
     /// Name of the category to update
     pub name: String,
 
+    #[command(flatten)]
+    pub args: UpdateArgs,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct UpdateArgs {
     /// New name of the category
     #[arg(long)]
     pub new_name: Option<String>,
@@ -114,7 +120,7 @@ pub struct Update {
     no_parent: bool,
 }
 
-impl Update {
+impl UpdateArgs {
     pub fn replace_by(
         &self,
         conn: &mut Conn,

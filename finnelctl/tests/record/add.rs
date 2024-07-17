@@ -20,8 +20,7 @@ fn required_arguments() -> Result<()> {
 
     cmd!(env, account create Cash).success();
 
-    cmd!(env, record add 10 bread -A Cash)
-        .success();
+    cmd!(env, record add 10 bread -A Cash).success();
 
     Ok(())
 }
@@ -31,8 +30,7 @@ fn operations() -> Result<()> {
     let env = crate::Env::new()?;
     crate::setup(&env)?;
 
-    cmd!(env, record add 10 bread)
-        .success();
+    cmd!(env, record add 10 bread).success();
 
     Ok(())
 }

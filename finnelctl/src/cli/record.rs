@@ -264,7 +264,12 @@ pub struct UpdateArgs {
     pub mode: Option<Mode>,
 
     /// Operation date
-    #[arg(long, value_name = "DATE", requires = "confirm", help_heading = "Record")]
+    #[arg(
+        long,
+        value_name = "DATE",
+        requires = "confirm",
+        help_heading = "Record"
+    )]
     operation_date: Option<NaiveDate>,
 
     #[allow(private_interfaces)]

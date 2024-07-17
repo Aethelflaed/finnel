@@ -54,17 +54,27 @@ impl CommandContext<'_> {
     fn list(&mut self, args: &List) -> Result<()> {
         let List { name, count, .. } = args;
 
-        let categories = QueryCategory {
+        let query = QueryCategory {
             name: name.as_deref(),
             count: count.map(|c| c as i64),
             ..Default::default()
-        }
-        .run(self.conn)?
-        .into_iter()
-        .map(CategoryToDisplay::from)
-        .collect::<Vec<_>>();
+        };
 
-        println!("{}", Table::new(categories));
+        if let Some(ListUpdate::Update(args)) = &args.update {
+            let resolved_args = args_to_change(self.conn, args)?;
+
+            for category in query.run(self.conn)? {
+                resolved_args.clone().save(self.conn, &category)?;
+            }
+        } else {
+            let categories = query
+                .run(self.conn)?
+                .into_iter()
+                .map(CategoryToDisplay::from)
+                .collect::<Vec<_>>();
+
+            println!("{}", Table::new(categories));
+        }
 
         Ok(())
     }
@@ -111,7 +121,6 @@ impl CommandContext<'_> {
             name: &args.name,
             parent_id: args.parent(self.conn)?.map(|p| p.id),
             replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
-            ..Default::default()
         }
         .save(self.conn)?;
 
@@ -121,16 +130,9 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let category = Category::find_by_name(self.conn, &args.name)?;
 
-        ChangeCategory {
-            name: args.new_name.as_deref(),
-            replaced_by_id: args
-                .replace_by(self.conn)?
-                .map(|r| r.map(|r| r.id)),
-            parent_id: args.parent(self.conn)?.map(|r| r.map(|r| r.id)),
-            ..Default::default()
-        }
-        .save(self.conn, &category)
-        .optional_empty_changeset()?;
+        args_to_change(self.conn, &args.args)?
+            .save(self.conn, &category)
+            .optional_empty_changeset()?;
 
         Ok(())
     }
@@ -146,4 +148,15 @@ impl CommandContext<'_> {
 
         Ok(())
     }
+}
+
+fn args_to_change<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<ChangeCategory<'a>> {
+    Ok(ChangeCategory {
+        name: args.new_name.as_deref(),
+        replaced_by_id: args.replace_by(conn)?.map(|r| r.map(|r| r.id)),
+        parent_id: args.parent(conn)?.map(|r| r.map(|r| r.id)),
+    })
 }
