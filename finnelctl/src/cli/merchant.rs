@@ -109,6 +109,15 @@ pub struct UpdateArgs {
     #[command(flatten, next_help_heading = "Category")]
     category: CategoryArgs,
 
+    /// Create category with given name and use it
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "category_args",
+        help_heading = "Category"
+    )]
+    create_default_category: Option<String>,
+
     /// Remove the category
     #[arg(long, group = "category_args", help_heading = "Category")]
     no_default_category: bool,
@@ -116,6 +125,16 @@ pub struct UpdateArgs {
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
     replace_by: ReplaceByArgs,
+
+    /// Create the another merchant to use instead of the currently creating
+    /// one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "replace_by_args",
+        help_heading = "Replace by"
+    )]
+    create_replace_by: Option<String>,
 
     /// Remove the indication to replace this merchant by another one
     #[arg(long, group = "replace_by_args", help_heading = "Replace by")]
@@ -127,14 +146,22 @@ impl UpdateArgs {
         &self,
         conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
-        self.category.resolve(conn, None, self.no_default_category)
+        self.category.resolve(
+            conn,
+            self.create_default_category.as_deref(),
+            self.no_default_category,
+        )
     }
 
     pub fn replace_by(
         &self,
         conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
-        self.replace_by.resolve(conn, None, self.no_replace_by)
+        self.replace_by.resolve(
+            conn,
+            self.create_replace_by.as_deref(),
+            self.no_replace_by,
+        )
     }
 }
 

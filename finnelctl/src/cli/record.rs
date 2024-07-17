@@ -95,7 +95,7 @@ impl Add {
         conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
         self.category
-            .resolve(conn, self.create_category.clone(), false)
+            .resolve(conn, self.create_category.as_deref(), false)
     }
 
     pub fn merchant(
@@ -103,7 +103,7 @@ impl Add {
         conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
         self.merchant
-            .resolve(conn, self.create_merchant.clone(), false)
+            .resolve(conn, self.create_merchant.as_deref(), false)
     }
 }
 
@@ -322,7 +322,7 @@ impl UpdateArgs {
     ) -> Result<Option<Option<Category>>> {
         self.category.resolve(
             conn,
-            self.create_category.clone(),
+            self.create_category.as_deref(),
             self.no_category,
         )
     }
@@ -333,7 +333,7 @@ impl UpdateArgs {
     ) -> Result<Option<Option<Merchant>>> {
         self.merchant.resolve(
             conn,
-            self.create_merchant.clone(),
+            self.create_merchant.as_deref(),
             self.no_merchant,
         )
     }
@@ -364,7 +364,7 @@ impl CategoryArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
-        create: Option<String>,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.category {
@@ -372,7 +372,7 @@ impl CategoryArgs {
         } else if let Some(id) = self.category_id {
             Ok(Some(Some(Category::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(&name).save(conn)?)))
+            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {
@@ -406,7 +406,7 @@ impl MerchantArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
-        create: Option<String>,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Merchant>>> {
         if let Some(name) = &self.merchant {
@@ -414,7 +414,7 @@ impl MerchantArgs {
         } else if let Some(id) = self.merchant_id {
             Ok(Some(Some(Merchant::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            Ok(Some(Some(NewMerchant::new(&name).save(conn)?)))
+            Ok(Some(Some(NewMerchant::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {

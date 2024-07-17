@@ -107,6 +107,16 @@ pub struct UpdateArgs {
     #[command(flatten, next_help_heading = "Replace by")]
     replace_by: ReplaceByArgs,
 
+    /// Create the another category to use instead of the currently creating
+    /// one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "replace_by_args",
+        help_heading = "Replace by"
+    )]
+    create_replace_by: Option<String>,
+
     /// Remove the indication to replace this category by another one
     #[arg(long, group = "replace_by_args", help_heading = "Replace by")]
     no_replace_by: bool,
@@ -114,6 +124,16 @@ pub struct UpdateArgs {
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Parent")]
     parent: ParentArgs,
+
+    /// Create the another category to use as the parent of the currently
+    /// creating one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "parent_args",
+        help_heading = "Parent"
+    )]
+    create_parent: Option<String>,
 
     /// Remove the relation to the parent category
     #[arg(long, group = "parent_args", help_heading = "Parent")]
@@ -125,11 +145,16 @@ impl UpdateArgs {
         &self,
         conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
-        self.replace_by.resolve(conn, None, self.no_replace_by)
+        self.replace_by.resolve(
+            conn,
+            self.create_replace_by.as_deref(),
+            self.no_replace_by,
+        )
     }
 
     pub fn parent(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
-        self.parent.resolve(conn, None, self.no_parent)
+        self.parent
+            .resolve(conn, self.create_parent.as_deref(), self.no_parent)
     }
 }
 
