@@ -82,7 +82,7 @@ impl NewCategory<'_> {
     }
 }
 
-#[derive(Default, Clone, Copy, AsChangeset)]
+#[derive(Default, Clone, AsChangeset)]
 #[diesel(table_name = categories)]
 pub struct ChangeCategory<'a> {
     pub name: Option<&'a str>,
@@ -144,14 +144,14 @@ impl ChangeCategory<'_> {
         Ok(())
     }
 
-    pub fn save(&self, conn: &mut Conn, category: &Category) -> Result<()> {
+    pub fn save(self, conn: &mut Conn, category: &Category) -> Result<()> {
         self.valid(conn, category)?;
         diesel::update(category).set(self).execute(conn)?;
         Ok(())
     }
 
     pub fn apply(self, conn: &mut Conn, category: &mut Category) -> Result<()> {
-        self.save(conn, category)?;
+        self.clone().save(conn, category)?;
 
         if let Some(value) = self.name {
             category.name = value.to_string();
@@ -231,8 +231,8 @@ mod tests {
             |c| c.replaced_by_id
         )
         .is_err());
-        assert!(change.save(conn, category1).is_err());
-        assert!(change.save(conn, category1_1).is_err());
+        assert!(change.clone().save(conn, category1).is_err());
+        assert!(change.clone().save(conn, category1_1).is_err());
 
         Ok(())
     }

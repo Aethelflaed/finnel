@@ -113,7 +113,7 @@ impl CommandContext<'_> {
             let resolved_args = args_to_change(self.conn, args)?;
 
             for (record, _, _) in query.run(self.conn)? {
-                resolved_args.save(self.conn, &record)?;
+                resolved_args.clone().save(self.conn, &record)?;
             }
         } else {
             let records = query
@@ -141,8 +141,16 @@ fn args_to_change<'a>(
     conn: &mut Conn,
     args: &'a UpdateArgs,
 ) -> Result<ChangeRecord<'a>> {
+    if args.confirm && !crate::utils::confirm()? {
+        anyhow::bail!("operation requires confirmation");
+    }
+
     Ok(ChangeRecord {
+        amount: args.amount,
+        operation_date: args.operation_date()?,
         value_date: args.value_date()?,
+        direction: args.direction,
+        mode: args.mode,
         details: args.details.as_deref(),
         category_id: args.category(conn)?.map(|c| c.map(|c| c.id)),
         merchant_id: args.merchant(conn)?.map(|m| m.map(|m| m.id)),

@@ -20,5 +20,5 @@ pub fn confirm() -> Result<bool> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
-    Ok(input == "yes")
+    Ok(input.trim() == "yes")
 }

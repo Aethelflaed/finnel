@@ -33,12 +33,12 @@ pub struct Add {
     /// Transaction direction
     ///
     /// Possible values include debit, credit, and variants
-    #[arg(short = 'd', long, default_value_t = Direction::Debit, help_heading = "Record")]
+    #[arg(short = 'd', long, default_value_t, help_heading = "Record")]
     pub direction: Direction,
 
     /// Transaction mode
     ///
-    /// Possible values include direct, transfer, ATM
+    /// Possible values include direct, transfer, ATM, ATM CB *WXYZ, CB *WXYZ
     #[arg(short = 'm', long, default_value_t, help_heading = "Record")]
     pub mode: Mode,
 
@@ -242,6 +242,30 @@ pub struct UpdateArgs {
     #[arg(long, value_name = "DATE", help_heading = "Record")]
     value_date: Option<NaiveDate>,
 
+    /// Confirm update of sensitive information
+    #[arg(long)]
+    pub confirm: bool,
+
+    /// Amount of the record
+    #[arg(long, requires = "confirm", help_heading = "Record")]
+    pub amount: Option<Decimal>,
+
+    /// Transaction direction
+    ///
+    /// Possible values include debit, credit, and variants
+    #[arg(short = 'd', long, requires = "confirm", help_heading = "Record")]
+    pub direction: Option<Direction>,
+
+    /// Transaction mode
+    ///
+    /// Possible values include direct, transfer, ATM, ATM CB *WXYZ, CB *WXYZ
+    #[arg(short = 'm', long, requires = "confirm", help_heading = "Record")]
+    pub mode: Option<Mode>,
+
+    /// Operation date
+    #[arg(long, value_name = "DATE", requires = "confirm", help_heading = "Record")]
+    operation_date: Option<NaiveDate>,
+
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
     category: CategoryArgs,
@@ -278,6 +302,10 @@ pub struct UpdateArgs {
 }
 
 impl UpdateArgs {
+    pub fn operation_date(&self) -> Result<Option<DateTime<Utc>>> {
+        self.operation_date.map(naive_date_to_utc).transpose()
+    }
+
     pub fn value_date(&self) -> Result<Option<DateTime<Utc>>> {
         self.value_date.map(naive_date_to_utc).transpose()
     }

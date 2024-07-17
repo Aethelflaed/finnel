@@ -77,20 +77,20 @@ impl NewAccount<'_> {
     }
 }
 
-#[derive(Default, Clone, Copy, AsChangeset)]
+#[derive(Default, Clone, AsChangeset)]
 #[diesel(table_name = accounts)]
 pub struct ChangeAccount<'a> {
     pub name: Option<&'a str>,
 }
 
 impl ChangeAccount<'_> {
-    pub fn save(&self, conn: &mut Conn, account: &Account) -> Result<()> {
+    pub fn save(self, conn: &mut Conn, account: &Account) -> Result<()> {
         diesel::update(account).set(self).execute(conn)?;
         Ok(())
     }
 
     pub fn apply(self, conn: &mut Conn, account: &mut Account) -> Result<()> {
-        self.save(conn, account)?;
+        self.clone().save(conn, account)?;
 
         if let Some(value) = self.name {
             account.name = value.to_string();

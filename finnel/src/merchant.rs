@@ -80,7 +80,7 @@ impl NewMerchant<'_> {
     }
 }
 
-#[derive(Default, Clone, Copy, AsChangeset)]
+#[derive(Default, Clone, AsChangeset)]
 #[diesel(table_name = merchants)]
 pub struct ChangeMerchant<'a> {
     pub name: Option<&'a str>,
@@ -115,14 +115,15 @@ impl ChangeMerchant<'_> {
 
         Ok(())
     }
-    pub fn save(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+
+    pub fn save(self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
         self.valid(conn, merchant)?;
         diesel::update(merchant).set(self).execute(conn)?;
         Ok(())
     }
 
     pub fn apply(self, conn: &mut Conn, merchant: &mut Merchant) -> Result<()> {
-        self.save(conn, merchant)?;
+        self.clone().save(conn, merchant)?;
 
         if let Some(value) = self.name {
             merchant.name = value.to_string();
@@ -201,8 +202,8 @@ mod tests {
             merchant1
         )
         .is_err());
-        assert!(change.save(conn, merchant1).is_err());
-        assert!(change.save(conn, merchant1_1).is_err());
+        assert!(change.clone().save(conn, merchant1).is_err());
+        assert!(change.clone().save(conn, merchant1_1).is_err());
 
         Ok(())
     }

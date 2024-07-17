@@ -108,26 +108,43 @@ impl Default for NewRecord<'_> {
     }
 }
 
-#[derive(Default, Clone, Copy, AsChangeset)]
+#[derive(Default, Clone, AsChangeset)]
 #[diesel(table_name = records)]
 pub struct ChangeRecord<'a> {
+    #[diesel(serialize_as = crate::db::Decimal)]
+    pub amount: Option<Decimal>,
+    pub operation_date: Option<DateTime<Utc>>,
     pub value_date: Option<DateTime<Utc>>,
+    pub direction: Option<Direction>,
+    pub mode: Option<Mode>,
     pub details: Option<&'a str>,
     pub category_id: Option<Option<i64>>,
     pub merchant_id: Option<Option<i64>>,
 }
 
 impl ChangeRecord<'_> {
-    pub fn save(&self, conn: &mut Conn, record: &Record) -> Result<()> {
+    pub fn save(self, conn: &mut Conn, record: &Record) -> Result<()> {
         diesel::update(record).set(self).execute(conn)?;
         Ok(())
     }
 
     pub fn apply(self, conn: &mut Conn, record: &mut Record) -> Result<()> {
-        self.save(conn, record)?;
+        self.clone().save(conn, record)?;
 
+        if let Some(value) = self.amount {
+            record.amount = value;
+        }
+        if let Some(value) = self.operation_date {
+            record.operation_date = value;
+        }
         if let Some(value) = self.value_date {
             record.value_date = value;
+        }
+        if let Some(value) = self.direction {
+            record.direction = value;
+        }
+        if let Some(value) = self.mode {
+            record.mode = value;
         }
         if let Some(value) = self.details {
             record.details = value.to_string();
