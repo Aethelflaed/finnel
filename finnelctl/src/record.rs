@@ -104,9 +104,9 @@ impl CommandContext<'_> {
             direction: *direction,
             mode: *mode,
             details: details.as_deref(),
-            count: *count,
             category_id: args.category(self.conn)?.map(|c| c.map(|c| c.id)),
             merchant_id: args.merchant(self.conn)?.map(|m| m.map(|m| m.id)),
+            count: *count,
         };
 
         if let Some(ListUpdate::Update(args)) = &args.update {

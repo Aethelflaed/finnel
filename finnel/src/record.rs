@@ -170,9 +170,9 @@ pub struct QueryRecord<'a> {
     pub less_than: Option<Decimal>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
+    pub details: Option<&'a str>,
     pub merchant_id: Option<Option<i64>>,
     pub category_id: Option<Option<i64>>,
-    pub details: Option<&'a str>,
     pub count: Option<i64>,
 }
 
@@ -218,14 +218,14 @@ impl QueryRecord<'_> {
         if let Some(mode) = &self.mode {
             query = query.filter(records::mode.eq(mode));
         }
-        if let Some(category_id) = self.category_id {
-            query = query.filter(records::category_id.eq(category_id));
-        }
-        if let Some(merchant_id) = self.merchant_id {
-            query = query.filter(records::merchant_id.eq(merchant_id));
-        }
         if let Some(details) = self.details {
             query = query.filter(records::details.like(details));
+        }
+        if let Some(category_id) = self.category_id {
+            query = query.filter(records::category_id.is(category_id));
+        }
+        if let Some(merchant_id) = self.merchant_id {
+            query = query.filter(records::merchant_id.is(merchant_id));
         }
 
         if let Some(count) = self.count {

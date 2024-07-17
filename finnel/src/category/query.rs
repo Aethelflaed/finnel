@@ -52,7 +52,7 @@ impl<'a> QueryCategory<'a> {
         }
         if let Some(parent_id) = self.parent_id {
             query = query.filter(
-                CATEGORIES_ALIAS.field(categories::parent_id).eq(parent_id),
+                CATEGORIES_ALIAS.field(categories::parent_id).is(parent_id),
             );
         }
         if let Some(count) = self.count {

@@ -4,48 +4,23 @@ use crate::common::prelude::*;
 fn required_arguments() -> Result<()> {
     let env = crate::Env::new()?;
 
-    env.command()?
-        .arg("record")
-        .arg("add")
-        .assert()
+    cmd!(env, record add)
         .failure()
         .stderr(str::contains("  <AMOUNT>"))
         .stderr(str::contains("  <DETAILS>"));
 
-    env.command()?
-        .arg("record")
-        .arg("add")
-        .arg("10")
-        .assert()
+    cmd!(env, record add 10)
         .failure()
         .stderr(str::contains("  <AMOUNT>").not())
         .stderr(str::contains("  <DETAILS>"));
 
-    env.command()?
-        .arg("record")
-        .arg("add")
-        .arg("10")
-        .arg("bread")
-        .assert()
+    cmd!(env, record add 10 bread)
         .failure()
         .stderr(str::contains("Account not provided"));
 
-    env.command()?
-        .arg("account")
-        .arg("create")
-        .arg("Cash")
-        .assert()
-        .success()
-        .stdout(str::is_empty());
+    cmd!(env, account create Cash).success();
 
-    env.command()?
-        .arg("record")
-        .arg("add")
-        .arg("10")
-        .arg("bread")
-        .arg("-A")
-        .arg("Cash")
-        .assert()
+    cmd!(env, record add 10 bread -A Cash)
         .success();
 
     Ok(())
@@ -56,12 +31,7 @@ fn operations() -> Result<()> {
     let env = crate::Env::new()?;
     crate::setup(&env)?;
 
-    env.command()?
-        .arg("record")
-        .arg("add")
-        .arg("10")
-        .arg("bread")
-        .assert()
+    cmd!(env, record add 10 bread)
         .success();
 
     Ok(())

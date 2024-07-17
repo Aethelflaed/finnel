@@ -236,6 +236,7 @@ pub enum ListUpdate {
 #[derive(Args, Clone, Debug)]
 pub struct UpdateArgs {
     /// Change the record details
+    #[arg(long, value_name = "DETAILS", help_heading = "Record")]
     pub details: Option<String>,
 
     /// Change the value date
