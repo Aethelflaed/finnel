@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use clap::{Args, Subcommand};
 
-use finnel::prelude::*;
+use finnel::{category::NewCategory, prelude::*};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -47,18 +47,44 @@ pub struct Create {
     #[command(flatten, next_help_heading = "Replace by")]
     replace_by: ReplaceByArgs,
 
+    /// Create the another category to use instead of the currently creating
+    /// one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "replace_by_args",
+        help_heading = "Replace by"
+    )]
+    create_replace_by: Option<String>,
+
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Parent")]
     parent: ParentArgs,
+
+    /// Create the another category to use as the parent of the currently
+    /// creating one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "parent_args",
+        help_heading = "Parent"
+    )]
+    create_parent: Option<String>,
 }
 
 impl Create {
     pub fn replace_by(&self, conn: &mut Conn) -> Result<Option<Category>> {
-        Ok(self.replace_by.resolve(conn, false)?.flatten())
+        Ok(self
+            .replace_by
+            .resolve(conn, self.create_replace_by.as_deref(), false)?
+            .flatten())
     }
 
     pub fn parent(&self, conn: &mut Conn) -> Result<Option<Category>> {
-        Ok(self.parent.resolve(conn, false)?.flatten())
+        Ok(self
+            .parent
+            .resolve(conn, self.create_parent.as_deref(), false)?
+            .flatten())
     }
 }
 
@@ -93,11 +119,11 @@ impl Update {
         &self,
         conn: &mut Conn,
     ) -> Result<Option<Option<Category>>> {
-        self.replace_by.resolve(conn, self.no_replace_by)
+        self.replace_by.resolve(conn, None, self.no_replace_by)
     }
 
     pub fn parent(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
-        self.parent.resolve(conn, self.no_parent)
+        self.parent.resolve(conn, None, self.no_parent)
     }
 }
 
@@ -142,12 +168,15 @@ impl ReplaceByArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.replace_by {
             Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.replace_by_id {
             Ok(Some(Some(Category::find(conn, id as i64)?)))
+        } else if let Some(name) = create {
+            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {
@@ -181,12 +210,15 @@ impl ParentArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.parent {
             Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.parent_id {
             Ok(Some(Some(Category::find(conn, id as i64)?)))
+        } else if let Some(name) = create {
+            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {

@@ -66,7 +66,10 @@ pub struct NewCategory<'a> {
 
 impl<'a> NewCategory<'a> {
     pub fn new(name: &'a str) -> Self {
-        Self { name, ..Default::default() }
+        Self {
+            name,
+            ..Default::default()
+        }
     }
 }
 

@@ -123,7 +123,9 @@ impl CommandContext<'_> {
 
         ChangeCategory {
             name: args.new_name.as_deref(),
-            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.map(|r| r.id)),
+            replaced_by_id: args
+                .replace_by(self.conn)?
+                .map(|r| r.map(|r| r.id)),
             parent_id: args.parent(self.conn)?.map(|r| r.map(|r| r.id)),
             ..Default::default()
         }

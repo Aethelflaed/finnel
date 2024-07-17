@@ -134,7 +134,9 @@ impl CommandContext<'_> {
             default_category_id: args
                 .default_category(self.conn)?
                 .map(|c| c.map(|c| c.id)),
-            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.map(|r| r.id)),
+            replaced_by_id: args
+                .replace_by(self.conn)?
+                .map(|r| r.map(|r| r.id)),
             ..Default::default()
         }
         .save(self.conn, &merchant)

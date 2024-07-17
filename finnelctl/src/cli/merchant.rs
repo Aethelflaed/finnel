@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use clap::{Args, Subcommand};
 
-use finnel::{category::NewCategory, prelude::*};
+use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -59,6 +59,16 @@ pub struct Create {
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
     replace_by: ReplaceByArgs,
+
+    /// Create the another merchant to use instead of the currently creating
+    /// one
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "replace_by_args",
+        help_heading = "Replace by"
+    )]
+    create_replace_by: Option<String>,
 }
 
 impl Create {
@@ -68,12 +78,15 @@ impl Create {
     ) -> Result<Option<Category>> {
         Ok(self
             .category
-            .resolve(conn, self.create_default_category.clone(), false)?
+            .resolve(conn, self.create_default_category.as_deref(), false)?
             .flatten())
     }
 
     pub fn replace_by(&self, conn: &mut Conn) -> Result<Option<Merchant>> {
-        Ok(self.replace_by.resolve(conn, false)?.flatten())
+        Ok(self
+            .replace_by
+            .resolve(conn, self.create_replace_by.as_deref(), false)?
+            .flatten())
     }
 }
 
@@ -115,7 +128,7 @@ impl Update {
         &self,
         conn: &mut Conn,
     ) -> Result<Option<Option<Merchant>>> {
-        self.replace_by.resolve(conn, self.no_replace_by)
+        self.replace_by.resolve(conn, None, self.no_replace_by)
     }
 }
 
@@ -160,7 +173,7 @@ impl CategoryArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
-        create: Option<String>,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
         if let Some(name) = &self.default_category {
@@ -168,7 +181,7 @@ impl CategoryArgs {
         } else if let Some(id) = self.default_category_id {
             Ok(Some(Some(Category::find(conn, id as i64)?)))
         } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(&name).save(conn)?)))
+            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {
@@ -202,12 +215,15 @@ impl ReplaceByArgs {
     pub fn resolve(
         &self,
         conn: &mut Conn,
+        create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Merchant>>> {
         if let Some(name) = &self.replace_by {
             Ok(Some(Some(Merchant::find_by_name(conn, name.as_str())?)))
         } else if let Some(id) = self.replace_by_id {
             Ok(Some(Some(Merchant::find(conn, id as i64)?)))
+        } else if let Some(name) = create {
+            Ok(Some(Some(NewMerchant::new(name).save(conn)?)))
         } else if absence {
             Ok(Some(None))
         } else {
