@@ -19,17 +19,33 @@ struct CommandContext<'a> {
 }
 
 #[derive(derive_more::From)]
-struct CategoryToDisplay(Category);
+struct CategoryToDisplay(Category, Option<Category>, Option<Category>);
 
 impl Tabled for CategoryToDisplay {
     const LENGTH: usize = 2;
 
     fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![self.0.id.to_string().into(), self.0.name.clone().into()]
+        vec![
+            self.0.id.to_string().into(),
+            self.0.name.clone().into(),
+            self.1
+                .as_ref()
+                .map(|c| c.name.clone().into())
+                .unwrap_or("".into()),
+            self.2
+                .as_ref()
+                .map(|c| c.name.clone().into())
+                .unwrap_or("".into()),
+        ]
     }
 
     fn headers() -> Vec<Cow<'static, str>> {
-        vec!["id".into(), "name".into()]
+        vec![
+            "id".into(),
+            "name".into(),
+            "parent".into(),
+            "replaced by".into(),
+        ]
     }
 }
 
@@ -68,6 +84,8 @@ impl CommandContext<'_> {
             }
         } else {
             let categories = query
+                .with_parent()
+                .with_replacer()
                 .run(self.conn)?
                 .into_iter()
                 .map(CategoryToDisplay::from)
