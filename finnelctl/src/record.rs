@@ -89,10 +89,10 @@ impl CommandContext<'_> {
             less_than,
             direction,
             mode,
-            details,
             count,
             ..
         } = args;
+        let details = args.details();
 
         let query = QueryRecord {
             account_id: Some(self.account.id),

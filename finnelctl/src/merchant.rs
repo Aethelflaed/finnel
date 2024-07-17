@@ -66,7 +66,8 @@ pub fn run(config: &Config) -> Result<()> {
 
 impl CommandContext<'_> {
     fn list(&mut self, args: &List) -> Result<()> {
-        let List { name, count, .. } = args;
+        let List { count, .. } = args;
+        let name = args.name();
 
         let query = QueryMerchant {
             name: name.as_deref(),

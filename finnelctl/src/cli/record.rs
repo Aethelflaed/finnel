@@ -180,7 +180,7 @@ pub struct List {
 
     /// Show only records with this text in the details
     #[arg(long, help_heading = "Filter records")]
-    pub details: Option<String>,
+    details: Option<String>,
 
     /// Maximum number of records to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
@@ -204,6 +204,18 @@ pub struct List {
 }
 
 impl List {
+    pub fn details(&self) -> Option<String> {
+        self.details.clone().map(|mut n| {
+            if !n.starts_with("%") {
+                n = format!("%{n}");
+            }
+            if !n.ends_with("%") {
+                n.push_str("%");
+            }
+            n
+        })
+    }
+
     pub fn after(&self) -> Result<Option<DateTime<Utc>>> {
         self.after.map(naive_date_to_utc).transpose()
     }

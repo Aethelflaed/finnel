@@ -25,11 +25,25 @@ pub struct List {
 
     /// Show only categories with this text in the name
     #[arg(long, help_heading = "Filter categories")]
-    pub name: Option<String>,
+    name: Option<String>,
 
     /// Maximum number of categories to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
     pub count: Option<u32>,
+}
+
+impl List {
+    pub fn name(&self) -> Option<String> {
+        self.name.clone().map(|mut n| {
+            if !n.starts_with("%") {
+                n = format!("%{n}");
+            }
+            if !n.ends_with("%") {
+                n.push_str("%");
+            }
+            n
+        })
+    }
 }
 
 #[derive(Subcommand, Clone, Debug)]
