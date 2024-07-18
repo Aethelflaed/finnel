@@ -107,6 +107,12 @@ impl CommandContext<'_> {
             category_id: args.category(self.conn)?.map(|c| c.map(|c| c.id)),
             merchant_id: args.merchant(self.conn)?.map(|m| m.map(|m| m.id)),
             count: *count,
+            order: args
+                .sort
+                .clone()
+                .into_iter()
+                .map(|o| o.into())
+                .collect::<Vec<_>>(),
         };
 
         if let Some(ListUpdate::Update(args)) = &args.update {

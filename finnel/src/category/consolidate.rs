@@ -2,7 +2,6 @@ use super::{query, ChangeCategory};
 use crate::prelude::*;
 use crate::schema::categories;
 
-
 pub fn consolidate(conn: &mut Conn) -> Result<()> {
     let query = query::CATEGORIES_ALIAS
         .inner_join(
@@ -12,12 +11,12 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
         )
         .filter(
             query::REPLACERS
-            .field(categories::replaced_by_id)
-            .is_not_null(),
+                .field(categories::replaced_by_id)
+                .is_not_null(),
         )
         .select((
-                query::CATEGORIES_ALIAS.fields(categories::all_columns),
-                query::REPLACERS.fields(categories::all_columns),
+            query::CATEGORIES_ALIAS.fields(categories::all_columns),
+            query::REPLACERS.fields(categories::all_columns),
         ));
 
     for (category, replacer) in query.load::<(Category, Category)>(conn)? {
@@ -28,7 +27,7 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
             ..Default::default()
         }
         .save(conn, &category)?;
-        }
+    }
 
     Ok(())
 }

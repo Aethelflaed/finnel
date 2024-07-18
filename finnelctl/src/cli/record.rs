@@ -6,7 +6,7 @@ use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
-use clap::{Args, Subcommand};
+use clap::{builder::PossibleValue, Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -122,6 +122,64 @@ impl Update {
     }
 }
 
+use finnel::record::query::{OrderDirection, OrderField};
+
+#[derive(Debug, Clone, Copy, derive_more::Into)]
+pub struct Sort(OrderField, OrderDirection);
+
+impl ValueEnum for Sort {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            Sort(OrderField::Amount, OrderDirection::Asc),
+            Sort(OrderField::Date, OrderDirection::Asc),
+            Sort(OrderField::CategoryId, OrderDirection::Asc),
+            Sort(OrderField::MerchantId, OrderDirection::Asc),
+            Sort(OrderField::Amount, OrderDirection::Desc),
+            Sort(OrderField::Date, OrderDirection::Desc),
+            Sort(OrderField::CategoryId, OrderDirection::Desc),
+            Sort(OrderField::MerchantId, OrderDirection::Desc),
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        let mut value = PossibleValue::new(self.to_string());
+
+        match self.0 {
+            OrderField::Date => {
+                value = value.help(
+                    "Value or operation date, depending on --operation-date",
+                )
+            }
+            _ => {}
+        }
+
+        Some(value)
+    }
+}
+
+impl core::fmt::Display for Sort {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.0 {
+            OrderField::Amount => match self.1 {
+                OrderDirection::Asc => write!(f, "amount"),
+                OrderDirection::Desc => write!(f, "amount.desc"),
+            },
+            OrderField::Date => match self.1 {
+                OrderDirection::Asc => write!(f, "date"),
+                OrderDirection::Desc => write!(f, "date.desc"),
+            },
+            OrderField::CategoryId => match self.1 {
+                OrderDirection::Asc => write!(f, "category_id"),
+                OrderDirection::Desc => write!(f, "category_id.desc"),
+            },
+            OrderField::MerchantId => match self.1 {
+                OrderDirection::Asc => write!(f, "merchant_id"),
+                OrderDirection::Desc => write!(f, "merchant_id.desc"),
+            },
+        }
+    }
+}
+
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
@@ -185,6 +243,9 @@ pub struct List {
     /// Maximum number of records to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
     pub count: Option<i64>,
+
+    #[arg(long, help_heading = "Sort records")]
+    pub sort: Vec<Sort>,
 
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by category")]
