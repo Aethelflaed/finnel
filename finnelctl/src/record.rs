@@ -21,7 +21,7 @@ struct CommandContext<'a> {
 }
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Record(command) = config.command().clone().unwrap() else {
+    let Commands::Record(command) = config.command().clone() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 

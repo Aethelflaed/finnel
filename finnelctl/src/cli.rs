@@ -8,7 +8,7 @@ pub mod merchant;
 pub mod record;
 
 /// Finnel control
-#[derive(Default, Clone, Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 #[command(version, infer_subcommands = true)]
 pub struct Cli {
     #[clap(flatten)]
@@ -53,7 +53,7 @@ pub struct Cli {
     pub account: Option<String>,
 
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 }
 
 #[allow(clippy::large_enum_variant)]

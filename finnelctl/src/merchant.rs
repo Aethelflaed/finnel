@@ -25,7 +25,9 @@ impl Tabled for MerchantToDisplay {
     const LENGTH: usize = 2;
 
     fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![self.0.id.to_string().into(), self.0.name.clone().into(),
+        vec![
+            self.0.id.to_string().into(),
+            self.0.name.clone().into(),
             self.1
                 .as_ref()
                 .map(|c| c.name.clone().into())
@@ -48,7 +50,7 @@ impl Tabled for MerchantToDisplay {
 }
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Merchant(command) = config.command().clone().unwrap() else {
+    let Commands::Merchant(command) = config.command().clone() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 

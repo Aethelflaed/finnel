@@ -36,7 +36,7 @@ impl Tabled for AccountToDisplay {
 }
 
 pub fn run(config: &Config) -> Result<()> {
-    let Commands::Account(command) = config.command().clone().unwrap() else {
+    let Commands::Account(command) = config.command().clone() else {
         anyhow::bail!("wrong command passed: {:?}", config.command());
     };
 
