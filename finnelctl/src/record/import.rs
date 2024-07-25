@@ -11,8 +11,8 @@ mod boursobank;
 #[derive(Default)]
 pub struct Data {
     pub records: Vec<RecordToImport>,
-    merchants: HashMap<String, i64>,
-    categories: HashMap<String, i64>,
+    categories: HashMap<String, Category>,
+    merchants: HashMap<String, Merchant>,
 }
 
 impl Data {
@@ -26,16 +26,30 @@ impl Data {
     pub fn persist(&mut self, account: &Account, conn: &mut Conn) -> Result<()> {
         conn.transaction(|conn| {
             for RecordToImport {
+                amount,
+                operation_date,
+                value_date,
+                direction,
+                mode,
                 details,
-                mut record,
-                merchant_name,
                 category_name,
+                merchant_name,
             } in self.records.clone()
             {
-                record.account_id = account.id;
-                record.details = details.as_str();
-                record.merchant_id = self.get_merchant(conn, &merchant_name)?;
-                record.category_id = self.get_category(conn, &category_name)?;
+                self.add_category(conn, &category_name)?;
+                self.add_merchant(conn, &merchant_name)?;
+
+                let record = NewRecord {
+                    amount,
+                    operation_date,
+                    value_date,
+                    direction,
+                    mode,
+                    details: details.as_str(),
+                    category: self.get_category(&category_name),
+                    merchant: self.get_merchant(&merchant_name),
+                    ..NewRecord::new(account)
+                };
 
                 println!("{:#?}", record.save(conn)?);
             }
@@ -44,40 +58,20 @@ impl Data {
         })
     }
 
-    fn get_merchant(&mut self, conn: &mut Conn, name: &str) -> Result<Option<i64>> {
+    fn get_category(&self, name: &str) -> Option<&Category> {
         if name.is_empty() {
-            return Ok(None);
-        }
-        if let Some(id) = self.merchants.get(name) {
-            return Ok(Some(*id));
-        }
-
-        let merchant = self.find_or_create_merchant(conn, name)?;
-        self.merchants.insert(name.to_string(), merchant.id);
-
-        Ok(Some(merchant.id))
-    }
-
-    fn find_or_create_merchant(&self, conn: &mut Conn, name: &str) -> Result<Merchant> {
-        match Merchant::find_by_name(conn, name) {
-            Ok(merchant) => Ok(merchant),
-            Err(Error::NotFound) => Ok(NewMerchant::new(name).save(conn)?),
-            Err(e) => Err(e.into()),
+            None
+        } else {
+            self.categories.get(name)
         }
     }
 
-    fn get_category(&mut self, conn: &mut Conn, name: &str) -> Result<Option<i64>> {
-        if name.is_empty() {
-            return Ok(None);
-        }
-        if let Some(id) = self.categories.get(name) {
-            return Ok(Some(*id));
+    fn add_category(&mut self, conn: &mut Conn, name: &str) -> Result<()> {
+        if !name.is_empty() && !self.categories.contains_key(name) {
+            self.categories.insert(name.to_string(), self.find_or_create_category(conn, name)?);
         }
 
-        let category = self.find_or_create_category(conn, name)?;
-        self.categories.insert(name.to_string(), category.id);
-
-        Ok(Some(category.id))
+        Ok(())
     }
 
     fn find_or_create_category(&self, conn: &mut Conn, name: &str) -> Result<Category> {
@@ -87,14 +81,43 @@ impl Data {
             Err(e) => Err(e.into()),
         }
     }
+
+
+    fn get_merchant(&self, name: &str) -> Option<&Merchant> {
+        if name.is_empty() {
+            None
+        } else {
+            self.merchants.get(name)
+        }
+    }
+
+    fn add_merchant(&mut self, conn: &mut Conn, name: &str) -> Result<()> {
+        if !name.is_empty() && !self.merchants.contains_key(name) {
+            self.merchants.insert(name.to_string(), self.find_or_create_merchant(conn, name)?);
+        }
+
+        Ok(())
+    }
+
+    fn find_or_create_merchant(&self, conn: &mut Conn, name: &str) -> Result<Merchant> {
+        match Merchant::find_by_name(conn, name) {
+            Ok(merchant) => Ok(merchant),
+            Err(Error::NotFound) => Ok(NewMerchant::new(name).save(conn)?),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct RecordToImport {
+    pub operation_date: DateTime<Utc>,
+    pub value_date: DateTime<Utc>,
+    pub amount: Decimal,
+    pub direction: Direction,
+    pub mode: Mode,
     pub details: String,
-    pub record: NewRecord<'static>,
-    pub merchant_name: String,
     pub category_name: String,
+    pub merchant_name: String,
 }
 
 pub fn import<T: AsRef<Path>, S: AsRef<str>>(profile: S, path: T) -> Result<Data> {

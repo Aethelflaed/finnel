@@ -31,12 +31,12 @@ fn reset() -> Result<()> {
 
     cmd!(env, reset).failure().stderr(str::contains("Usage:"));
 
-    cmd!(env, reset --confirm)
+    cmd!(env, reset - -confirm)
         .failure()
         .stdout(str::contains("you really want"))
         .stderr(str::contains("requires confirmation"));
 
-    raw_cmd!(env, reset --confirm)
+    raw_cmd!(env, reset - -confirm)
         .write_stdin("yes")
         .assert()
         .success()

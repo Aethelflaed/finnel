@@ -6,7 +6,10 @@ use crate::record::display::RecordToDisplay;
 
 use finnel::{
     prelude::*,
-    record::{ChangeRecord, NewRecord, QueryRecord},
+    record::{
+        change::{ChangeRecord, ResolvedChangeRecord, ViolatingChangeRecord},
+        NewRecord, QueryRecord,
+    },
 };
 
 use tabled::Table;
@@ -50,26 +53,30 @@ impl CommandContext<'_> {
             ..
         } = args;
 
-        let record = NewRecord {
+        NewRecord {
             amount: *amount,
             operation_date: args.operation_date()?,
             value_date: args.value_date()?,
             direction: *direction,
             mode: *mode,
             details: details.as_str(),
-            category_id: args.category(self.conn)?.flatten().as_ref().map(|c| c.id),
-            merchant_id: args.merchant(self.conn)?.flatten().as_ref().map(|m| m.id),
+            category: args.category(self.conn)?.as_ref(),
+            merchant: args.merchant(self.conn)?.as_ref(),
             ..NewRecord::new(&self.account)
-        };
+        }
+        .save(self.conn)?;
 
-        record.save(self.conn)?;
         Ok(())
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let mut record = Record::find(self.conn, args.id())?;
+        let record = Record::find(self.conn, args.id())?;
 
-        args_to_change(self.conn, &args.args)?.apply(self.conn, &mut record)?;
+        let (category, merchant) = relations_args(self.conn, &args.args)?;
+        change_args(self.conn, &args.args, &category, &merchant)?
+            .validate(self.conn, &record)?
+            .save(self.conn)
+            .optional_empty_changeset()?;
 
         Ok(())
     }
@@ -108,10 +115,13 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListUpdate::Update(args)) = &args.update {
-            let resolved_args = args_to_change(self.conn, args)?;
+            let (category, merchant) = relations_args(self.conn, args)?;
+            let resolved_changes = change_args(self.conn, args, &category, &merchant)?;
 
             for (record, _, _) in query.run(self.conn)? {
-                resolved_args.clone().save(self.conn, &record)?;
+                resolved_changes
+                    .validate(self.conn, &record)?
+                    .save(self.conn)?;
             }
         } else {
             let records = query
@@ -135,19 +145,45 @@ impl CommandContext<'_> {
     }
 }
 
-fn args_to_change<'a>(conn: &mut Conn, args: &'a UpdateArgs) -> Result<ChangeRecord<'a>> {
-    if args.confirm && !crate::utils::confirm()? {
-        anyhow::bail!("operation requires confirmation");
-    }
+fn relations_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<(Option<Option<Category>>, Option<Option<Merchant>>)> {
+    let category = args.category(conn)?;
+    let merchant = args.merchant(conn)?;
 
-    Ok(ChangeRecord {
-        amount: args.amount,
-        operation_date: args.operation_date()?,
-        value_date: args.value_date()?,
-        direction: args.direction,
-        mode: args.mode,
-        details: args.details.as_deref(),
-        category_id: args.category(conn)?.map(|c| c.map(|c| c.id)),
-        merchant_id: args.merchant(conn)?.map(|m| m.map(|m| m.id)),
+    Ok((category, merchant))
+}
+
+fn change_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+    category: &'a Option<Option<Category>>,
+    merchant: &'a Option<Option<Merchant>>,
+) -> Result<ResolvedChangeRecord<'a>> {
+    Ok(if args.confirm {
+        if !crate::utils::confirm()? {
+            anyhow::bail!("operation requires confirmation");
+        }
+
+        ViolatingChangeRecord {
+            amount: args.amount,
+            operation_date: args.operation_date()?,
+            value_date: args.value_date()?,
+            direction: args.direction,
+            mode: args.mode,
+            details: args.details.as_deref(),
+            category: category.as_ref().map(|o| o.as_ref()),
+            merchant: merchant.as_ref().map(|o| o.as_ref()),
+        }
+        .into_resolved(conn)?
+    } else {
+        ChangeRecord {
+            value_date: args.value_date()?,
+            details: args.details.as_deref(),
+            category: category.as_ref().map(|o| o.as_ref()),
+            merchant: merchant.as_ref().map(|o| o.as_ref()),
+        }
+        .into_resolved(conn)?
     })
 }

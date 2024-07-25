@@ -2,7 +2,10 @@ use anyhow::Result;
 use std::borrow::Cow;
 
 use finnel::{
-    merchant::{ChangeMerchant, NewMerchant, QueryMerchant},
+    merchant::{
+        change::{ChangeMerchant, ResolvedChangeMerchant},
+        NewMerchant, QueryMerchant,
+    },
     prelude::*,
     record::QueryRecord,
 };
@@ -77,10 +80,13 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListUpdate::Update(args)) = &args.update {
-            let resolved_args = args_to_change(self.conn, args)?;
+            let (default_category, replaced_by) = relations_args(self.conn, args)?;
+            let resolved_changes = change_args(self.conn, args, &default_category, &replaced_by)?;
 
             for merchant in query.run(self.conn)? {
-                resolved_args.clone().save(self.conn, &merchant)?;
+                resolved_changes
+                    .validate(self.conn, &merchant)?
+                    .save(self.conn)?;
             }
         } else {
             let merchants = query
@@ -143,8 +149,8 @@ impl CommandContext<'_> {
     fn create(&mut self, args: &Create) -> Result<()> {
         NewMerchant {
             name: &args.name,
-            default_category_id: args.default_category(self.conn)?.map(|c| c.id),
-            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
+            default_category: args.default_category(self.conn)?.as_ref(),
+            replaced_by: args.replace_by(self.conn)?.as_ref(),
         }
         .save(self.conn)?;
 
@@ -154,8 +160,10 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let merchant = Merchant::find_by_name(self.conn, &args.name)?;
 
-        args_to_change(self.conn, &args.args)?
-            .save(self.conn, &merchant)
+        let (default_category, replaced_by) = relations_args(self.conn, &args.args)?;
+        change_args(self.conn, &args.args, &default_category, &replaced_by)?
+            .validate(self.conn, &merchant)?
+            .save(self.conn)
             .optional_empty_changeset()?;
 
         Ok(())
@@ -174,10 +182,23 @@ impl CommandContext<'_> {
     }
 }
 
-fn args_to_change<'a>(conn: &mut Conn, args: &'a UpdateArgs) -> Result<ChangeMerchant<'a>> {
+fn relations_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<(Option<Option<Category>>, Option<Option<Merchant>>)> {
+    Ok((args.default_category(conn)?, args.replace_by(conn)?))
+}
+
+fn change_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+    default_category: &'a Option<Option<Category>>,
+    replaced_by: &'a Option<Option<Merchant>>,
+) -> Result<ResolvedChangeMerchant<'a>> {
     Ok(ChangeMerchant {
         name: args.new_name.as_deref(),
-        default_category_id: args.default_category(conn)?.map(|c| c.map(|c| c.id)),
-        replaced_by_id: args.replace_by(conn)?.map(|r| r.map(|r| r.id)),
-    })
+        default_category: default_category.as_ref().map(|o| o.as_ref()),
+        replaced_by: replaced_by.as_ref().map(|o| o.as_ref()),
+    }
+    .into_resolved(conn)?)
 }

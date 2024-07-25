@@ -2,10 +2,10 @@ use crate::{essentials::*, schema::categories};
 
 use diesel::prelude::*;
 
-mod new;
+pub mod new;
 pub use new::NewCategory;
 
-mod change;
+pub mod change;
 pub use change::ChangeCategory;
 
 mod query;

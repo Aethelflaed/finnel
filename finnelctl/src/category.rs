@@ -2,7 +2,10 @@ use anyhow::Result;
 use std::borrow::Cow;
 
 use finnel::{
-    category::{ChangeCategory, NewCategory, QueryCategory},
+    category::{
+        change::{ChangeCategory, ResolvedChangeCategory},
+        NewCategory, QueryCategory,
+    },
     prelude::*,
     record::QueryRecord,
 };
@@ -78,10 +81,13 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListUpdate::Update(args)) = &args.update {
-            let resolved_args = args_to_change(self.conn, args)?;
+            let (parent, replaced_by) = relations_args(self.conn, args)?;
+            let resolved_changes = change_args(self.conn, args, &parent, &replaced_by)?;
 
             for category in query.run(self.conn)? {
-                resolved_args.clone().save(self.conn, &category)?;
+                resolved_changes
+                    .validate(self.conn, &category)?
+                    .save(self.conn)?;
             }
         } else {
             let categories = query
@@ -138,8 +144,8 @@ impl CommandContext<'_> {
     fn create(&mut self, args: &Create) -> Result<()> {
         NewCategory {
             name: &args.name,
-            parent_id: args.parent(self.conn)?.map(|p| p.id),
-            replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
+            parent: args.parent(self.conn)?.as_ref(),
+            replaced_by: args.replace_by(self.conn)?.as_ref(),
         }
         .save(self.conn)?;
 
@@ -149,8 +155,10 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let category = Category::find_by_name(self.conn, &args.name)?;
 
-        args_to_change(self.conn, &args.args)?
-            .save(self.conn, &category)
+        let (parent, replaced_by) = relations_args(self.conn, &args.args)?;
+        change_args(self.conn, &args.args, &parent, &replaced_by)?
+            .validate(self.conn, &category)?
+            .save(self.conn)
             .optional_empty_changeset()?;
 
         Ok(())
@@ -169,10 +177,23 @@ impl CommandContext<'_> {
     }
 }
 
-fn args_to_change<'a>(conn: &mut Conn, args: &'a UpdateArgs) -> Result<ChangeCategory<'a>> {
+fn relations_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+) -> Result<(Option<Option<Category>>, Option<Option<Category>>)> {
+    Ok((args.parent(conn)?, args.replace_by(conn)?))
+}
+
+fn change_args<'a>(
+    conn: &mut Conn,
+    args: &'a UpdateArgs,
+    parent: &'a Option<Option<Category>>,
+    replaced_by: &'a Option<Option<Category>>,
+) -> Result<ResolvedChangeCategory<'a>> {
     Ok(ChangeCategory {
         name: args.new_name.as_deref(),
-        replaced_by_id: args.replace_by(conn)?.map(|r| r.map(|r| r.id)),
-        parent_id: args.parent(conn)?.map(|r| r.map(|r| r.id)),
-    })
+        parent: parent.as_ref().map(|o| o.as_ref()),
+        replaced_by: replaced_by.as_ref().map(|o| o.as_ref()),
+    }
+    .into_resolved(conn)?)
 }

@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use super::{parse_date_fmt, Data, Profile, RecordToImport};
 
-use finnel::{prelude::*, record::NewRecord};
+use finnel::prelude::*;
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime};
@@ -59,21 +59,15 @@ impl Profile for Importer {
                 Direction::Credit
             };
 
-            let record = NewRecord {
+            records.push(RecordToImport {
+                amount: amount.abs(),
                 operation_date,
                 value_date,
-                amount: amount.abs(),
                 direction,
                 mode,
-                details: "",
-                ..Default::default()
-            };
-
-            records.push(RecordToImport {
                 details: details.to_string(),
-                record,
-                merchant_name: merchant_name.to_string(),
                 category_name: category_name.to_string(),
+                merchant_name: merchant_name.to_string(),
             });
         }
 

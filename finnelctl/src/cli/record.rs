@@ -90,14 +90,18 @@ impl Add {
             .unwrap_or(Ok(Utc::now()))
     }
 
-    pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
-        self.category
-            .resolve(conn, self.create_category.as_deref(), false)
+    pub fn category(&self, conn: &mut Conn) -> Result<Option<Category>> {
+        Ok(self
+            .category
+            .resolve(conn, self.create_category.as_deref(), false)?
+            .flatten())
     }
 
-    pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
-        self.merchant
-            .resolve(conn, self.create_merchant.as_deref(), false)
+    pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Merchant>> {
+        Ok(self
+            .merchant
+            .resolve(conn, self.create_merchant.as_deref(), false)?
+            .flatten())
     }
 }
 

@@ -24,6 +24,10 @@ impl<'a> ChangeRecord<'a> {
         self.into_violating_change().save(conn, record)
     }
 
+    pub fn into_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeRecord<'a>> {
+        self.into_violating_change().into_resolved(conn)
+    }
+
     fn into_violating_change(self) -> ViolatingChangeRecord<'a> {
         ViolatingChangeRecord {
             value_date: self.value_date,

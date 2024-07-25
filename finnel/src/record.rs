@@ -12,10 +12,10 @@ pub use direction::Direction;
 mod mode;
 pub use mode::{Mode, PaymentMethod};
 
-mod change;
+pub mod change;
 pub use change::ChangeRecord;
 
-mod new;
+pub mod new;
 pub use new::NewRecord;
 
 pub mod query;

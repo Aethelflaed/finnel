@@ -2,10 +2,10 @@ use crate::{category::Category, essentials::*, schema::merchants};
 
 use diesel::prelude::*;
 
-mod new;
+pub mod new;
 pub use new::NewMerchant;
 
-mod change;
+pub mod change;
 pub use change::ChangeMerchant;
 
 mod query;
