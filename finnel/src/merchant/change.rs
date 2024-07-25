@@ -38,10 +38,7 @@ impl<'a> ChangeMerchant<'a> {
         Ok(())
     }
 
-    pub fn to_resolved(
-        self,
-        conn: &mut Conn,
-    ) -> Result<ResolvedChangeMerchant<'a>> {
+    pub fn to_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeMerchant<'a>> {
         Ok(ResolvedChangeMerchant {
             name: self.name,
             default_category: mapmapresolve(conn, self.default_category)?,
@@ -57,16 +54,11 @@ pub struct ResolvedChangeMerchant<'a> {
 }
 
 impl<'a> ResolvedChangeMerchant<'a> {
-    fn validate_replace_by(
-        &self,
-        _conn: &mut Conn,
-        merchant: &Merchant,
-    ) -> Result<()> {
+    fn validate_replace_by(&self, _conn: &mut Conn, merchant: &Merchant) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
             if merchant.id == replaced_by.id {
                 return Err(Error::Invalid(
-                    "merchant.replaced_by_id should not reference itself"
-                        .to_owned(),
+                    "merchant.replaced_by_id should not reference itself".to_owned(),
                 ));
             }
 

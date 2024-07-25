@@ -12,9 +12,7 @@ use diesel::{
     sqlite::Sqlite,
 };
 
-#[derive(
-    Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression,
-)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
 #[diesel(sql_type = Text)]
 pub enum Direction {
     #[default]
@@ -57,19 +55,14 @@ impl FromStr for Direction {
 }
 
 impl ToSql<Text, Sqlite> for Direction {
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.to_string());
         Ok(IsNull::No)
     }
 }
 
 impl FromSql<Text, Sqlite> for Direction {
-    fn from_sql(
-        bytes: <Sqlite as Backend>::RawValue<'_>,
-    ) -> deserialize::Result<Self> {
+    fn from_sql(bytes: <Sqlite as Backend>::RawValue<'_>) -> deserialize::Result<Self> {
         Ok(<String as FromSql<Text, Sqlite>>::from_sql(bytes)?.parse()?)
     }
 }

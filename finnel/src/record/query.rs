@@ -4,8 +4,7 @@ use crate::schema::records;
 use chrono::{offset::Utc, DateTime};
 
 use diesel::{
-    expression::SqlLiteral, helper_types::*, prelude::*, sql_types::BigInt,
-    sqlite::Sqlite,
+    expression::SqlLiteral, helper_types::*, prelude::*, sql_types::BigInt, sqlite::Sqlite,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -41,11 +40,8 @@ pub struct QueryRecord<'a> {
 
 type QueryRecordResult = (Record, Option<Category>, Option<Merchant>);
 
-type QueryType<'a> = IntoBoxed<
-    'a,
-    Filter<records::table, Eq<records::account_id, SqlLiteral<BigInt>>>,
-    Sqlite,
->;
+type QueryType<'a> =
+    IntoBoxed<'a, Filter<records::table, Eq<records::account_id, SqlLiteral<BigInt>>>, Sqlite>;
 
 impl QueryRecord<'_> {
     fn sort_by_column<'a, U>(
@@ -100,12 +96,10 @@ impl QueryRecord<'_> {
         }
 
         if let Some(amount) = self.greater_than {
-            query =
-                query.filter(records::amount.ge(crate::db::Decimal(amount)));
+            query = query.filter(records::amount.ge(crate::db::Decimal(amount)));
         }
         if let Some(amount) = self.less_than {
-            query =
-                query.filter(records::amount.lt(crate::db::Decimal(amount)));
+            query = query.filter(records::amount.lt(crate::db::Decimal(amount)));
         }
         if let Some(direction) = self.direction {
             query = query.filter(records::direction.eq(direction));
@@ -130,41 +124,22 @@ impl QueryRecord<'_> {
         let mut first_order = true;
         for (field, direction) in &self.order {
             query = match field {
-                OrderField::Amount => Self::sort_by_column(
-                    query,
-                    records::amount,
-                    direction,
-                    first_order,
-                ),
+                OrderField::Amount => {
+                    Self::sort_by_column(query, records::amount, direction, first_order)
+                }
                 OrderField::Date => {
                     if self.operation_date {
-                        Self::sort_by_column(
-                            query,
-                            records::operation_date,
-                            direction,
-                            first_order,
-                        )
+                        Self::sort_by_column(query, records::operation_date, direction, first_order)
                     } else {
-                        Self::sort_by_column(
-                            query,
-                            records::value_date,
-                            direction,
-                            first_order,
-                        )
+                        Self::sort_by_column(query, records::value_date, direction, first_order)
                     }
                 }
-                OrderField::CategoryId => Self::sort_by_column(
-                    query,
-                    records::category_id,
-                    direction,
-                    first_order,
-                ),
-                OrderField::MerchantId => Self::sort_by_column(
-                    query,
-                    records::merchant_id,
-                    direction,
-                    first_order,
-                ),
+                OrderField::CategoryId => {
+                    Self::sort_by_column(query, records::category_id, direction, first_order)
+                }
+                OrderField::MerchantId => {
+                    Self::sort_by_column(query, records::merchant_id, direction, first_order)
+                }
             };
 
             first_order = false;

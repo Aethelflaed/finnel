@@ -90,18 +90,12 @@ impl Add {
             .unwrap_or(Ok(Utc::now()))
     }
 
-    pub fn category(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Category>>> {
+    pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
         self.category
             .resolve(conn, self.create_category.as_deref(), false)
     }
 
-    pub fn merchant(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Merchant>>> {
+    pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
         self.merchant
             .resolve(conn, self.create_merchant.as_deref(), false)
     }
@@ -146,9 +140,7 @@ impl ValueEnum for Sort {
 
         match self.0 {
             OrderField::Date => {
-                value = value.help(
-                    "Value or operation date, depending on --operation-date",
-                )
+                value = value.help("Value or operation date, depending on --operation-date")
             }
             _ => {}
         }
@@ -285,17 +277,11 @@ impl List {
         self.before.map(naive_date_to_utc).transpose()
     }
 
-    pub fn category(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Category>>> {
+    pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
         self.category.resolve(conn, None, self.no_category)
     }
 
-    pub fn merchant(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Merchant>>> {
+    pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
         self.merchant.resolve(conn, None, self.no_merchant)
     }
 }
@@ -389,26 +375,14 @@ impl UpdateArgs {
         self.value_date.map(naive_date_to_utc).transpose()
     }
 
-    pub fn category(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Category>>> {
-        self.category.resolve(
-            conn,
-            self.create_category.as_deref(),
-            self.no_category,
-        )
+    pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
+        self.category
+            .resolve(conn, self.create_category.as_deref(), self.no_category)
     }
 
-    pub fn merchant(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Merchant>>> {
-        self.merchant.resolve(
-            conn,
-            self.create_merchant.as_deref(),
-            self.no_merchant,
-        )
+    pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
+        self.merchant
+            .resolve(conn, self.create_merchant.as_deref(), self.no_merchant)
     }
 }
 

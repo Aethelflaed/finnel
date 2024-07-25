@@ -60,19 +60,14 @@ impl FromStr for Mode {
 }
 
 impl ToSql<Text, Sqlite> for Mode {
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.to_string());
         Ok(IsNull::No)
     }
 }
 
 impl FromSql<Text, Sqlite> for Mode {
-    fn from_sql(
-        bytes: <Sqlite as Backend>::RawValue<'_>,
-    ) -> deserialize::Result<Self> {
+    fn from_sql(bytes: <Sqlite as Backend>::RawValue<'_>) -> deserialize::Result<Self> {
         Ok(<String as FromSql<Text, Sqlite>>::from_sql(bytes)?.parse()?)
     }
 }
@@ -126,9 +121,7 @@ impl Display for PaymentMethod {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Empty => Ok(()),
-            CardLast4Digit(a, b, c, d) => {
-                f.write_fmt(format_args!("Card *{a}{b}{c}{d}"))
-            }
+            CardLast4Digit(a, b, c, d) => f.write_fmt(format_args!("Card *{a}{b}{c}{d}")),
         }
     }
 }
@@ -139,9 +132,7 @@ impl FromStr for PaymentMethod {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "" => Ok(Empty),
-            card if Self::last_4_guard(card, "card") => {
-                Self::last_4_read(card, "card")
-            }
+            card if Self::last_4_guard(card, "card") => Self::last_4_read(card, "card"),
             _ => Err(ParseTypeError("PaymentMethod", value.to_owned())),
         }
     }

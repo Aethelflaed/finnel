@@ -24,11 +24,9 @@ where
     F: FnOnce(&assert_fs::TempDir) -> R,
 {
     with_temp_dir(|temp| {
-        temp_env::with_var(
-            "FINNEL_CONFIG",
-            Some(temp.path().as_os_str()),
-            || function(&temp),
-        )
+        temp_env::with_var("FINNEL_CONFIG", Some(temp.path().as_os_str()), || {
+            function(&temp)
+        })
     })
 }
 

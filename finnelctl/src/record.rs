@@ -57,16 +57,8 @@ impl CommandContext<'_> {
             direction: *direction,
             mode: *mode,
             details: details.as_str(),
-            category_id: args
-                .category(self.conn)?
-                .flatten()
-                .as_ref()
-                .map(|c| c.id),
-            merchant_id: args
-                .merchant(self.conn)?
-                .flatten()
-                .as_ref()
-                .map(|m| m.id),
+            category_id: args.category(self.conn)?.flatten().as_ref().map(|c| c.id),
+            merchant_id: args.merchant(self.conn)?.flatten().as_ref().map(|m| m.id),
             ..NewRecord::new(&self.account)
         };
 
@@ -143,10 +135,7 @@ impl CommandContext<'_> {
     }
 }
 
-fn args_to_change<'a>(
-    conn: &mut Conn,
-    args: &'a UpdateArgs,
-) -> Result<ChangeRecord<'a>> {
+fn args_to_change<'a>(conn: &mut Conn, args: &'a UpdateArgs) -> Result<ChangeRecord<'a>> {
     if args.confirm && !crate::utils::confirm()? {
         anyhow::bail!("operation requires confirmation");
     }

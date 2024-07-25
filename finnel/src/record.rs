@@ -1,6 +1,6 @@
 use crate::{
-    account::Account, category::Category, essentials::*, merchant::Merchant,
-    schema::records, Amount, Currency, Decimal,
+    account::Account, category::Category, essentials::*, merchant::Merchant, schema::records,
+    Amount, Currency, Decimal,
 };
 
 use chrono::{offset::Utc, DateTime};

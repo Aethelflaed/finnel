@@ -29,8 +29,7 @@ pub struct QueryMerchantWithCategoryAndReplacer<'a>(QueryMerchant<'a>);
 
 type MerchantWithCategory = (Merchant, Option<Category>);
 type MerchantWithReplacer = (Merchant, Option<Merchant>);
-type MerchantWithCategoryAndReplacer =
-    (Merchant, Option<Category>, Option<Merchant>);
+type MerchantWithCategoryAndReplacer = (Merchant, Option<Category>, Option<Merchant>);
 
 type QueryType<'a> = IntoBoxed<
     'a,
@@ -46,8 +45,7 @@ impl<'a> QueryMerchant<'a> {
         let mut query = MERCHANTS_ALIAS.into_boxed();
 
         if let Some(name) = self.name {
-            query =
-                query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
+            query = query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
         }
         if let Some(count) = self.count {
             query = query.limit(count);
@@ -117,10 +115,7 @@ impl<'a> QueryMerchantWithReplacer<'a> {
 }
 
 impl QueryMerchantWithCategoryAndReplacer<'_> {
-    pub fn run(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Vec<MerchantWithCategoryAndReplacer>> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<MerchantWithCategoryAndReplacer>> {
         Ok(self
             .0
             .build()

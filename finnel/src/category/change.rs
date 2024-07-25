@@ -37,10 +37,7 @@ impl<'a> ChangeCategory<'a> {
         Ok(())
     }
 
-    pub fn to_resolved(
-        self,
-        conn: &mut Conn,
-    ) -> Result<ResolvedChangeCategory<'a>> {
+    pub fn to_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeCategory<'a>> {
         Ok(ResolvedChangeCategory {
             name: self.name,
             parent: mapmapresolve(conn, self.parent)?,
@@ -56,11 +53,7 @@ pub struct ResolvedChangeCategory<'a> {
 }
 
 impl<'a> ResolvedChangeCategory<'a> {
-    fn validate_parent(
-        &self,
-        conn: &mut Conn,
-        category: &Category,
-    ) -> Result<()> {
+    fn validate_parent(&self, conn: &mut Conn, category: &Category) -> Result<()> {
         mapmapmapresult(&self.parent, |parent| {
             if category.id == parent.id {
                 return Err(Error::Invalid(
@@ -68,13 +61,11 @@ impl<'a> ResolvedChangeCategory<'a> {
                 ));
             }
 
-            let ancestor =
-                as_resolved(conn, parent, Category::find, |c| c.parent_id)?;
+            let ancestor = as_resolved(conn, parent, Category::find, |c| c.parent_id)?;
 
             if category.id == ancestor.map(|c| c.id) {
                 return Err(Error::Invalid(
-                    "category.parent_id would create a reference loop"
-                        .to_owned(),
+                    "category.parent_id would create a reference loop".to_owned(),
                 ));
             }
 
@@ -83,16 +74,11 @@ impl<'a> ResolvedChangeCategory<'a> {
         Ok(())
     }
 
-    fn validate_replace_by(
-        &self,
-        _conn: &mut Conn,
-        category: &Category,
-    ) -> Result<()> {
+    fn validate_replace_by(&self, _conn: &mut Conn, category: &Category) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
             if category.id == replaced_by.id {
                 return Err(Error::Invalid(
-                    "category.replaced_by_id should not reference itself"
-                        .to_owned(),
+                    "category.replaced_by_id should not reference itself".to_owned(),
                 ));
             }
 

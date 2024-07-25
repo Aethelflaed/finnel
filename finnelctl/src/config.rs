@@ -66,9 +66,7 @@ impl Config {
         if let Some(name) = self.account_name() {
             match Account::find_by_name(conn, name) {
                 Ok(account) => Ok(account),
-                Err(Error::NotFound) => {
-                    Err(anyhow!("Account not found: {}", name))
-                }
+                Err(Error::NotFound) => Err(anyhow!("Account not found: {}", name)),
                 Err(e) => Err(e.into()),
             }
         } else {
@@ -80,10 +78,7 @@ impl Config {
         }
     }
 
-    pub fn default_account(
-        &self,
-        conn: &mut Database,
-    ) -> Result<Option<Account>> {
+    pub fn default_account(&self, conn: &mut Database) -> Result<Option<Account>> {
         if let Some(account_name) = self.get("default_account")? {
             match Account::find_by_name(conn, &account_name) {
                 Ok(entity) => Ok(Some(entity)),
@@ -103,9 +98,7 @@ impl Config {
     }
 
     pub fn database_path(&self) -> PathBuf {
-        let db_filename = if let Some(db_table) =
-            self.table.get("db").and_then(Value::as_table)
-        {
+        let db_filename = if let Some(db_table) = self.table.get("db").and_then(Value::as_table) {
             db_table
                 .get("filename")
                 .and_then(Value::as_str)

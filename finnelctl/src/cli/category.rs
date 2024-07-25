@@ -155,15 +155,9 @@ pub struct UpdateArgs {
 }
 
 impl UpdateArgs {
-    pub fn replace_by(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Category>>> {
-        self.replace_by.resolve(
-            conn,
-            self.create_replace_by.as_deref(),
-            self.no_replace_by,
-        )
+    pub fn replace_by(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
+        self.replace_by
+            .resolve(conn, self.create_replace_by.as_deref(), self.no_replace_by)
     }
 
     pub fn parent(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {

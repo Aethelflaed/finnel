@@ -86,10 +86,7 @@ pub struct Create {
 }
 
 impl Create {
-    pub fn default_category(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Category>> {
+    pub fn default_category(&self, conn: &mut Conn) -> Result<Option<Category>> {
         Ok(self
             .category
             .resolve(conn, self.create_default_category.as_deref(), false)?
@@ -156,10 +153,7 @@ pub struct UpdateArgs {
 }
 
 impl UpdateArgs {
-    pub fn default_category(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Category>>> {
+    pub fn default_category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
         self.category.resolve(
             conn,
             self.create_default_category.as_deref(),
@@ -167,15 +161,9 @@ impl UpdateArgs {
         )
     }
 
-    pub fn replace_by(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Option<Option<Merchant>>> {
-        self.replace_by.resolve(
-            conn,
-            self.create_replace_by.as_deref(),
-            self.no_replace_by,
-        )
+    pub fn replace_by(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
+        self.replace_by
+            .resolve(conn, self.create_replace_by.as_deref(), self.no_replace_by)
     }
 }
 

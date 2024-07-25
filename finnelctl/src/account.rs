@@ -99,8 +99,7 @@ impl CommandContext<'_> {
     }
 
     fn default(&mut self, args: &Default) -> Result<()> {
-        if let Some(name) = args.name.as_deref().or(self.config.account_name())
-        {
+        if let Some(name) = args.name.as_deref().or(self.config.account_name()) {
             let account = Account::find_by_name(self.conn, name)?;
             Ok(self.config.set("default_account", &account.name)?)
         } else if args.reset {

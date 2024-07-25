@@ -26,10 +26,7 @@ impl<'a> NewCategory<'a> {
         self.to_insertable(conn)?.save(conn)
     }
 
-    pub fn to_insertable(
-        self,
-        conn: &mut Conn,
-    ) -> Result<InsertableCategory<'a>> {
+    pub fn to_insertable(self, conn: &mut Conn) -> Result<InsertableCategory<'a>> {
         let NewCategory {
             name,
             parent,

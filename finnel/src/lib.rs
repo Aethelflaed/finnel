@@ -39,17 +39,10 @@ pub mod prelude {
     pub use super::Database;
 }
 
-#[derive(
-    derive_more::From,
-    derive_more::Into,
-    derive_more::Deref,
-    derive_more::DerefMut,
-)]
+#[derive(derive_more::From, derive_more::Into, derive_more::Deref, derive_more::DerefMut)]
 pub struct Database(SqliteConnection);
 
-use diesel_migrations::{
-    embed_migrations, EmbeddedMigrations, MigrationHarness,
-};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 impl Database {

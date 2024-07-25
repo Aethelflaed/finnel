@@ -30,8 +30,7 @@ pub struct QueryCategoryWithParentAndReplacer<'a>(QueryCategory<'a>);
 
 type CategoryWithParent = (Category, Option<Category>);
 type CategoryWithReplacer = (Category, Option<Category>);
-type CategoryWithParentAndReplacer =
-    (Category, Option<Category>, Option<Category>);
+type CategoryWithParentAndReplacer = (Category, Option<Category>, Option<Category>);
 
 type QueryType<'a> = IntoBoxed<
     'a,
@@ -47,13 +46,10 @@ impl<'a> QueryCategory<'a> {
         let mut query = CATEGORIES_ALIAS.into_boxed();
 
         if let Some(name) = self.name {
-            query = query
-                .filter(CATEGORIES_ALIAS.field(categories::name).like(name));
+            query = query.filter(CATEGORIES_ALIAS.field(categories::name).like(name));
         }
         if let Some(parent_id) = self.parent_id {
-            query = query.filter(
-                CATEGORIES_ALIAS.field(categories::parent_id).is(parent_id),
-            );
+            query = query.filter(CATEGORIES_ALIAS.field(categories::parent_id).is(parent_id));
         }
         if let Some(count) = self.count {
             query = query.limit(count);
@@ -123,10 +119,7 @@ impl<'a> QueryCategoryWithReplacer<'a> {
 }
 
 impl QueryCategoryWithParentAndReplacer<'_> {
-    pub fn run(
-        &self,
-        conn: &mut Conn,
-    ) -> Result<Vec<CategoryWithParentAndReplacer>> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<CategoryWithParentAndReplacer>> {
         Ok(self
             .0
             .build()

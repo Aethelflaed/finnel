@@ -59,13 +59,8 @@ impl Resolvable for Category {
         crate::resolved::resolve(conn, self, Self::find, |c| c.replaced_by_id)
     }
 
-    fn as_resolved<'a>(
-        &'a self,
-        conn: &mut Conn,
-    ) -> Result<Resolved<'a, Self>> {
-        crate::resolved::as_resolved(conn, self, Self::find, |c| {
-            c.replaced_by_id
-        })
+    fn as_resolved<'a>(&'a self, conn: &mut Conn) -> Result<Resolved<'a, Self>> {
+        crate::resolved::as_resolved(conn, self, Self::find, |c| c.replaced_by_id)
     }
 }
 

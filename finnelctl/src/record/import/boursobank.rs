@@ -12,8 +12,7 @@ pub struct Importer;
 
 impl Profile for Importer {
     fn import<T: AsRef<Path>>(path: T) -> Result<Data> {
-        let mut reader =
-            csv::ReaderBuilder::new().delimiter(b';').from_path(path)?;
+        let mut reader = csv::ReaderBuilder::new().delimiter(b';').from_path(path)?;
 
         let mut records = Vec::new();
 
@@ -35,8 +34,7 @@ impl Profile for Importer {
             if details.starts_with("CARTE ") || details.starts_with("AVOIR ") {
                 let payment_method;
                 operation_date = parse_date_fmt(&details[6..14], "%d/%m/%y")?;
-                (details, payment_method) =
-                    Self::strip_cb_suffix(&details[15..]);
+                (details, payment_method) = Self::strip_cb_suffix(&details[15..]);
                 mode = Mode::Direct(payment_method);
             } else if details.starts_with("VIR ") {
                 mode = Mode::Transfer;
@@ -47,8 +45,7 @@ impl Profile for Importer {
             } else if details.starts_with("RETRAIT DAB ") {
                 let payment_method;
                 operation_date = parse_date_fmt(&details[12..20], "%d/%m/%y")?;
-                (details, payment_method) =
-                    Self::strip_cb_suffix(&details[21..]);
+                (details, payment_method) = Self::strip_cb_suffix(&details[21..]);
                 mode = Mode::Atm(payment_method);
             }
 

@@ -58,11 +58,7 @@ impl<T> OptionalExtension<T> for Result<T> {
 
         match self {
             Ok(value) => Ok(Some(value)),
-            Err(Error::DieselError(QueryBuilderError(e)))
-                if e.is::<EmptyChangeset>() =>
-            {
-                Ok(None)
-            }
+            Err(Error::DieselError(QueryBuilderError(e))) if e.is::<EmptyChangeset>() => Ok(None),
             Err(e) => Err(e),
         }
     }
@@ -72,10 +68,7 @@ impl<T> OptionalExtension<T> for Result<T> {
 pub struct ParseTypeError(pub &'static str, pub String);
 
 impl std::fmt::Display for ParseTypeError {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "Parse Type Error: {} {}", self.0, self.1)
     }
 }

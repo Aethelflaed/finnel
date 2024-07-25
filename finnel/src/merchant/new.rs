@@ -27,10 +27,7 @@ impl<'a> NewMerchant<'a> {
         self.to_insertable(conn)?.save(conn)
     }
 
-    pub fn to_insertable(
-        self,
-        conn: &mut Conn,
-    ) -> Result<InsertableMerchant<'a>> {
+    pub fn to_insertable(self, conn: &mut Conn) -> Result<InsertableMerchant<'a>> {
         let NewMerchant {
             name,
             default_category,

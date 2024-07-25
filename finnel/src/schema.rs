@@ -56,6 +56,4 @@ diesel::joinable!(records -> accounts (account_id));
 diesel::joinable!(records -> categories (category_id));
 diesel::joinable!(records -> merchants (merchant_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    accounts, categories, merchants, records,
-);
+diesel::allow_tables_to_appear_in_same_query!(accounts, categories, merchants, records,);

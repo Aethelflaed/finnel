@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use finnel::{
-    category::NewCategory, merchant::NewMerchant, prelude::*, record::NewRecord,
-};
+use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::NewRecord};
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
@@ -25,11 +23,7 @@ impl Data {
         }
     }
 
-    pub fn persist(
-        &mut self,
-        account: &Account,
-        conn: &mut Conn,
-    ) -> Result<()> {
+    pub fn persist(&mut self, account: &Account, conn: &mut Conn) -> Result<()> {
         conn.transaction(|conn| {
             for RecordToImport {
                 details,
@@ -50,11 +44,7 @@ impl Data {
         })
     }
 
-    fn get_merchant(
-        &mut self,
-        conn: &mut Conn,
-        name: &str,
-    ) -> Result<Option<i64>> {
+    fn get_merchant(&mut self, conn: &mut Conn, name: &str) -> Result<Option<i64>> {
         if name.is_empty() {
             return Ok(None);
         }
@@ -68,11 +58,7 @@ impl Data {
         Ok(Some(merchant.id))
     }
 
-    fn find_or_create_merchant(
-        &self,
-        conn: &mut Conn,
-        name: &str,
-    ) -> Result<Merchant> {
+    fn find_or_create_merchant(&self, conn: &mut Conn, name: &str) -> Result<Merchant> {
         match Merchant::find_by_name(conn, name) {
             Ok(merchant) => Ok(merchant),
             Err(Error::NotFound) => Ok(NewMerchant::new(name).save(conn)?),
@@ -80,11 +66,7 @@ impl Data {
         }
     }
 
-    fn get_category(
-        &mut self,
-        conn: &mut Conn,
-        name: &str,
-    ) -> Result<Option<i64>> {
+    fn get_category(&mut self, conn: &mut Conn, name: &str) -> Result<Option<i64>> {
         if name.is_empty() {
             return Ok(None);
         }
@@ -98,11 +80,7 @@ impl Data {
         Ok(Some(category.id))
     }
 
-    fn find_or_create_category(
-        &self,
-        conn: &mut Conn,
-        name: &str,
-    ) -> Result<Category> {
+    fn find_or_create_category(&self, conn: &mut Conn, name: &str) -> Result<Category> {
         match Category::find_by_name(conn, name) {
             Ok(category) => Ok(category),
             Err(Error::NotFound) => Ok(NewCategory::new(name).save(conn)?),
@@ -119,10 +97,7 @@ pub struct RecordToImport {
     pub category_name: String,
 }
 
-pub fn import<T: AsRef<Path>, S: AsRef<str>>(
-    profile: S,
-    path: T,
-) -> Result<Data> {
+pub fn import<T: AsRef<Path>, S: AsRef<str>>(profile: S, path: T) -> Result<Data> {
     match profile.as_ref().to_lowercase().as_str() {
         "boursobank" => Ok(boursobank::Importer::import(path)?),
         _ => Err(anyhow::anyhow!("Unknown profile {}", profile.as_ref())),

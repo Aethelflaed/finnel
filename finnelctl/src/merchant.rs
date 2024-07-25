@@ -143,9 +143,7 @@ impl CommandContext<'_> {
     fn create(&mut self, args: &Create) -> Result<()> {
         NewMerchant {
             name: &args.name,
-            default_category_id: args
-                .default_category(self.conn)?
-                .map(|c| c.id),
+            default_category_id: args.default_category(self.conn)?.map(|c| c.id),
             replaced_by_id: args.replace_by(self.conn)?.map(|r| r.id),
         }
         .save(self.conn)?;
@@ -176,15 +174,10 @@ impl CommandContext<'_> {
     }
 }
 
-fn args_to_change<'a>(
-    conn: &mut Conn,
-    args: &'a UpdateArgs,
-) -> Result<ChangeMerchant<'a>> {
+fn args_to_change<'a>(conn: &mut Conn, args: &'a UpdateArgs) -> Result<ChangeMerchant<'a>> {
     Ok(ChangeMerchant {
         name: args.new_name.as_deref(),
-        default_category_id: args
-            .default_category(conn)?
-            .map(|c| c.map(|c| c.id)),
+        default_category_id: args.default_category(conn)?.map(|c| c.map(|c| c.id)),
         replaced_by_id: args.replace_by(conn)?.map(|r| r.map(|r| r.id)),
     })
 }

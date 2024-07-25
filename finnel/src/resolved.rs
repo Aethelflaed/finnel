@@ -2,16 +2,10 @@ use crate::essentials::*;
 
 pub trait Resolvable: Sized {
     fn resolve(self, conn: &mut Conn) -> Result<Self>;
-    fn as_resolved<'a>(&'a self, conn: &mut Conn)
-        -> Result<Resolved<'a, Self>>;
+    fn as_resolved<'a>(&'a self, conn: &mut Conn) -> Result<Resolved<'a, Self>>;
 }
 
-pub fn resolve<T, F, G>(
-    conn: &mut Conn,
-    object: T,
-    finder: F,
-    getter: G,
-) -> Result<T>
+pub fn resolve<T, F, G>(conn: &mut Conn, object: T, finder: F, getter: G) -> Result<T>
 where
     F: Fn(&mut Conn, i64) -> Result<T>,
     G: Fn(&T) -> Option<i64>,
@@ -87,10 +81,7 @@ where
         .transpose()
 }
 
-pub fn mapmap<T, F, R>(
-    maybe_object: &Option<Resolved<'_, T>>,
-    f: F,
-) -> Option<R>
+pub fn mapmap<T, F, R>(maybe_object: &Option<Resolved<'_, T>>, f: F) -> Option<R>
 where
     F: FnOnce(&T) -> R,
 {
@@ -99,10 +90,7 @@ where
         .map(|resolved_object| resolved_object.map(f))
 }
 
-pub fn mapmapresult<T, F, R>(
-    maybe_object: &Option<Resolved<'_, T>>,
-    f: F,
-) -> Result<Option<R>>
+pub fn mapmapresult<T, F, R>(maybe_object: &Option<Resolved<'_, T>>, f: F) -> Result<Option<R>>
 where
     F: FnOnce(&T) -> Result<R>,
 {
