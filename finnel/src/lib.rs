@@ -16,7 +16,7 @@ use diesel::prelude::*;
 
 pub mod essentials {
     pub use crate::{
-        resolved::Resolved,
+        resolved::{Resolvable, Resolved},
         result::{Error, OptionalExtension, Result},
     };
     pub use oxydized_money::{Amount, Currency, Decimal};

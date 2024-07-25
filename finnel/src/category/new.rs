@@ -1,4 +1,9 @@
-use crate::{category::Category, essentials::*, schema::categories};
+use crate::{
+    category::Category,
+    essentials::*,
+    resolved::{mapmap, mapresolve},
+    schema::categories,
+};
 
 use diesel::prelude::*;
 
@@ -31,12 +36,11 @@ impl<'a> NewCategory<'a> {
             replaced_by,
         } = self;
 
-        let parent_id = parent
-            .map(|p| p.as_resolved(conn).map(|p| p.id))
-            .transpose()?;
-        let replaced_by_id = replaced_by
-            .map(|p| p.as_resolved(conn).map(|p| p.id))
-            .transpose()?;
+        let parent = mapresolve(conn, parent)?;
+        let parent_id = mapmap(&parent, |c| c.id);
+
+        let replaced_by = mapresolve(conn, replaced_by)?;
+        let replaced_by_id = mapmap(&replaced_by, |c| c.id);
 
         Ok(InsertableCategory {
             name,

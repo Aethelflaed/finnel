@@ -41,28 +41,6 @@ impl Category {
             .map_err(|e| e.into())
     }
 
-    pub fn resolve(self, conn: &mut Conn) -> Result<Self> {
-        if let Some(id) = self.replaced_by_id {
-            Self::find(conn, id)?.resolve(conn)
-        } else {
-            Ok(self)
-        }
-    }
-
-    pub fn as_resolved(
-        &self,
-        conn: &mut Conn,
-    ) -> Resolved<'_, Category, Error> {
-        if let Some(id) = self.replaced_by_id {
-            match Category::find(conn, id) {
-                Ok(category) => category.resolve(conn).into(),
-                Err(e) => Resolved::Err(e),
-            }
-        } else {
-            Resolved::Original(self)
-        }
-    }
-
     /// Delete the current category, nulling references to it where possible
     ///
     /// This method executes multiple queries without wrapping them in a
@@ -77,6 +55,21 @@ impl Category {
 
     pub fn change(&mut self) -> ChangeCategory<'_> {
         ChangeCategory::new(self)
+    }
+}
+
+impl Resolvable for Category {
+    fn resolve(self, conn: &mut Conn) -> Result<Self> {
+        crate::resolved::resolve(conn, self, Self::find, |c| c.replaced_by_id)
+    }
+
+    fn as_resolved<'a>(
+        &'a self,
+        conn: &mut Conn,
+    ) -> Result<Resolved<'a, Self>> {
+        crate::resolved::as_resolved(conn, self, Self::find, |c| {
+            c.replaced_by_id
+        })
     }
 }
 
