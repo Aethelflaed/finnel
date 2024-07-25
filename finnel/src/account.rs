@@ -1,5 +1,4 @@
-pub use crate::schema::accounts;
-use crate::{essentials::*, Amount, Currency, Decimal};
+use crate::{essentials::*, schema::accounts, Amount, Currency, Decimal};
 
 use diesel::prelude::*;
 

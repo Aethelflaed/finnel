@@ -63,7 +63,7 @@ mod tests {
         let bar = test::category(conn, "Bar")?;
         let public_house = NewCategory {
             name: "Public House",
-            replaced_by_id: Some(bar.id),
+            replaced_by: Some(&bar),
             ..Default::default()
         }
         .save(conn)?;

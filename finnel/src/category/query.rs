@@ -162,11 +162,11 @@ mod tests {
         let category1_1 = &mut test::category(conn, "Bar")?;
 
         ChangeCategory {
-            parent_id: Some(Some(category1.id)),
-            replaced_by_id: Some(Some(category1.id)),
-            ..Default::default()
+            parent: Some(Some(category1)),
+            replaced_by: Some(Some(category1)),
+            ..ChangeCategory::new(category1_1)
         }
-        .apply(conn, category1_1)?;
+        .apply(conn)?;
 
         let result = QueryCategory {
             name: Some("Bar"),

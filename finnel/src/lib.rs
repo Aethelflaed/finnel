@@ -3,6 +3,7 @@ pub mod test;
 
 pub mod db;
 
+pub mod resolved;
 pub mod result;
 
 pub mod account;
@@ -14,7 +15,10 @@ pub mod schema;
 use diesel::prelude::*;
 
 pub mod essentials {
-    pub use crate::result::{Error, OptionalExtension, Result};
+    pub use crate::{
+        resolved::Resolved,
+        result::{Error, OptionalExtension, Result},
+    };
     pub use oxydized_money::{Amount, Currency, Decimal};
     pub type Conn = diesel::sqlite::SqliteConnection;
 }

@@ -1,5 +1,4 @@
-pub use crate::schema::merchants;
-use crate::{category::Category, essentials::*};
+use crate::{category::Category, essentials::*, schema::merchants};
 
 use diesel::prelude::*;
 
