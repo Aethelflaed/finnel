@@ -113,7 +113,7 @@ pub struct ResolvedChangeRecord<'a> {
 
 impl<'a> ResolvedChangeRecord<'a> {
     pub fn validate(
-        self,
+        &self,
         _conn: &mut Conn,
         record: &'a Record,
     ) -> Result<ValidatedChangeRecord<'a>> {

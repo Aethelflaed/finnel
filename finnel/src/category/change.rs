@@ -90,7 +90,7 @@ impl<'a> ResolvedChangeCategory<'a> {
     }
 
     pub fn validate(
-        self,
+        &self,
         conn: &mut Conn,
         category: &'a Category,
     ) -> Result<ValidatedChangeCategory<'a>> {

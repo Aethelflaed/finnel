@@ -72,7 +72,7 @@ pub struct ResolvedNewRecord<'a> {
 }
 
 impl<'a> ResolvedNewRecord<'a> {
-    pub fn validate(self, _conn: &mut Conn) -> Result<ValidatedNewRecord<'a>> {
+    pub fn validate(&self, _conn: &mut Conn) -> Result<ValidatedNewRecord<'a>> {
         if self.currency != self.account.currency {
             return Err(Error::Invalid(
                 "record.currency should match the account currency".to_owned(),

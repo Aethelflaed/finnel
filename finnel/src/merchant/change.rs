@@ -70,7 +70,7 @@ impl<'a> ResolvedChangeMerchant<'a> {
     }
 
     pub fn validate(
-        self,
+        &self,
         conn: &mut Conn,
         merchant: &'a Merchant,
     ) -> Result<ValidatedChangeMerchant<'a>> {
