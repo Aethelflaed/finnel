@@ -8,7 +8,7 @@ use tabled::Tabled;
 pub struct RecordToDisplay(Record, Option<Category>, Option<Merchant>);
 
 impl Tabled for RecordToDisplay {
-    const LENGTH: usize = 7;
+    const LENGTH: usize = 8;
 
     fn fields(&self) -> Vec<Cow<'_, str>> {
         vec![
@@ -16,6 +16,7 @@ impl Tabled for RecordToDisplay {
             self.amount(),
             self.0.mode.to_string().into(),
             self.0.operation_date.date_naive().to_string().into(),
+            self.0.value_date.date_naive().to_string().into(),
             self.0.details.clone().into(),
             self.category(),
             self.merchant(),
@@ -28,6 +29,7 @@ impl Tabled for RecordToDisplay {
             "amount".into(),
             "mode".into(),
             "operation date".into(),
+            "value date".into(),
             "details".into(),
             "category".into(),
             "merchant".into(),

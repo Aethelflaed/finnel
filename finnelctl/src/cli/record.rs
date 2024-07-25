@@ -179,7 +179,7 @@ impl core::fmt::Display for Sort {
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
-    pub update: Option<ListUpdate>,
+    pub action: Option<ListAction>,
 
     /// Show only records from after this date
     #[arg(
@@ -291,9 +291,16 @@ impl List {
 }
 
 #[derive(Subcommand, Clone, Debug)]
-pub enum ListUpdate {
+pub enum ListAction {
     /// Update the listed records
     Update(UpdateArgs),
+
+    /// Delete the listed records
+    Delete {
+        /// Confirm the deletion
+        #[arg(long)]
+        confirm: bool,
+    },
 }
 
 #[derive(Args, Clone, Debug)]

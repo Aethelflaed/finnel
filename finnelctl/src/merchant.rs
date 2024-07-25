@@ -79,7 +79,7 @@ impl CommandContext<'_> {
             count: count.map(|c| c as i64),
         };
 
-        if let Some(ListUpdate::Update(args)) = &args.update {
+        if let Some(ListAction::Update(args)) = &args.action {
             let (default_category, replaced_by) = relations_args(self.conn, args)?;
             let resolved_changes = change_args(self.conn, args, &default_category, &replaced_by)?;
 

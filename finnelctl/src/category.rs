@@ -80,7 +80,7 @@ impl CommandContext<'_> {
             ..Default::default()
         };
 
-        if let Some(ListUpdate::Update(args)) = &args.update {
+        if let Some(ListAction::Update(args)) = &args.action {
             let (parent, replaced_by) = relations_args(self.conn, args)?;
             let resolved_changes = change_args(self.conn, args, &parent, &replaced_by)?;
 
@@ -110,10 +110,7 @@ impl CommandContext<'_> {
         println!("{} | {}", category.id, category.name);
 
         if let Some(parent) = category.fetch_parent(self.conn)? {
-            println!(
-                "  Parent: {} | {}",
-                parent.id, parent.name
-            );
+            println!("  Parent: {} | {}", parent.id, parent.name);
         }
         if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
             println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);

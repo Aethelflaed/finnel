@@ -114,23 +114,37 @@ impl CommandContext<'_> {
                 .collect::<Vec<_>>(),
         };
 
-        if let Some(ListUpdate::Update(args)) = &args.update {
-            let (category, merchant) = relations_args(self.conn, args)?;
-            let resolved_changes = change_args(self.conn, args, &category, &merchant)?;
+        match &args.action {
+            Some(ListAction::Update(args)) => {
+                let (category, merchant) = relations_args(self.conn, args)?;
+                let resolved_changes = change_args(self.conn, args, &category, &merchant)?;
 
-            for (record, _, _) in query.run(self.conn)? {
-                resolved_changes
-                    .validate(self.conn, &record)?
-                    .save(self.conn)?;
+                for (record, _, _) in query.run(self.conn)? {
+                    resolved_changes
+                        .validate(self.conn, &record)?
+                        .save(self.conn)?;
+                }
             }
-        } else {
-            let records = query
-                .run(self.conn)?
-                .into_iter()
-                .map(RecordToDisplay::from)
-                .collect::<Vec<_>>();
+            Some(ListAction::Delete { confirm }) => {
+                self.conn.transaction(|conn| {
+                    if !confirm || !crate::utils::confirm()? {
+                        anyhow::bail!("operation requires confirmation");
+                    }
+                    for (mut record, _, _) in query.run(conn)? {
+                        record.delete(conn)?;
+                    }
+                    Ok(())
+                })?;
+            }
+            None => {
+                let records = query
+                    .run(self.conn)?
+                    .into_iter()
+                    .map(RecordToDisplay::from)
+                    .collect::<Vec<_>>();
 
-            println!("{}", Table::new(records));
+                println!("{}", Table::new(records));
+            }
         }
 
         Ok(())
