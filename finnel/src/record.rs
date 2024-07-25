@@ -6,6 +6,9 @@ use crate::{
 use chrono::{offset::Utc, DateTime};
 use diesel::prelude::*;
 
+mod new;
+pub use new::NewRecord;
+
 mod direction;
 pub use direction::Direction;
 
@@ -57,59 +60,6 @@ impl Record {
         diesel::delete(&*self).execute(conn)?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = records)]
-pub struct NewRecord<'a> {
-    pub account_id: i64,
-    #[diesel(serialize_as = crate::db::Decimal)]
-    pub amount: Decimal,
-    #[diesel(serialize_as = crate::db::Currency)]
-    pub currency: Currency,
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
-    pub direction: Direction,
-    pub mode: Mode,
-    pub details: &'a str,
-    pub category_id: Option<i64>,
-    pub merchant_id: Option<i64>,
-}
-
-impl NewRecord<'_> {
-    pub fn new(account: &Account) -> Self {
-        Self {
-            account_id: account.id,
-            currency: account.currency,
-            ..Default::default()
-        }
-    }
-
-    pub fn save(self, conn: &mut Conn) -> Result<Record> {
-        Ok(diesel::insert_into(records::table)
-            .values(self)
-            .returning(Record::as_returning())
-            .get_result(conn)?)
-    }
-}
-
-impl Default for NewRecord<'_> {
-    fn default() -> Self {
-        let date = Utc::now();
-
-        Self {
-            account_id: 0,
-            amount: Decimal::ZERO,
-            currency: Currency::EUR,
-            operation_date: date,
-            value_date: date,
-            direction: Direction::Debit,
-            mode: Mode::Direct(PaymentMethod::Empty),
-            details: "",
-            category_id: None,
-            merchant_id: None,
-        }
     }
 }
 
@@ -227,13 +177,17 @@ mod tests {
         let merchant_1 = test::merchant(db, "Foo")?;
         let merchant_2 = test::merchant(db, "Bar")?;
 
-        let mut record_1 = NewRecord::new(&account);
-        record_1.merchant_id = Some(merchant_1.id);
-        let mut record_1 = record_1.save(db)?;
+        let mut record_1 = NewRecord {
+            merchant: Some(&merchant_1),
+            ..NewRecord::new(&account)
+        }
+        .save(db)?;
 
-        let mut record_2 = NewRecord::new(&account);
-        record_2.merchant_id = Some(merchant_2.id);
-        let mut record_2 = record_2.save(db)?;
+        let mut record_2 = NewRecord {
+            merchant: Some(&merchant_2),
+            ..NewRecord::new(&account)
+        }
+        .save(db)?;
 
         super::clear_merchant_id(db, merchant_1.id)?;
         assert_eq!(None, record_1.reload(db)?.merchant_id);
@@ -249,13 +203,17 @@ mod tests {
         let category_1 = test::category(db, "Foo")?;
         let category_2 = test::category(db, "Bar")?;
 
-        let mut record_1 = NewRecord::new(&account);
-        record_1.category_id = Some(category_1.id);
-        let mut record_1 = record_1.save(db)?;
+        let mut record_1 = NewRecord {
+            category: Some(&category_1),
+            ..NewRecord::new(&account)
+        }
+        .save(db)?;
 
-        let mut record_2 = NewRecord::new(&account);
-        record_2.category_id = Some(category_2.id);
-        let mut record_2 = record_2.save(db)?;
+        let mut record_2 = NewRecord {
+            category: Some(&category_2),
+            ..NewRecord::new(&account)
+        }
+        .save(db)?;
 
         super::clear_category_id(db, category_1.id)?;
         assert_eq!(None, record_1.reload(db)?.category_id);

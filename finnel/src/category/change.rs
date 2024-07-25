@@ -50,13 +50,17 @@ impl<'a> ChangeCategory<'a> {
 }
 
 pub struct ResolvedChangeCategory<'a> {
-    pub name: Option<&'a str>,
-    pub parent: Option<Option<Resolved<'a, Category>>>,
-    pub replaced_by: Option<Option<Resolved<'a, Category>>>,
+    name: Option<&'a str>,
+    parent: Option<Option<Resolved<'a, Category>>>,
+    replaced_by: Option<Option<Resolved<'a, Category>>>,
 }
 
 impl<'a> ResolvedChangeCategory<'a> {
-    fn validate_parent(&self, conn: &mut Conn, category: &Category) -> Result<()> {
+    fn validate_parent(
+        &self,
+        conn: &mut Conn,
+        category: &Category,
+    ) -> Result<()> {
         mapmapmapresult(&self.parent, |parent| {
             if category.id == parent.id {
                 return Err(Error::Invalid(
@@ -79,7 +83,11 @@ impl<'a> ResolvedChangeCategory<'a> {
         Ok(())
     }
 
-    fn validate_replace_by(&self, _conn: &mut Conn, category: &Category) -> Result<()> {
+    fn validate_replace_by(
+        &self,
+        _conn: &mut Conn,
+        category: &Category,
+    ) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
             if category.id == replaced_by.id {
                 return Err(Error::Invalid(
@@ -93,7 +101,11 @@ impl<'a> ResolvedChangeCategory<'a> {
         Ok(())
     }
 
-    pub fn validate(self, conn: &mut Conn, category: &'a Category) -> Result<ValidatedChangeCategory<'a>> {
+    pub fn validate(
+        self,
+        conn: &mut Conn,
+        category: &'a Category,
+    ) -> Result<ValidatedChangeCategory<'a>> {
         self.validate_parent(conn, category)?;
         self.validate_replace_by(conn, category)?;
 
@@ -112,10 +124,7 @@ impl<'a> ResolvedChangeCategory<'a> {
 pub struct ValidatedChangeCategory<'a>(&'a Category, CategoryChangeset<'a>);
 
 impl<'a> ValidatedChangeCategory<'a> {
-    pub fn save(
-        self,
-        conn: &mut Conn,
-    ) -> Result<()> {
+    pub fn save(self, conn: &mut Conn) -> Result<()> {
         diesel::update(self.0).set(self.1).execute(conn)?;
         Ok(())
     }

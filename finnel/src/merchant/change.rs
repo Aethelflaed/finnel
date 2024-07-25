@@ -1,7 +1,7 @@
 use crate::{
     category::Category,
-    merchant::Merchant,
     essentials::*,
+    merchant::Merchant,
     resolved::{mapmapmap, mapmapmapresult, mapmapresolve},
     schema::merchants,
 };
@@ -57,7 +57,11 @@ pub struct ResolvedChangeMerchant<'a> {
 }
 
 impl<'a> ResolvedChangeMerchant<'a> {
-    fn validate_replace_by(&self, _conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+    fn validate_replace_by(
+        &self,
+        _conn: &mut Conn,
+        merchant: &Merchant,
+    ) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
             if merchant.id == replaced_by.id {
                 return Err(Error::Invalid(
@@ -71,7 +75,11 @@ impl<'a> ResolvedChangeMerchant<'a> {
         Ok(())
     }
 
-    pub fn validate(self, conn: &mut Conn, merchant: &'a Merchant) -> Result<ValidatedChangeMerchant<'a>> {
+    pub fn validate(
+        self,
+        conn: &mut Conn,
+        merchant: &'a Merchant,
+    ) -> Result<ValidatedChangeMerchant<'a>> {
         self.validate_replace_by(conn, merchant)?;
 
         Ok(ValidatedChangeMerchant(merchant, self.as_changeset()))
@@ -89,10 +97,7 @@ impl<'a> ResolvedChangeMerchant<'a> {
 pub struct ValidatedChangeMerchant<'a>(&'a Merchant, MerchantChangeset<'a>);
 
 impl<'a> ValidatedChangeMerchant<'a> {
-    pub fn save(
-        self,
-        conn: &mut Conn,
-    ) -> Result<()> {
+    pub fn save(self, conn: &mut Conn) -> Result<()> {
         diesel::update(self.0).set(self.1).execute(conn)?;
         Ok(())
     }

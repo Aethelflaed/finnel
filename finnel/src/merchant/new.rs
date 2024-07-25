@@ -1,7 +1,7 @@
 use crate::{
-    merchant::Merchant,
     category::Category,
     essentials::*,
+    merchant::Merchant,
     resolved::{mapmap, mapresolve},
     schema::merchants,
 };

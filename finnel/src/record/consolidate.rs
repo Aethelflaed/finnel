@@ -70,7 +70,7 @@ mod tests {
 
         let mut record = NewRecord {
             details: "beer",
-            category_id: Some(public_house.id),
+            category: Some(&public_house),
             ..NewRecord::new(&account)
         }
         .save(conn)?;
@@ -98,7 +98,7 @@ mod tests {
 
         let mut record = NewRecord {
             details: "beer",
-            merchant_id: Some(le_chariot.id),
+            merchant: Some(&le_chariot),
             ..NewRecord::new(&account)
         }
         .save(conn)?;
