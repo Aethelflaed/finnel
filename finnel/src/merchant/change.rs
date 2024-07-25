@@ -8,40 +8,22 @@ use crate::{
 
 use diesel::prelude::*;
 
+#[derive(Default, Clone)]
 pub struct ChangeMerchant<'a> {
-    pub merchant: &'a mut Merchant,
     pub name: Option<&'a str>,
     pub default_category: Option<Option<&'a Category>>,
     pub replaced_by: Option<Option<&'a Merchant>>,
 }
 
-fn save_internal(
-    conn: &mut Conn,
-    merchant: &Merchant,
-    changeset: MerchantChangeset,
-) -> Result<()> {
-    diesel::update(merchant).set(changeset).execute(conn)?;
-    Ok(())
-}
-
 impl<'a> ChangeMerchant<'a> {
-    pub fn new(merchant: &'a mut Merchant) -> Self {
-        Self {
-            merchant,
-            name: None,
-            default_category: None,
-            replaced_by: None,
-        }
+    pub fn save(self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
+        self.to_resolved(conn)?.validate(conn, merchant)?.save(conn)
     }
 
-    pub fn save(self, conn: &mut Conn) -> Result<()> {
-        let (merchant, changeset) = self.to_changeset(conn)?;
-        save_internal(conn, merchant, changeset)
-    }
-
-    pub fn apply(self, conn: &mut Conn) -> Result<()> {
-        let (merchant, changeset) = self.to_changeset(conn)?;
-        save_internal(conn, merchant, changeset.clone())?;
+    pub fn apply(self, conn: &mut Conn, merchant: &mut Merchant) -> Result<()> {
+        let resolved = self.to_resolved(conn)?;
+        let changeset = resolved.as_changeset();
+        resolved.validate(conn, merchant)?.save(conn)?;
 
         if let Some(value) = changeset.name {
             merchant.name = value.to_string();
@@ -60,54 +42,24 @@ impl<'a> ChangeMerchant<'a> {
         self,
         conn: &mut Conn,
     ) -> Result<ResolvedChangeMerchant<'a>> {
-        let ChangeMerchant {
-            name,
-            default_category,
-            replaced_by,
-            merchant,
-        } = self;
-
         Ok(ResolvedChangeMerchant {
-            name,
-            merchant,
-            default_category: mapmapresolve(conn, default_category)?,
-            replaced_by: mapmapresolve(conn, replaced_by)?,
+            name: self.name,
+            default_category: mapmapresolve(conn, self.default_category)?,
+            replaced_by: mapmapresolve(conn, self.replaced_by)?,
         })
-    }
-
-    pub fn to_changeset(
-        self,
-        conn: &mut Conn,
-    ) -> Result<(&'a mut Merchant, MerchantChangeset<'a>)> {
-        let ResolvedChangeMerchant {
-            name,
-            default_category,
-            replaced_by,
-            merchant,
-        } = self.to_resolved(conn)?.validated(conn)?;
-
-        Ok((
-            merchant,
-            MerchantChangeset {
-                name,
-                default_category_id: mapmapmap(&default_category, |c| c.id),
-                replaced_by_id: mapmapmap(&replaced_by, |m| m.id),
-            },
-        ))
     }
 }
 
 pub struct ResolvedChangeMerchant<'a> {
-    pub merchant: &'a mut Merchant,
-    pub name: Option<&'a str>,
-    pub default_category: Option<Option<Resolved<'a, Category>>>,
-    pub replaced_by: Option<Option<Resolved<'a, Merchant>>>,
+    name: Option<&'a str>,
+    default_category: Option<Option<Resolved<'a, Category>>>,
+    replaced_by: Option<Option<Resolved<'a, Merchant>>>,
 }
 
 impl<'a> ResolvedChangeMerchant<'a> {
-    fn validate_replace_by(&self, _conn: &mut Conn) -> Result<()> {
+    fn validate_replace_by(&self, _conn: &mut Conn, merchant: &Merchant) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
-            if self.merchant.id == replaced_by.id {
+            if merchant.id == replaced_by.id {
                 return Err(Error::Invalid(
                     "merchant.replaced_by_id should not reference itself"
                         .to_owned(),
@@ -119,10 +71,30 @@ impl<'a> ResolvedChangeMerchant<'a> {
         Ok(())
     }
 
-    pub fn validated(self, conn: &mut Conn) -> Result<Self> {
-        self.validate_replace_by(conn)?;
+    pub fn validate(self, conn: &mut Conn, merchant: &'a Merchant) -> Result<ValidatedChangeMerchant<'a>> {
+        self.validate_replace_by(conn, merchant)?;
 
-        Ok(self)
+        Ok(ValidatedChangeMerchant(merchant, self.as_changeset()))
+    }
+
+    pub fn as_changeset(&self) -> MerchantChangeset<'a> {
+        MerchantChangeset {
+            name: self.name,
+            default_category_id: mapmapmap(&self.default_category, |c| c.id),
+            replaced_by_id: mapmapmap(&self.replaced_by, |m| m.id),
+        }
+    }
+}
+
+pub struct ValidatedChangeMerchant<'a>(&'a Merchant, MerchantChangeset<'a>);
+
+impl<'a> ValidatedChangeMerchant<'a> {
+    pub fn save(
+        self,
+        conn: &mut Conn,
+    ) -> Result<()> {
+        diesel::update(self.0).set(self.1).execute(conn)?;
+        Ok(())
     }
 }
 
@@ -147,23 +119,19 @@ mod tests {
 
         ChangeMerchant {
             replaced_by: Some(Some(merchant1)),
-            ..ChangeMerchant::new(merchant1_1)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, merchant1_1)?;
 
         let change = ChangeMerchant {
             replaced_by: Some(Some(merchant1_1)),
-            ..ChangeMerchant::new(merchant1)
+            ..Default::default()
         };
-        let resolved = change.to_resolved(conn)?;
+        let resolved = change.clone().to_resolved(conn)?;
 
-        assert!(resolved.validate_replace_by(conn).is_err());
+        assert!(resolved.validate_replace_by(conn, merchant1).is_err());
 
-        let change = ChangeMerchant {
-            replaced_by: Some(Some(merchant1_1)),
-            ..ChangeMerchant::new(merchant1)
-        };
-        assert!(change.save(conn).is_err());
+        assert!(change.save(conn, merchant1).is_err());
 
         Ok(())
     }

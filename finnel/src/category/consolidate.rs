@@ -19,14 +19,14 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
             query::REPLACERS.fields(categories::all_columns),
         ));
 
-    for (mut category, replacer) in query.load::<(Category, Category)>(conn)? {
+    for (category, replacer) in query.load::<(Category, Category)>(conn)? {
         let replacer = replacer.resolve(conn)?;
 
         ChangeCategory {
             replaced_by: Some(Some(&replacer)),
-            ..ChangeCategory::new(&mut category)
+            ..Default::default()
         }
-        .save(conn)?;
+        .save(conn, &category)?;
     }
 
     Ok(())

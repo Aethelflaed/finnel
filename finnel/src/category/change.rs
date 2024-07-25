@@ -7,40 +7,22 @@ use crate::{
 
 use diesel::prelude::*;
 
+#[derive(Default, Clone)]
 pub struct ChangeCategory<'a> {
-    pub category: &'a mut Category,
     pub name: Option<&'a str>,
     pub parent: Option<Option<&'a Category>>,
     pub replaced_by: Option<Option<&'a Category>>,
 }
 
-fn save_internal(
-    conn: &mut Conn,
-    category: &Category,
-    changeset: CategoryChangeset,
-) -> Result<()> {
-    diesel::update(category).set(changeset).execute(conn)?;
-    Ok(())
-}
-
 impl<'a> ChangeCategory<'a> {
-    pub fn new(category: &'a mut Category) -> Self {
-        Self {
-            category,
-            name: None,
-            parent: None,
-            replaced_by: None,
-        }
+    pub fn save(self, conn: &mut Conn, category: &Category) -> Result<()> {
+        self.to_resolved(conn)?.validate(conn, category)?.save(conn)
     }
 
-    pub fn save(self, conn: &mut Conn) -> Result<()> {
-        let (category, changeset) = self.to_changeset(conn)?;
-        save_internal(conn, category, changeset)
-    }
-
-    pub fn apply(self, conn: &mut Conn) -> Result<()> {
-        let (category, changeset) = self.to_changeset(conn)?;
-        save_internal(conn, category, changeset.clone())?;
+    pub fn apply(self, conn: &mut Conn, category: &mut Category) -> Result<()> {
+        let resolved = self.to_resolved(conn)?;
+        let changeset = resolved.as_changeset();
+        resolved.validate(conn, category)?.save(conn)?;
 
         if let Some(value) = changeset.name {
             category.name = value.to_string();
@@ -59,54 +41,24 @@ impl<'a> ChangeCategory<'a> {
         self,
         conn: &mut Conn,
     ) -> Result<ResolvedChangeCategory<'a>> {
-        let ChangeCategory {
-            name,
-            parent,
-            replaced_by,
-            category,
-        } = self;
-
         Ok(ResolvedChangeCategory {
-            name,
-            category,
-            parent: mapmapresolve(conn, parent)?,
-            replaced_by: mapmapresolve(conn, replaced_by)?,
+            name: self.name,
+            parent: mapmapresolve(conn, self.parent)?,
+            replaced_by: mapmapresolve(conn, self.replaced_by)?,
         })
-    }
-
-    pub fn to_changeset(
-        self,
-        conn: &mut Conn,
-    ) -> Result<(&'a mut Category, CategoryChangeset<'a>)> {
-        let ResolvedChangeCategory {
-            name,
-            parent,
-            replaced_by,
-            category,
-        } = self.to_resolved(conn)?.validated(conn)?;
-
-        Ok((
-            category,
-            CategoryChangeset {
-                name,
-                parent_id: mapmapmap(&parent, |c| c.id),
-                replaced_by_id: mapmapmap(&replaced_by, |c| c.id),
-            },
-        ))
     }
 }
 
 pub struct ResolvedChangeCategory<'a> {
-    pub category: &'a mut Category,
     pub name: Option<&'a str>,
     pub parent: Option<Option<Resolved<'a, Category>>>,
     pub replaced_by: Option<Option<Resolved<'a, Category>>>,
 }
 
 impl<'a> ResolvedChangeCategory<'a> {
-    fn validate_parent(&self, conn: &mut Conn) -> Result<()> {
+    fn validate_parent(&self, conn: &mut Conn, category: &Category) -> Result<()> {
         mapmapmapresult(&self.parent, |parent| {
-            if self.category.id == parent.id {
+            if category.id == parent.id {
                 return Err(Error::Invalid(
                     "category.parent_id should not reference itself".to_owned(),
                 ));
@@ -115,7 +67,7 @@ impl<'a> ResolvedChangeCategory<'a> {
             let ancestor =
                 as_resolved(conn, parent, Category::find, |c| c.parent_id)?;
 
-            if self.category.id == ancestor.map(|c| c.id) {
+            if category.id == ancestor.map(|c| c.id) {
                 return Err(Error::Invalid(
                     "category.parent_id would create a reference loop"
                         .to_owned(),
@@ -127,9 +79,9 @@ impl<'a> ResolvedChangeCategory<'a> {
         Ok(())
     }
 
-    fn validate_replace_by(&self, _conn: &mut Conn) -> Result<()> {
+    fn validate_replace_by(&self, _conn: &mut Conn, category: &Category) -> Result<()> {
         mapmapmapresult(&self.replaced_by, |replaced_by| {
-            if self.category.id == replaced_by.id {
+            if category.id == replaced_by.id {
                 return Err(Error::Invalid(
                     "category.replaced_by_id should not reference itself"
                         .to_owned(),
@@ -141,11 +93,31 @@ impl<'a> ResolvedChangeCategory<'a> {
         Ok(())
     }
 
-    pub fn validated(self, conn: &mut Conn) -> Result<Self> {
-        self.validate_parent(conn)?;
-        self.validate_replace_by(conn)?;
+    pub fn validate(self, conn: &mut Conn, category: &'a Category) -> Result<ValidatedChangeCategory<'a>> {
+        self.validate_parent(conn, category)?;
+        self.validate_replace_by(conn, category)?;
 
-        Ok(self)
+        Ok(ValidatedChangeCategory(category, self.as_changeset()))
+    }
+
+    pub fn as_changeset(&self) -> CategoryChangeset<'a> {
+        CategoryChangeset {
+            name: self.name,
+            parent_id: mapmapmap(&self.parent, |c| c.id),
+            replaced_by_id: mapmapmap(&self.replaced_by, |c| c.id),
+        }
+    }
+}
+
+pub struct ValidatedChangeCategory<'a>(&'a Category, CategoryChangeset<'a>);
+
+impl<'a> ValidatedChangeCategory<'a> {
+    pub fn save(
+        self,
+        conn: &mut Conn,
+    ) -> Result<()> {
+        diesel::update(self.0).set(self.1).execute(conn)?;
+        Ok(())
     }
 }
 
@@ -171,26 +143,21 @@ mod tests {
         ChangeCategory {
             parent: Some(Some(category1)),
             replaced_by: Some(Some(category1)),
-            ..ChangeCategory::new(category1_1)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, category1_1)?;
 
         let change = ChangeCategory {
             parent: Some(Some(category1_1)),
             replaced_by: Some(Some(category1_1)),
-            ..ChangeCategory::new(category1)
+            ..Default::default()
         };
-        let resolved = change.to_resolved(conn)?;
+        let resolved = change.clone().to_resolved(conn)?;
 
-        assert!(resolved.validate_parent(conn).is_err());
-        assert!(resolved.validate_replace_by(conn).is_err());
+        assert!(resolved.validate_parent(conn, category1).is_err());
+        assert!(resolved.validate_replace_by(conn, category1).is_err());
 
-        let change = ChangeCategory {
-            parent: Some(Some(category1_1)),
-            replaced_by: Some(Some(category1_1)),
-            ..ChangeCategory::new(category1)
-        };
-        assert!(change.save(conn).is_err());
+        assert!(change.save(conn, category1).is_err());
 
         Ok(())
     }

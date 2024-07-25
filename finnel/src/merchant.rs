@@ -97,9 +97,9 @@ mod tests {
 
         ChangeMerchant {
             name: Some("Foo"),
-            ..ChangeMerchant::new(merchant)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, merchant)?;
         assert_eq!("Foo", merchant.name);
         assert_eq!("Foo", merchant.reload(conn)?.name);
 

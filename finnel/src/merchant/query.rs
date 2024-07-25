@@ -159,9 +159,9 @@ mod tests {
         ChangeMerchant {
             default_category: Some(Some(category)),
             replaced_by: Some(Some(merchant1)),
-            ..ChangeMerchant::new(merchant1_1)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, merchant1_1)?;
 
         let result = QueryMerchant {
             name: Some("Bar"),

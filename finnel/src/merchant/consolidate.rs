@@ -19,14 +19,14 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
             query::REPLACERS.fields(merchants::all_columns),
         ));
 
-    for (mut merchant, replacer) in query.load::<(Merchant, Merchant)>(conn)? {
+    for (merchant, replacer) in query.load::<(Merchant, Merchant)>(conn)? {
         let replacer = replacer.resolve(conn)?;
 
         ChangeMerchant {
             replaced_by: Some(Some(&replacer)),
-            ..ChangeMerchant::new(&mut merchant)
+            ..Default::default()
         }
-        .save(conn)?;
+        .save(conn, &merchant)?;
     }
 
     Ok(())

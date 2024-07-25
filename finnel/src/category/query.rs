@@ -164,9 +164,9 @@ mod tests {
         ChangeCategory {
             parent: Some(Some(category1)),
             replaced_by: Some(Some(category1)),
-            ..ChangeCategory::new(category1_1)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, category1_1)?;
 
         let result = QueryCategory {
             name: Some("Bar"),

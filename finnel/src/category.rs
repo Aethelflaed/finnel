@@ -52,10 +52,6 @@ impl Category {
 
         Ok(())
     }
-
-    pub fn change(&mut self) -> ChangeCategory<'_> {
-        ChangeCategory::new(self)
-    }
 }
 
 impl Resolvable for Category {
@@ -92,9 +88,9 @@ mod tests {
 
         ChangeCategory {
             name: Some("Foo"),
-            ..ChangeCategory::new(&mut category)
+            ..Default::default()
         }
-        .apply(conn)?;
+        .apply(conn, &mut category)?;
         assert_eq!("Foo", category.name);
         assert_eq!("Foo", category.reload(conn)?.name);
 
