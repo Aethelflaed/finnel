@@ -157,11 +157,11 @@ mod tests {
         let category = &test::category(conn, "Bar")?;
 
         ChangeMerchant {
-            default_category_id: Some(Some(category.id)),
-            replaced_by_id: Some(Some(merchant1.id)),
-            ..Default::default()
+            default_category: Some(Some(category)),
+            replaced_by: Some(Some(merchant1)),
+            ..ChangeMerchant::new(merchant1_1)
         }
-        .apply(conn, merchant1_1)?;
+        .apply(conn)?;
 
         let result = QueryMerchant {
             name: Some("Bar"),

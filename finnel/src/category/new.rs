@@ -37,15 +37,12 @@ impl<'a> NewCategory<'a> {
         } = self;
 
         let parent = mapresolve(conn, parent)?;
-        let parent_id = mapmap(&parent, |c| c.id);
-
         let replaced_by = mapresolve(conn, replaced_by)?;
-        let replaced_by_id = mapmap(&replaced_by, |c| c.id);
 
         Ok(InsertableCategory {
             name,
-            parent_id,
-            replaced_by_id,
+            parent_id: mapmap(&parent, |c| c.id),
+            replaced_by_id: mapmap(&replaced_by, |c| c.id),
         })
     }
 }
@@ -56,15 +53,6 @@ pub struct InsertableCategory<'a> {
     pub name: &'a str,
     pub parent_id: Option<i64>,
     pub replaced_by_id: Option<i64>,
-}
-
-impl<'a> InsertableCategory<'a> {
-    pub fn new(name: &'a str) -> Self {
-        Self {
-            name,
-            ..Default::default()
-        }
-    }
 }
 
 impl InsertableCategory<'_> {

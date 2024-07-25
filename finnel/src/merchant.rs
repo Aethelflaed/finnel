@@ -2,6 +2,12 @@ use crate::{category::Category, essentials::*, schema::merchants};
 
 use diesel::prelude::*;
 
+mod new;
+pub use new::NewMerchant;
+
+mod change;
+pub use change::ChangeMerchant;
+
 mod query;
 pub use query::QueryMerchant;
 
@@ -36,14 +42,6 @@ impl Merchant {
             .map_err(|e| e.into())
     }
 
-    pub fn resolve(self, conn: &mut Conn) -> Result<Self> {
-        if let Some(id) = self.replaced_by_id {
-            Self::find(conn, id)?.resolve(conn)
-        } else {
-            Ok(self)
-        }
-    }
-
     /// Delete the current merchant, nulling references to it where possible
     ///
     /// This method executes multiple queries without wrapping them in a
@@ -56,88 +54,18 @@ impl Merchant {
     }
 }
 
-#[derive(Default, Insertable)]
-#[diesel(table_name = merchants)]
-pub struct NewMerchant<'a> {
-    pub name: &'a str,
-    pub default_category_id: Option<i64>,
-    pub replaced_by_id: Option<i64>,
-}
-
-impl<'a> NewMerchant<'a> {
-    pub fn new(name: &'a str) -> Self {
-        Self {
-            name,
-            ..Default::default()
-        }
+impl Resolvable for Merchant {
+    fn resolve(self, conn: &mut Conn) -> Result<Self> {
+        crate::resolved::resolve(conn, self, Self::find, |c| c.replaced_by_id)
     }
-}
 
-impl NewMerchant<'_> {
-    pub fn save(self, conn: &mut Conn) -> Result<Merchant> {
-        Ok(diesel::insert_into(merchants::table)
-            .values(self)
-            .returning(Merchant::as_returning())
-            .get_result(conn)?)
-    }
-}
-
-#[derive(Default, Clone, AsChangeset)]
-#[diesel(table_name = merchants)]
-pub struct ChangeMerchant<'a> {
-    pub name: Option<&'a str>,
-    pub default_category_id: Option<Option<i64>>,
-    pub replaced_by_id: Option<Option<i64>>,
-}
-
-impl ChangeMerchant<'_> {
-    fn check_self_reference(
+    fn as_resolved<'a>(
+        &'a self,
         conn: &mut Conn,
-        id: Option<Option<i64>>,
-        merchant: &Merchant,
-    ) -> Result<()> {
-        if let Some(Some(id)) = id {
-            if merchant.id == id {
-                return Err(Error::Invalid(
-                    "Merchant references itself".to_owned(),
-                ));
-            } else if merchant.id == Merchant::find(conn, id)?.resolve(conn)?.id
-            {
-                return Err(Error::Invalid(
-                    "Reference loop for merchant".to_owned(),
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn valid(&self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
-        Self::check_self_reference(conn, self.replaced_by_id, merchant)?;
-
-        Ok(())
-    }
-
-    pub fn save(self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
-        self.valid(conn, merchant)?;
-        diesel::update(merchant).set(self).execute(conn)?;
-        Ok(())
-    }
-
-    pub fn apply(self, conn: &mut Conn, merchant: &mut Merchant) -> Result<()> {
-        self.clone().save(conn, merchant)?;
-
-        if let Some(value) = self.name {
-            merchant.name = value.to_string();
-        }
-        if let Some(value) = self.default_category_id {
-            merchant.default_category_id = value;
-        }
-        if let Some(value) = self.replaced_by_id {
-            merchant.replaced_by_id = value;
-        }
-
-        Ok(())
+    ) -> Result<Resolved<'a, Self>> {
+        crate::resolved::as_resolved(conn, self, Self::find, |c| {
+            c.replaced_by_id
+        })
     }
 }
 
@@ -159,7 +87,7 @@ mod tests {
     fn crud() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let mut merchant = NewMerchant::new("Bar").save(conn)?;
+        let merchant = &mut NewMerchant::new("Bar").save(conn)?;
 
         assert_eq!(
             merchant.id,
@@ -169,43 +97,14 @@ mod tests {
 
         ChangeMerchant {
             name: Some("Foo"),
-            ..Default::default()
+            ..ChangeMerchant::new(merchant)
         }
-        .apply(conn, &mut merchant)?;
+        .apply(conn)?;
         assert_eq!("Foo", merchant.name);
         assert_eq!("Foo", merchant.reload(conn)?.name);
 
         merchant.delete(conn)?;
         assert!(Merchant::find(conn, merchant.id).is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn update_loop() -> Result<()> {
-        let conn = &mut test::db()?;
-        let merchant1 = &mut test::merchant(conn, "Foo")?;
-        let merchant1_1 = &mut test::merchant(conn, "Bar")?;
-
-        ChangeMerchant {
-            replaced_by_id: Some(Some(merchant1.id)),
-            ..Default::default()
-        }
-        .apply(conn, merchant1_1)?;
-
-        let change = ChangeMerchant {
-            replaced_by_id: Some(Some(merchant1_1.id)),
-            ..Default::default()
-        };
-
-        assert!(ChangeMerchant::check_self_reference(
-            conn,
-            change.replaced_by_id,
-            merchant1
-        )
-        .is_err());
-        assert!(change.clone().save(conn, merchant1).is_err());
-        assert!(change.clone().save(conn, merchant1_1).is_err());
 
         Ok(())
     }

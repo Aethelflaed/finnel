@@ -17,7 +17,7 @@ pub struct ChangeCategory<'a> {
 fn save_internal(
     conn: &mut Conn,
     category: &Category,
-    changeset: CategoryChangeSet,
+    changeset: CategoryChangeset,
 ) -> Result<()> {
     diesel::update(category).set(changeset).execute(conn)?;
     Ok(())
@@ -55,7 +55,7 @@ impl<'a> ChangeCategory<'a> {
         Ok(())
     }
 
-    fn to_resolved(
+    pub fn to_resolved(
         self,
         conn: &mut Conn,
     ) -> Result<ResolvedChangeCategory<'a>> {
@@ -77,7 +77,7 @@ impl<'a> ChangeCategory<'a> {
     pub fn to_changeset(
         self,
         conn: &mut Conn,
-    ) -> Result<(&'a mut Category, CategoryChangeSet<'a>)> {
+    ) -> Result<(&'a mut Category, CategoryChangeset<'a>)> {
         let ResolvedChangeCategory {
             name,
             parent,
@@ -87,7 +87,7 @@ impl<'a> ChangeCategory<'a> {
 
         Ok((
             category,
-            CategoryChangeSet {
+            CategoryChangeset {
                 name,
                 parent_id: mapmapmap(&parent, |c| c.id),
                 replaced_by_id: mapmapmap(&replaced_by, |c| c.id),
@@ -96,7 +96,7 @@ impl<'a> ChangeCategory<'a> {
     }
 }
 
-struct ResolvedChangeCategory<'a> {
+pub struct ResolvedChangeCategory<'a> {
     pub category: &'a mut Category,
     pub name: Option<&'a str>,
     pub parent: Option<Option<Resolved<'a, Category>>>,
@@ -151,7 +151,7 @@ impl<'a> ResolvedChangeCategory<'a> {
 
 #[derive(Default, Clone, AsChangeset)]
 #[diesel(table_name = categories)]
-pub struct CategoryChangeSet<'a> {
+pub struct CategoryChangeset<'a> {
     pub name: Option<&'a str>,
     pub parent_id: Option<Option<i64>>,
     pub replaced_by_id: Option<Option<i64>>,

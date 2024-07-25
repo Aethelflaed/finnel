@@ -91,7 +91,7 @@ mod tests {
         let chariot = test::merchant(conn, "Chariot")?;
         let le_chariot = NewMerchant {
             name: "Le chariot",
-            replaced_by_id: Some(chariot.id),
+            replaced_by: Some(&chariot),
             ..Default::default()
         }
         .save(conn)?;
