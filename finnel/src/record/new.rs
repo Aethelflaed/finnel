@@ -39,10 +39,10 @@ impl<'a> NewRecord<'a> {
     }
 
     pub fn save(self, conn: &mut Conn) -> Result<Record> {
-        self.to_resolved(conn)?.validate(conn)?.save(conn)
+        self.into_resolved(conn)?.validate(conn)?.save(conn)
     }
 
-    pub fn to_resolved(self, conn: &mut Conn) -> Result<ResolvedNewRecord<'a>> {
+    pub fn into_resolved(self, conn: &mut Conn) -> Result<ResolvedNewRecord<'a>> {
         Ok(ResolvedNewRecord {
             account: self.account,
             amount: self.amount,

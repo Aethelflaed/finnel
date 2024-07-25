@@ -16,11 +16,13 @@ pub struct ChangeCategory<'a> {
 
 impl<'a> ChangeCategory<'a> {
     pub fn save(self, conn: &mut Conn, category: &Category) -> Result<()> {
-        self.to_resolved(conn)?.validate(conn, category)?.save(conn)
+        self.into_resolved(conn)?
+            .validate(conn, category)?
+            .save(conn)
     }
 
     pub fn apply(self, conn: &mut Conn, category: &mut Category) -> Result<()> {
-        let resolved = self.to_resolved(conn)?;
+        let resolved = self.into_resolved(conn)?;
         let changeset = resolved.as_changeset();
         resolved.validate(conn, category)?.save(conn)?;
 
@@ -37,7 +39,7 @@ impl<'a> ChangeCategory<'a> {
         Ok(())
     }
 
-    pub fn to_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeCategory<'a>> {
+    pub fn into_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeCategory<'a>> {
         Ok(ResolvedChangeCategory {
             name: self.name,
             parent: mapmapresolve(conn, self.parent)?,
@@ -147,7 +149,7 @@ mod tests {
             replaced_by: Some(Some(category1_1)),
             ..Default::default()
         };
-        let resolved = change.clone().to_resolved(conn)?;
+        let resolved = change.clone().into_resolved(conn)?;
 
         assert!(resolved.validate_parent(conn, category1).is_err());
         assert!(resolved.validate_replace_by(conn, category1).is_err());

@@ -19,7 +19,7 @@ pub fn consolidate_categories(conn: &mut Conn) -> Result<()> {
         let category = category.resolve(conn)?;
 
         ChangeRecord {
-            category_id: Some(Some(category.id)),
+            category: Some(Some(&category)),
             ..Default::default()
         }
         .save(conn, &record)?;
@@ -38,7 +38,7 @@ pub fn consolidate_merchants(conn: &mut Conn) -> Result<()> {
         let merchant = merchant.resolve(conn)?;
 
         ChangeRecord {
-            merchant_id: Some(Some(merchant.id)),
+            merchant: Some(Some(&merchant)),
             ..Default::default()
         }
         .save(conn, &record)?;

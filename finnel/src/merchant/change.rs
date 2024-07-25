@@ -17,11 +17,13 @@ pub struct ChangeMerchant<'a> {
 
 impl<'a> ChangeMerchant<'a> {
     pub fn save(self, conn: &mut Conn, merchant: &Merchant) -> Result<()> {
-        self.to_resolved(conn)?.validate(conn, merchant)?.save(conn)
+        self.into_resolved(conn)?
+            .validate(conn, merchant)?
+            .save(conn)
     }
 
     pub fn apply(self, conn: &mut Conn, merchant: &mut Merchant) -> Result<()> {
-        let resolved = self.to_resolved(conn)?;
+        let resolved = self.into_resolved(conn)?;
         let changeset = resolved.as_changeset();
         resolved.validate(conn, merchant)?.save(conn)?;
 
@@ -38,7 +40,7 @@ impl<'a> ChangeMerchant<'a> {
         Ok(())
     }
 
-    pub fn to_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeMerchant<'a>> {
+    pub fn into_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeMerchant<'a>> {
         Ok(ResolvedChangeMerchant {
             name: self.name,
             default_category: mapmapresolve(conn, self.default_category)?,
@@ -124,7 +126,7 @@ mod tests {
             replaced_by: Some(Some(merchant1_1)),
             ..Default::default()
         };
-        let resolved = change.clone().to_resolved(conn)?;
+        let resolved = change.clone().into_resolved(conn)?;
 
         assert!(resolved.validate_replace_by(conn, merchant1).is_err());
 
