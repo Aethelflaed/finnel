@@ -81,17 +81,17 @@ impl QueryRecord<'_> {
 
         if self.operation_date {
             if let Some(date) = self.after {
-                query = query.filter(records::operation_date.lt(date));
+                query = query.filter(records::operation_date.ge(date));
             }
             if let Some(date) = self.before {
-                query = query.filter(records::operation_date.ge(date));
+                query = query.filter(records::operation_date.lt(date));
             }
         } else {
             if let Some(date) = self.after {
-                query = query.filter(records::value_date.lt(date));
+                query = query.filter(records::value_date.ge(date));
             }
             if let Some(date) = self.before {
-                query = query.filter(records::value_date.ge(date));
+                query = query.filter(records::value_date.lt(date));
             }
         }
 
