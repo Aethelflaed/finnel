@@ -68,7 +68,8 @@ impl Data {
 
     fn add_category(&mut self, conn: &mut Conn, name: &str) -> Result<()> {
         if !name.is_empty() && !self.categories.contains_key(name) {
-            self.categories.insert(name.to_string(), self.find_or_create_category(conn, name)?);
+            self.categories
+                .insert(name.to_string(), self.find_or_create_category(conn, name)?);
         }
 
         Ok(())
@@ -82,7 +83,6 @@ impl Data {
         }
     }
 
-
     fn get_merchant(&self, name: &str) -> Option<&Merchant> {
         if name.is_empty() {
             None
@@ -93,7 +93,8 @@ impl Data {
 
     fn add_merchant(&mut self, conn: &mut Conn, name: &str) -> Result<()> {
         if !name.is_empty() && !self.merchants.contains_key(name) {
-            self.merchants.insert(name.to_string(), self.find_or_create_merchant(conn, name)?);
+            self.merchants
+                .insert(name.to_string(), self.find_or_create_merchant(conn, name)?);
         }
 
         Ok(())

@@ -53,7 +53,7 @@ fn show() -> Result<()> {
     cmd!(env, merchant show Chariot)
         .success()
         .stdout(str::contains("1 | Chariot"))
-        .stdout(str::contains("Default category: Bar"));
+        .stdout(str::contains("Default category: 1 | Bar"));
 
     cmd!(env, account create Cash).success();
 
@@ -92,17 +92,17 @@ fn create() -> Result<()> {
 
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category: Bar"));
+        .stdout(str::contains("Default category: 1 | Bar"));
 
     cmd!(env, merchant create Grochion --default_category Bar).success();
     cmd!(env, merchant show Grochion)
         .success()
-        .stdout(str::contains("Default category: Bar"));
+        .stdout(str::contains("Default category: 1 | Bar"));
 
     cmd!(env, merchant create Uraidla --default_category_id 1).success();
     cmd!(env, merchant show Uraidla)
         .success()
-        .stdout(str::contains("Default category: Bar"));
+        .stdout(str::contains("Default category: 1 | Bar"));
 
     Ok(())
 }
@@ -149,12 +149,12 @@ fn update() -> Result<()> {
     cmd!(env, merchant update Grognon --default_category Restaurant).success();
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category: Restaurant"));
+        .stdout(str::contains("Default category: 1 | Restaurant"));
 
     cmd!(env, merchant update Grognon --default_category_id 2).success();
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category: Bar"));
+        .stdout(str::contains("Default category: 2 | Bar"));
 
     cmd!(env, merchant update Grognon --no_default_category).success();
     cmd!(env, merchant show Grognon)

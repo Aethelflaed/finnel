@@ -109,6 +109,16 @@ impl CommandContext<'_> {
 
         println!("{} | {}", category.id, category.name);
 
+        if let Some(parent) = category.fetch_parent(self.conn)? {
+            println!(
+                "  Parent: {} | {}",
+                parent.id, parent.name
+            );
+        }
+        if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
+            println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
+        }
+
         println!();
         if let Ok(account) = self.config.account_or_default(self.conn) {
             let records = QueryRecord {

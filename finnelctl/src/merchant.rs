@@ -108,10 +108,14 @@ impl CommandContext<'_> {
 
         println!("{} | {}", merchant.id, merchant.name);
 
-        if let Some(id) = merchant.default_category_id {
-            let category = Category::find(self.conn, id)?;
-
-            println!("\tDefault category: {}", category.name);
+        if let Some(default_category) = merchant.fetch_default_category(self.conn)? {
+            println!(
+                "  Default category: {} | {}",
+                default_category.id, default_category.name
+            );
+        }
+        if let Some(replaced_by) = merchant.fetch_replaced_by(self.conn)? {
+            println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
         }
 
         println!();
