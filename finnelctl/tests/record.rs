@@ -4,6 +4,7 @@ use common::prelude::*;
 
 mod record {
     mod add;
+    mod import;
 }
 
 pub fn setup(env: &crate::Env) -> Result<()> {

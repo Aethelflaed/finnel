@@ -151,9 +151,7 @@ impl CommandContext<'_> {
     }
 
     fn import(&mut self, args: &Import) -> Result<()> {
-        let Import { file, profile, .. } = args;
-
-        import::import(profile, file)?.persist(&self.account, self.conn)?;
+        import::run(self.conn, &self.account, args)?;
 
         Ok(())
     }

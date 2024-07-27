@@ -211,7 +211,8 @@ mod tests {
                 "arg0",
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
-                "account", "list",
+                "account",
+                "list",
             ])?;
             assert_eq!(config.dir, datad.child("bar").path());
 

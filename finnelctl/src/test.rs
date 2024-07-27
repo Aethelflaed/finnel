@@ -1,9 +1,42 @@
 #![cfg(test)]
 
+use anyhow::Result;
+use finnel::prelude::*;
+
 pub mod prelude {
     pub use crate::test::{self, with_dirs};
+    pub use anyhow::Result;
     pub use assert_fs::fixture::{FileWriteStr, PathChild};
+    pub use finnel::prelude::*;
     pub use pretty_assertions::assert_eq;
+}
+
+pub fn conn() -> Result<Conn> {
+    let mut conn = finnel::Database::memory()?;
+    conn.setup()?;
+    Ok(conn.into())
+}
+
+pub fn conn_file(path: &std::path::Path) -> Result<Conn> {
+    let mut conn = finnel::Database::open(path)?;
+    conn.setup()?;
+    Ok(conn.into())
+}
+
+pub fn account(conn: &mut Conn, name: &str) -> Result<Account> {
+    Ok(finnel::account::NewAccount::new(name).save(conn)?)
+}
+
+pub fn category(conn: &mut Conn, name: &str) -> Result<Category> {
+    Ok(finnel::category::NewCategory::new(name).save(conn)?)
+}
+
+pub fn merchant(conn: &mut Conn, name: &str) -> Result<Merchant> {
+    Ok(finnel::merchant::NewMerchant::new(name).save(conn)?)
+}
+
+pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {
+    Ok(finnel::record::NewRecord::new(account).save(conn)?)
 }
 
 pub fn with_temp_dir<F, R>(function: F) -> R

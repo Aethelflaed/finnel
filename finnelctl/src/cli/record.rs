@@ -481,12 +481,13 @@ impl MerchantArgs {
     }
 }
 
-#[derive(Args, Clone, Debug)]
+#[derive(Default, Args, Clone, Debug)]
 pub struct Import {
     /// File to import
+    #[arg(help_heading = "Import")]
     pub file: PathBuf,
 
     /// Import profile to use
-    #[arg(short = 'P', long, help_heading = "Import records")]
+    #[arg(short = 'P', long, help_heading = "Import")]
     pub profile: String,
 }
