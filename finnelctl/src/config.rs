@@ -27,7 +27,7 @@ impl Config {
     {
         use clap::Parser;
 
-        let cli = Cli::parse_from(iter);
+        let cli = Cli::try_parse_from(iter)?;
 
         let dir = cli.config.clone().unwrap_or_else(config_home);
         let table = match std::fs::read_to_string(dir.join("config.toml")) {
@@ -192,7 +192,8 @@ mod tests {
     #[test]
     fn parse() -> Result<()> {
         with_dirs(|confd, datad| {
-            let mut config = Config::try_parse_from(&["arg0", "-h"])?;
+            let mut config = Config::try_parse_from(&["arg0", "account", "list"])?;
+
             assert_eq!(config.dir, confd.path());
             assert_eq!(config.data_dir, datad.path());
 
@@ -201,16 +202,16 @@ mod tests {
                 datad.child("foo").path().display()
             ))?;
 
-            assert!(Config::try_parse_from(&["arg0", "-h"]).is_err());
+            assert!(Config::try_parse_from(&["arg0", "account", "list"]).is_err());
             let _ = create_dir(datad.child("foo").path());
-            config = Config::try_parse_from(&["arg0", "-h"])?;
+            config = Config::try_parse_from(&["arg0", "account", "list"])?;
             assert_eq!(config.data_dir, datad.child("foo").path());
 
             config = Config::try_parse_from(&[
                 "arg0",
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
-                "-h",
+                "account", "list",
             ])?;
             assert_eq!(config.dir, datad.child("bar").path());
 
@@ -219,7 +220,8 @@ mod tests {
                 "arg0",
                 "-D",
                 datad.child("bar").path().to_str().unwrap(),
-                "-h",
+                "account",
+                "list",
             ])?;
             assert_eq!(config.data_dir, datad.child("bar").path());
 
