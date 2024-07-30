@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::cell::OnceCell;
 
 use crate::cli::{record::*, Commands};
 use crate::config::Config;
@@ -79,25 +80,25 @@ impl CommandContext<'_> {
         };
 
         match &args.action {
-            Some(ListAction::Update(args)) => {
-                let (category, merchant) = relations_args(self.conn, args)?;
-                let resolved_changes = change_args(self.conn, args, &category, &merchant)?;
+            Some(Action::Update(args)) => {
+                let changes = DeferredUpdateArgsResolution::new(args);
 
                 for (record, _, _) in query.run(self.conn)? {
-                    resolved_changes
+                    changes
+                        .get(self.conn)?
                         .validate(self.conn, &record)?
                         .save(self.conn)?;
                 }
             }
-            Some(ListAction::Delete { confirm }) => {
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
                 self.conn.transaction(|conn| {
-                    if !confirm || !crate::utils::confirm()? {
-                        anyhow::bail!("operation requires confirmation");
-                    }
                     for (mut record, _, _) in query.run(conn)? {
                         record.delete(conn)?;
                     }
-                    Ok(())
+                    Result::<()>::Ok(())
                 })?;
             }
             None => {
@@ -115,7 +116,38 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let record = Record::find(self.conn, args.id())?;
+        let mut record = Record::find(self.conn, args.id())?;
+
+        match &args.action {
+            Some(Action::Update(args)) => {
+                let changes = DeferredUpdateArgsResolution::new(args);
+
+                changes
+                    .get(self.conn)?
+                    .validate(self.conn, &record)?
+                    .save(self.conn)?;
+            }
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+                record.delete(self.conn)?;
+            }
+            None => {
+                let category = record
+                    .category_id
+                    .map(|id| Category::find(self.conn, id))
+                    .transpose()?;
+                let merchant = record
+                    .merchant_id
+                    .map(|id| Merchant::find(self.conn, id))
+                    .transpose()?;
+                println!(
+                    "{}",
+                    Table::new(vec![RecordToDisplay::from((record, category, merchant,))])
+                );
+            }
+        }
         Ok(())
     }
 
@@ -147,8 +179,8 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let record = Record::find(self.conn, args.id())?;
 
-        let (category, merchant) = relations_args(self.conn, &args.args)?;
-        change_args(self.conn, &args.args, &category, &merchant)?
+        ResolvedUpdateArgs::new(self.conn, &args.args)?
+            .get(self.conn)?
             .validate(self.conn, &record)?
             .save(self.conn)
             .optional_empty_changeset()?;
@@ -163,45 +195,86 @@ impl CommandContext<'_> {
     }
 }
 
-fn relations_args<'a>(
-    conn: &mut Conn,
+struct ResolvedUpdateArgs<'a> {
     args: &'a UpdateArgs,
-) -> Result<(Option<Option<Category>>, Option<Option<Merchant>>)> {
-    let category = args.category(conn)?;
-    let merchant = args.merchant(conn)?;
-
-    Ok((category, merchant))
+    category: Option<Option<Category>>,
+    merchant: Option<Option<Merchant>>,
+    change_args: OnceCell<ResolvedChangeRecord<'a>>,
 }
 
-fn change_args<'a>(
-    conn: &mut Conn,
-    args: &'a UpdateArgs,
-    category: &'a Option<Option<Category>>,
-    merchant: &'a Option<Option<Merchant>>,
-) -> Result<ResolvedChangeRecord<'a>> {
-    Ok(if args.confirm {
-        if !crate::utils::confirm()? {
-            anyhow::bail!("operation requires confirmation");
-        }
+impl<'a> ResolvedUpdateArgs<'a> {
+    pub fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
+        Ok(Self {
+            args: args,
+            category: args.category(conn)?,
+            merchant: args.merchant(conn)?,
+            change_args: Default::default(),
+        })
+    }
 
-        ViolatingChangeRecord {
-            amount: args.amount,
-            operation_date: args.operation_date()?,
-            value_date: args.value_date()?,
-            direction: args.direction,
-            mode: args.mode,
-            details: args.details.as_deref(),
-            category: category.as_ref().map(|o| o.as_ref()),
-            merchant: merchant.as_ref().map(|o| o.as_ref()),
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeRecord<'a>> {
+        if self.change_args.get().is_none() {
+            match self.change_args.set(if self.args.confirm {
+                if !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+
+                ViolatingChangeRecord {
+                    amount: self.args.amount,
+                    operation_date: self.args.operation_date()?,
+                    value_date: self.args.value_date()?,
+                    direction: self.args.direction,
+                    mode: self.args.mode,
+                    details: self.args.details.as_deref(),
+                    category: self.category.as_ref().map(|o| o.as_ref()),
+                    merchant: self.merchant.as_ref().map(|o| o.as_ref()),
+                }
+                .into_resolved(conn)?
+            } else {
+                ChangeRecord {
+                    value_date: self.args.value_date()?,
+                    details: self.args.details.as_deref(),
+                    category: self.category.as_ref().map(|o| o.as_ref()),
+                    merchant: self.merchant.as_ref().map(|o| o.as_ref()),
+                }
+                .into_resolved(conn)?
+            }) {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
         }
-        .into_resolved(conn)?
-    } else {
-        ChangeRecord {
-            value_date: args.value_date()?,
-            details: args.details.as_deref(),
-            category: category.as_ref().map(|o| o.as_ref()),
-            merchant: merchant.as_ref().map(|o| o.as_ref()),
+        self.change_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")
+    }
+}
+
+struct DeferredUpdateArgsResolution<'a> {
+    args: &'a UpdateArgs,
+    resolved_args: OnceCell<ResolvedUpdateArgs<'a>>,
+}
+
+impl<'a> DeferredUpdateArgsResolution<'a> {
+    pub fn new(args: &'a UpdateArgs) -> Self {
+        Self {
+            args,
+            resolved_args: Default::default(),
         }
-        .into_resolved(conn)?
-    })
+    }
+
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeRecord<'a>> {
+        if self.resolved_args.get().is_none() {
+            match self
+                .resolved_args
+                .set(ResolvedUpdateArgs::new(conn, self.args)?)
+            {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
+        }
+        self.resolved_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")?
+            .get(conn)
+    }
 }

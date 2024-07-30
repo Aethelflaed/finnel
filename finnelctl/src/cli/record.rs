@@ -24,7 +24,10 @@ pub enum Command {
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
-    /// Id of the record to update
+    #[command(subcommand)]
+    pub action: Option<Action>,
+
+    /// Id of the record to show
     id: u32,
 }
 
@@ -193,7 +196,7 @@ impl core::fmt::Display for Sort {
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
-    pub action: Option<ListAction>,
+    pub action: Option<Action>,
 
     /// Show only records from after this date
     #[arg(
@@ -305,11 +308,11 @@ impl List {
 }
 
 #[derive(Subcommand, Clone, Debug)]
-pub enum ListAction {
-    /// Update the listed records
+pub enum Action {
+    /// Update the listed record(s)
     Update(UpdateArgs),
 
-    /// Delete the listed records
+    /// Delete the listed record(s)
     Delete {
         /// Confirm the deletion
         #[arg(long)]
