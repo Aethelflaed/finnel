@@ -129,7 +129,9 @@ fn update() -> Result<()> {
 
     cmd!(env, merchant show Chariot)
         .success()
-        .stdout(str::contains("1 | Chariot"));
+        .stdout(str::contains("1 | Chariot"))
+        .stdout(str::contains("  Default category:").not())
+        .stdout(str::contains("  Replaced by:").not());
 
     cmd!(env, merchant update Chariot --new_name Grognon)
         .success()
@@ -149,17 +151,22 @@ fn update() -> Result<()> {
     cmd!(env, merchant update Grognon --default_category Restaurant).success();
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category: 1 | Restaurant"));
+        .stdout(str::contains("  Default category: 1 | Restaurant"));
 
     cmd!(env, merchant update Grognon --default_category_id 2).success();
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category: 2 | Bar"));
+        .stdout(str::contains("  Default category: 2 | Bar"));
 
     cmd!(env, merchant update Grognon --no_default_category).success();
     cmd!(env, merchant show Grognon)
         .success()
-        .stdout(str::contains("Default category").not());
+        .stdout(str::contains("  Default category:").not());
+
+    cmd!(env, merchant create LeGrognon --replace_by Grognon).success();
+    cmd!(env, merchant show LeGrognon)
+        .success()
+        .stdout(str::contains("  Replaced by: 1 | Grognon"));
 
     Ok(())
 }

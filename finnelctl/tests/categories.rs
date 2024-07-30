@@ -44,6 +44,8 @@ fn show() -> Result<()> {
     cmd!(env, category show Bar)
         .success()
         .stdout(str::contains("1 | Bar"))
+        .stdout(str::contains("\n  Parent:").not())
+        .stdout(str::contains("\n  Replaced by:").not())
         .stdout(str::contains("Specify an account"));
 
     cmd!(env, account create Cash).success();
@@ -55,6 +57,16 @@ fn show() -> Result<()> {
     cmd!(env, category show Bar -A Cash)
         .success()
         .stdout(str::contains("€ -5.00"));
+
+    cmd!(env, category create Bars --replace_by Bar).success();
+    cmd!(env, category show Bars)
+        .success()
+        .stdout(str::contains("  Replaced by: 1 | Bar"));
+
+    cmd!(env, category create Rent --create_parent Lodging).success();
+    cmd!(env, category show Rent)
+        .success()
+        .stdout(str::contains("  Parent: 3 | Lodging"));
 
     Ok(())
 }
