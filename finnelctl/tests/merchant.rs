@@ -25,6 +25,8 @@ fn list() -> Result<()> {
         .stdout(str::contains("1  | Chariot"))
         .stdout(str::contains("2  | Grognon"));
 
+    cmd!(env, merchant list update --create_replace_by "Bar").success();
+
     Ok(())
 }
 

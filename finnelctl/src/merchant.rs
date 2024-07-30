@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::borrow::Cow;
+use std::cell::OnceCell;
 
 use finnel::{
     merchant::{
@@ -80,11 +81,11 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListAction::Update(args)) = &args.action {
-            let (default_category, replaced_by) = relations_args(self.conn, args)?;
-            let resolved_changes = change_args(self.conn, args, &default_category, &replaced_by)?;
+            let changes = DeferredUpdateArgsResolution::new(args);
 
             for merchant in query.run(self.conn)? {
-                resolved_changes
+                changes
+                    .get(self.conn)?
                     .validate(self.conn, &merchant)?
                     .save(self.conn)?;
             }
@@ -164,8 +165,8 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let merchant = Merchant::find_by_name(self.conn, &args.name)?;
 
-        let (default_category, replaced_by) = relations_args(self.conn, &args.args)?;
-        change_args(self.conn, &args.args, &default_category, &replaced_by)?
+        ResolvedUpdateArgs::new(self.conn, &args.args)?
+            .get(self.conn)?
             .validate(self.conn, &merchant)?
             .save(self.conn)
             .optional_empty_changeset()?;
@@ -186,23 +187,69 @@ impl CommandContext<'_> {
     }
 }
 
-fn relations_args<'a>(
-    conn: &mut Conn,
+struct ResolvedUpdateArgs<'a> {
     args: &'a UpdateArgs,
-) -> Result<(Option<Option<Category>>, Option<Option<Merchant>>)> {
-    Ok((args.default_category(conn)?, args.replace_by(conn)?))
+    default_category: Option<Option<Category>>,
+    replaced_by: Option<Option<Merchant>>,
+    change_args: OnceCell<ResolvedChangeMerchant<'a>>,
 }
 
-fn change_args<'a>(
-    conn: &mut Conn,
-    args: &'a UpdateArgs,
-    default_category: &'a Option<Option<Category>>,
-    replaced_by: &'a Option<Option<Merchant>>,
-) -> Result<ResolvedChangeMerchant<'a>> {
-    Ok(ChangeMerchant {
-        name: args.new_name.as_deref(),
-        default_category: default_category.as_ref().map(|o| o.as_ref()),
-        replaced_by: replaced_by.as_ref().map(|o| o.as_ref()),
+impl<'a> ResolvedUpdateArgs<'a> {
+    pub fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
+        Ok(Self {
+            args: args,
+            default_category: args.default_category(conn)?,
+            replaced_by: args.replace_by(conn)?,
+            change_args: Default::default(),
+        })
     }
-    .into_resolved(conn)?)
+
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeMerchant<'a>> {
+        if self.change_args.get().is_none() {
+            match self.change_args.set(
+                ChangeMerchant {
+                    name: self.args.new_name.as_deref(),
+                    default_category: self.default_category.as_ref().map(|o| o.as_ref()),
+                    replaced_by: self.replaced_by.as_ref().map(|o| o.as_ref()),
+                }
+                .into_resolved(conn)?,
+            ) {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
+        }
+        self.change_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")
+    }
+}
+
+struct DeferredUpdateArgsResolution<'a> {
+    args: &'a UpdateArgs,
+    resolved_args: OnceCell<ResolvedUpdateArgs<'a>>,
+}
+
+impl<'a> DeferredUpdateArgsResolution<'a> {
+    pub fn new(args: &'a UpdateArgs) -> Self {
+        Self {
+            args,
+            resolved_args: Default::default(),
+        }
+    }
+
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeMerchant<'a>> {
+        if self.resolved_args.get().is_none() {
+            match self
+                .resolved_args
+                .set(ResolvedUpdateArgs::new(conn, self.args)?)
+            {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
+        }
+        self.resolved_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")?
+            .get(conn)
+    }
 }

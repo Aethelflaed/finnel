@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::borrow::Cow;
+use std::cell::OnceCell;
 
 use finnel::{
     category::{
@@ -81,11 +82,11 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListAction::Update(args)) = &args.action {
-            let (parent, replaced_by) = relations_args(self.conn, args)?;
-            let resolved_changes = change_args(self.conn, args, &parent, &replaced_by)?;
+            let changes = DeferredUpdateArgsResolution::new(args);
 
             for category in query.run(self.conn)? {
-                resolved_changes
+                changes
+                    .get(self.conn)?
                     .validate(self.conn, &category)?
                     .save(self.conn)?;
             }
@@ -162,8 +163,8 @@ impl CommandContext<'_> {
     fn update(&mut self, args: &Update) -> Result<()> {
         let category = Category::find_by_name(self.conn, &args.name)?;
 
-        let (parent, replaced_by) = relations_args(self.conn, &args.args)?;
-        change_args(self.conn, &args.args, &parent, &replaced_by)?
+        ResolvedUpdateArgs::new(self.conn, &args.args)?
+            .get(self.conn)?
             .validate(self.conn, &category)?
             .save(self.conn)
             .optional_empty_changeset()?;
@@ -184,23 +185,69 @@ impl CommandContext<'_> {
     }
 }
 
-fn relations_args<'a>(
-    conn: &mut Conn,
+struct ResolvedUpdateArgs<'a> {
     args: &'a UpdateArgs,
-) -> Result<(Option<Option<Category>>, Option<Option<Category>>)> {
-    Ok((args.parent(conn)?, args.replace_by(conn)?))
+    parent: Option<Option<Category>>,
+    replaced_by: Option<Option<Category>>,
+    change_args: OnceCell<ResolvedChangeCategory<'a>>,
 }
 
-fn change_args<'a>(
-    conn: &mut Conn,
-    args: &'a UpdateArgs,
-    parent: &'a Option<Option<Category>>,
-    replaced_by: &'a Option<Option<Category>>,
-) -> Result<ResolvedChangeCategory<'a>> {
-    Ok(ChangeCategory {
-        name: args.new_name.as_deref(),
-        parent: parent.as_ref().map(|o| o.as_ref()),
-        replaced_by: replaced_by.as_ref().map(|o| o.as_ref()),
+impl<'a> ResolvedUpdateArgs<'a> {
+    pub fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
+        Ok(Self {
+            args: args,
+            parent: args.parent(conn)?,
+            replaced_by: args.replace_by(conn)?,
+            change_args: Default::default(),
+        })
     }
-    .into_resolved(conn)?)
+
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeCategory<'a>> {
+        if self.change_args.get().is_none() {
+            match self.change_args.set(
+                ChangeCategory {
+                    name: self.args.new_name.as_deref(),
+                    parent: self.parent.as_ref().map(|o| o.as_ref()),
+                    replaced_by: self.replaced_by.as_ref().map(|o| o.as_ref()),
+                }
+                .into_resolved(conn)?,
+            ) {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
+        }
+        self.change_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")
+    }
+}
+
+struct DeferredUpdateArgsResolution<'a> {
+    args: &'a UpdateArgs,
+    resolved_args: OnceCell<ResolvedUpdateArgs<'a>>,
+}
+
+impl<'a> DeferredUpdateArgsResolution<'a> {
+    pub fn new(args: &'a UpdateArgs) -> Self {
+        Self {
+            args,
+            resolved_args: Default::default(),
+        }
+    }
+
+    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeCategory<'a>> {
+        if self.resolved_args.get().is_none() {
+            match self
+                .resolved_args
+                .set(ResolvedUpdateArgs::new(conn, self.args)?)
+            {
+                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
+                _ => {}
+            }
+        }
+        self.resolved_args
+            .get()
+            .context("Failed to get supposedly initialized OnceCell")?
+            .get(conn)
+    }
 }

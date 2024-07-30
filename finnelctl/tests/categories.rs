@@ -25,6 +25,8 @@ fn list() -> Result<()> {
         .stdout(str::contains("1  | Bar"))
         .stdout(str::contains("2  | Restaurant"));
 
+    cmd!(env, category list update --create_parent "Bar or Restaurant").success();
+
     Ok(())
 }
 
