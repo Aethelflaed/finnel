@@ -1,0 +1,8 @@
+dateOp;dateVal;label;category;categoryParent;supplierFound;amount;accountNum;accountLabel;accountBalance;comment;pointer
+27/06/2024;27/06/2024;"CARTE 25/06/24 LE CHARIOT CB*1234";"Restaurants, bars, discothèques…";"Loisirs et sorties";"le chariot";-5,50;SomeNumber;BoursoBank;;;Non
+22/06/2024;22/06/2024;"AVOIR 20/06/24 RAC INSURANCE QB CB*4132";"Assurance habitation et RC";Logement;"rac insurance qb";10,79;SomeNumber;BoursoBank;;;Non
+20/06/2024;20/06/2024;"VIR INST TRANSFERWISE";"Virements reçus";"Virements reçus";transferwise;"1 234,56";SomeNumber;BoursoBank;;;Non
+28/06/2024;29/06/2024;"VIR Virement interne depuis LIVRET A";"Virements reçus de comptes à comptes";"Mouvements internes créditeurs";"virement interne depuis livret a";500,00;SomeNumber;BoursoBank;;;Non
+27/06/2024;27/06/2024;"RETRAIT DAB 26/06/24 STRASBOURG CB*1234";"Retraits cash";"Retraits cash";"Retrait automate";-500,00;SomeNumber;BoursoBank;;;Non
+07/06/2024;07/06/2024;"Spotify";"Non catégorisé";"Non catégorisé";;-14,99;SomeNumber;BoursoBank;53,64;;Non
+07/06/2024;07/06/2024;"Spotify";"Non catégorisé";"Non catégorisé";Spotify;-14,99;SomeNumber;BoursoBank;53,64;;Non

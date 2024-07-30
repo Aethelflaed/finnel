@@ -46,12 +46,12 @@ impl FromStr for Mode {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "direct" => Ok(Direct(Empty)),
-            card if PaymentMethod::guard(card, "card") => {
-                PaymentMethod::read(card, "card").map(Direct)
+            card if PaymentMethod::guard(card, "card ") => {
+                PaymentMethod::read(card, "card ").map(Direct)
             }
             "atm" => Ok(Atm(Empty)),
-            atm if PaymentMethod::guard(atm, "atm card") => {
-                PaymentMethod::read(atm, "atm card").map(Atm)
+            atm if PaymentMethod::guard(atm, "atm card ") => {
+                PaymentMethod::read(atm, "atm card ").map(Atm)
             }
             "transfer" => Ok(Transfer),
             _ => Err(ParseTypeError("Mode", value.to_string())),
@@ -82,19 +82,24 @@ use PaymentMethod::*;
 
 impl PaymentMethod {
     pub fn guard(value: &str, prefix: &str) -> bool {
-        value.is_empty() || Self::last_4_guard(value, prefix)
+        (value.is_empty() && prefix.is_empty()) || Self::last_4_guard(value, prefix)
     }
 
     pub fn read(value: &str, prefix: &str) -> Result<Self, ParseTypeError> {
-        Self::last_4_read(value, prefix)
+        if value.is_empty() && prefix.is_empty() {
+            Ok(Empty)
+        } else if Self::last_4_guard(value, prefix) {
+            Self::last_4_read(value, prefix)
+        } else {
+            Err(ParseTypeError("PaymentMethod", value.to_owned()))
+        }
     }
 
     fn last_4_guard(value: &str, prefix: &str) -> bool {
         let mut chars = value.chars().skip(prefix.len());
 
         value.starts_with(prefix)
-            && value.len() == prefix.len() + 6
-            && chars.next() == Some(' ')
+            && value.len() == prefix.len() + 5
             && chars.next() == Some('*')
             && chars.all(|c| c.is_ascii_digit())
     }
@@ -102,8 +107,7 @@ impl PaymentMethod {
     fn last_4_read(value: &str, prefix: &str) -> Result<Self, ParseTypeError> {
         let mut chars = value.chars().skip(prefix.len());
 
-        if let (Some(' '), Some('*'), Some(a), Some(b), Some(c), Some(d)) = (
-            chars.next(),
+        if let (Some('*'), Some(a), Some(b), Some(c), Some(d)) = (
             chars.next(),
             chars.next(),
             chars.next(),
@@ -132,7 +136,7 @@ impl FromStr for PaymentMethod {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "" => Ok(Empty),
-            card if Self::last_4_guard(card, "card") => Self::last_4_read(card, "card"),
+            card if Self::last_4_guard(card, "card ") => Self::last_4_read(card, "card "),
             _ => Err(ParseTypeError("PaymentMethod", value.to_owned())),
         }
     }

@@ -8,12 +8,13 @@ use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
 
 mod boursobank;
+use boursobank::Boursobank;
 
 type MerchantWithDefaultCategory = (Merchant, Option<Category>);
 
 pub struct Importer<'a> {
     _options: &'a ImportOptions,
-    records: Vec<Record>,
+    pub records: Vec<Record>,
     categories: HashMap<String, Category>,
     merchants: HashMap<String, MerchantWithDefaultCategory>,
     conn: &'a mut Conn,
@@ -42,7 +43,7 @@ fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
 
 pub fn run<'a>(conn: &mut Conn, account: &Account, options: &'a ImportOptions) -> Result<()> {
     let mut profile = match options.profile.to_lowercase().as_str() {
-        "boursobank" => Box::new(boursobank::Importer::new(&options.file, options)?),
+        "boursobank" => Box::new(Boursobank::new(options)?),
         _ => anyhow::bail!("Unknown profile '{}'", options.profile),
     };
 
@@ -100,9 +101,13 @@ impl<'a> Importer<'a> {
             .save(conn)?,
         );
 
-        Ok(self.records.last().ok_or(anyhow::anyhow!("No last record?"))?)
+        Ok(self
+            .records
+            .last()
+            .ok_or(anyhow::anyhow!("No last record?"))?)
     }
 
+    #[allow(dead_code)]
     fn get_category(&self, name: &str) -> Option<&Category> {
         if name.is_empty() {
             None
@@ -211,7 +216,8 @@ mod tests {
             finnel::merchant::ChangeMerchant {
                 default_category: Some(Some(&bar)),
                 ..Default::default()
-            }.apply(conn, &mut chariot)?;
+            }
+            .apply(conn, &mut chariot)?;
 
             importer.add_merchant("chariot")?;
             importer.add_category("restaurant")?;

@@ -80,3 +80,21 @@ where
 {
     with_config_dir(|config| with_data_dir(|data| function(&config, &data)))
 }
+
+pub fn with_fixtures<F, R>(patterns: &[&str], function: F) -> Result<R>
+where
+    F: FnOnce(&assert_fs::TempDir) -> Result<R>,
+{
+    use assert_fs::fixture::PathCopy;
+    use std::path::PathBuf;
+
+    let fixtures_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+
+    with_temp_dir(|dir| {
+        dir.copy_from(fixtures_path, patterns)?;
+
+        function(dir)
+    })
+}
