@@ -36,51 +36,15 @@ pub fn run(config: &Config) -> Result<()> {
     };
 
     match &command {
-        Command::Add(args) => cmd.add(args),
-        Command::Update(args) => cmd.update(args),
         Command::List(args) => cmd.list(args),
+        Command::Show(args) => cmd.show(args),
+        Command::Create(args) => cmd.create(args),
+        Command::Update(args) => cmd.update(args),
         Command::Import(args) => cmd.import(args),
     }
 }
 
 impl CommandContext<'_> {
-    fn add(&mut self, args: &Add) -> Result<()> {
-        let Add {
-            amount,
-            details,
-            direction,
-            mode,
-            ..
-        } = args;
-
-        NewRecord {
-            amount: *amount,
-            operation_date: args.operation_date()?,
-            value_date: args.value_date()?,
-            direction: *direction,
-            mode: *mode,
-            details: details.as_str(),
-            category: args.category(self.conn)?.as_ref(),
-            merchant: args.merchant(self.conn)?.as_ref(),
-            ..NewRecord::new(&self.account)
-        }
-        .save(self.conn)?;
-
-        Ok(())
-    }
-
-    fn update(&mut self, args: &Update) -> Result<()> {
-        let record = Record::find(self.conn, args.id())?;
-
-        let (category, merchant) = relations_args(self.conn, &args.args)?;
-        change_args(self.conn, &args.args, &category, &merchant)?
-            .validate(self.conn, &record)?
-            .save(self.conn)
-            .optional_empty_changeset()?;
-
-        Ok(())
-    }
-
     fn list(&mut self, args: &List) -> Result<()> {
         let List {
             operation_date,
@@ -146,6 +110,48 @@ impl CommandContext<'_> {
                 println!("{}", Table::new(records));
             }
         }
+
+        Ok(())
+    }
+
+    fn show(&mut self, args: &Show) -> Result<()> {
+        let record = Record::find(self.conn, args.id())?;
+        Ok(())
+    }
+
+    fn create(&mut self, args: &Create) -> Result<()> {
+        let Create {
+            amount,
+            details,
+            direction,
+            mode,
+            ..
+        } = args;
+
+        NewRecord {
+            amount: *amount,
+            operation_date: args.operation_date()?,
+            value_date: args.value_date()?,
+            direction: *direction,
+            mode: *mode,
+            details: details.as_str(),
+            category: args.category(self.conn)?.as_ref(),
+            merchant: args.merchant(self.conn)?.as_ref(),
+            ..NewRecord::new(&self.account)
+        }
+        .save(self.conn)?;
+
+        Ok(())
+    }
+
+    fn update(&mut self, args: &Update) -> Result<()> {
+        let record = Record::find(self.conn, args.id())?;
+
+        let (category, merchant) = relations_args(self.conn, &args.args)?;
+        change_args(self.conn, &args.args, &category, &merchant)?
+            .validate(self.conn, &record)?
+            .save(self.conn)
+            .optional_empty_changeset()?;
 
         Ok(())
     }

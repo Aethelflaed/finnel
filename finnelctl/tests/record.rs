@@ -3,7 +3,7 @@ mod common;
 use common::prelude::*;
 
 mod record {
-    mod add;
+    mod create;
     mod import;
 }
 
@@ -28,7 +28,7 @@ fn list() -> Result<()> {
     let env = Env::new()?;
     crate::setup(&env)?;
 
-    cmd!(env, record add 10 bread).success();
+    cmd!(env, record create 10 bread).success();
     cmd!(env, record list --no_category)
         .success()
         .stdout(str::contains("bread"));

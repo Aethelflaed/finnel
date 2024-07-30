@@ -10,18 +10,32 @@ use clap::{builder::PossibleValue, Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
-    /// Add a new record
-    Add(Add),
-    /// Update a record
-    Update(Update),
     /// List records
     List(List),
+    /// Show details about a record
+    Show(Show),
+    /// Create a new record
+    Create(Create),
+    /// Update a record
+    Update(Update),
     /// Import records from a transaction CSV file
     Import(Import),
 }
 
 #[derive(Args, Clone, Debug)]
-pub struct Add {
+pub struct Show {
+    /// Id of the record to update
+    id: u32,
+}
+
+impl Show {
+    pub fn id(&self) -> i64 {
+        self.id as i64
+    }
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct Create {
     /// Amount of the record
     ///
     /// Without currency symbol, the currency is inferred from the account
@@ -77,7 +91,7 @@ pub struct Add {
     create_merchant: Option<String>,
 }
 
-impl Add {
+impl Create {
     pub fn value_date(&self) -> Result<DateTime<Utc>> {
         self.value_date
             .map(naive_date_to_utc)

@@ -61,7 +61,7 @@ fn show() -> Result<()> {
         .success()
         .stdout(str::contains("No associated"));
 
-    cmd!(env, record add -A Cash 5 beer --merchant Chariot).success();
+    cmd!(env, record create -A Cash 5 beer --merchant Chariot).success();
 
     cmd!(env, merchant show Chariot -A Cash)
         .success()

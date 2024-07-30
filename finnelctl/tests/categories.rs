@@ -53,7 +53,7 @@ fn show() -> Result<()> {
         .success()
         .stdout(str::contains("No associated"));
 
-    cmd!(env, record add -A Cash 5 beer --category Bar).success();
+    cmd!(env, record create -A Cash 5 beer --category Bar).success();
     cmd!(env, category show Bar -A Cash)
         .success()
         .stdout(str::contains("€ -5.00"));
