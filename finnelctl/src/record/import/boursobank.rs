@@ -72,17 +72,6 @@ impl Profile for Boursobank<'_> {
                     PaymentMethod::read(&record.details[record.details.len() - 8..], " CB")?;
                 record.details = record.details[15..record.details.len() - 8].to_string();
                 record.mode = Mode::Direct(payment_method);
-            } else if record.details.starts_with("VIR ") {
-                // VIR INST ...
-                // VIR ...
-                record.mode = Mode::Transfer;
-                record.details = record.details[4..].to_string();
-                if let Some(value) = record.details.strip_prefix("INST ") {
-                    record.details = value.to_string();
-                }
-
-                // We don't need the category from Boursobank
-                record.category_name = String::new();
             } else if record.details.starts_with("RETRAIT DAB ") {
                 // RETRAIT DAB DD/MM/YYYY ... CB*WXYZ
                 record.operation_date = parse_date_fmt(&record.details[12..20], "%d/%m/%y")?;
@@ -94,6 +83,34 @@ impl Profile for Boursobank<'_> {
                 // We don't need either the category or the merchant from Boursobank
                 record.category_name = String::new();
                 record.merchant_name = String::new();
+            } else if record.details.starts_with("VIR ") | record.details.starts_with("PRLV ") {
+                // VIR|PRLV INST ...
+                // VIR|PRLV SEPA ...
+                // VIR|PRLV ...
+                record.mode = Mode::Transfer;
+                match &record.details[0..4] {
+                    "VIR " => record.details = record.details[4..].to_string(),
+                    "PRLV" => record.details = record.details[5..].to_string(),
+                    _ => {},
+                }
+                match &record.details[0..5] {
+                    "INST " | "SEPA " => record.details = record.details[5..].to_string(),
+                    _ => {}
+                }
+
+                // We don't need the category from Boursobank
+                record.category_name = String::new();
+                // If the merchant is empty, use the details
+                if record.merchant_name.is_empty() {
+                    record.merchant_name = record.details.clone();
+                }
+
+                if record.merchant_name.starts_with("virement ") {
+                    record.merchant_name = record.merchant_name[9..].to_string();
+                    if record.merchant_name.starts_with("interne depuis ") {
+                        record.merchant_name = record.merchant_name[15..].to_string();
+                    }
+                }
             }
 
             if record.category_name == "Non catégorisé" {
@@ -126,18 +143,6 @@ impl Profile for Boursobank<'_> {
             }
 
             importer.add_record(record)?;
-            /*
-            importer.add_record(RecordToImport {
-                amount,
-                operation_date,
-                value_date,
-                direction,
-                mode,
-                details: details.to_string(),
-                category_name,
-                merchant_name: merchant_name.to_string(),
-            })?;
-            */
         }
 
         Ok(())
@@ -239,7 +244,7 @@ mod tests {
             let mut profile = Boursobank::new(&options)?;
             profile.run(&mut importer)?;
 
-            assert_eq!(7, importer.records.len());
+            assert_eq!(9, importer.records.len());
 
             let record = &importer.records[0];
             assert_eq!(Some(chariot.id), record.merchant_id);
@@ -275,17 +280,26 @@ mod tests {
             assert!(record.merchant_id.is_some());
             assert_eq!("TRANSFERWISE", record.details);
             assert_eq!(Mode::Transfer, record.mode);
+            assert_eq!(Direction::Credit, record.direction);
             assert_eq!(Decimal::new(123456, 2), record.amount);
 
             let record = &importer.records[3];
             assert_eq!(None, record.category_id);
+            assert_eq!("cpam moselle", Merchant::find(conn, record.merchant_id.unwrap())?.name);
+            assert_eq!("CPAM MOSELLE", record.details);
+            assert_eq!(Mode::Transfer, record.mode);
+            assert_eq!(Decimal::new(5454, 2), record.amount);
+
+            let record = &importer.records[4];
+            assert_eq!(None, record.category_id);
             assert!(record.merchant_id.is_some());
+            assert_eq!("livret a", Merchant::find(conn, record.merchant_id.unwrap())?.name);
             assert_eq!("Virement interne depuis LIVRET A", record.details);
             assert_eq!(Mode::Transfer, record.mode);
             assert_eq!(parse_date("29/06/2024")?, record.value_date);
             assert_eq!(parse_date("28/06/2024")?, record.operation_date);
 
-            let record = &importer.records[4];
+            let record = &importer.records[5];
             assert_eq!(None, record.category_id);
             assert_eq!(None, record.merchant_id);
             assert_eq!("STRASBOURG", record.details);
@@ -294,15 +308,21 @@ mod tests {
                 record.mode
             );
 
-            let record = &importer.records[5];
+            let record = &importer.records[6];
             assert_eq!(None, record.category_id);
             assert_eq!(None, record.merchant_id);
             assert_eq!("Spotify", record.details);
 
-            let record = &importer.records[6];
+            let record = &importer.records[7];
             assert_eq!(Some(music.id), record.category_id);
             assert_eq!(Some(spotify.id), record.merchant_id);
             assert_eq!("Spotify", record.details);
+
+            let record = &importer.records[8];
+            assert_eq!("BLOC EN STOCK", Merchant::find(conn, record.merchant_id.unwrap())?.name);
+            assert_eq!("BLOC EN STOCK", record.details);
+            assert_eq!(Mode::Transfer, record.mode);
+            assert_eq!(Direction::Debit, record.direction);
 
             Ok(())
         })
