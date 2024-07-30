@@ -181,10 +181,10 @@ mod tests {
 
     #[test]
     fn add_record() -> Result<()> {
-        with_dirs(|_confd, datad| {
+        with_temp_dir(|dir| {
             // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(datad.child("record_import").path())?;
-            let conn = &mut test::conn_file(datad.child("record_import").path())?;
+            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
+            let conn = &mut test::conn_file(dir.child("record_import").path())?;
 
             let account = &test::account(conn, "Cash")?;
             let options = &ImportOptions::default();
@@ -238,10 +238,10 @@ mod tests {
 
     #[test]
     fn add_get_category() -> Result<()> {
-        with_dirs(|_confd, datad| {
+        with_temp_dir(|dir| {
             // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(datad.child("record_import").path())?;
-            let conn = &mut test::conn_file(datad.child("record_import").path())?;
+            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
+            let conn = &mut test::conn_file(dir.child("record_import").path())?;
 
             let account = &test::account(conn, "Cash")?;
             let options = &ImportOptions::default();
@@ -278,10 +278,10 @@ mod tests {
 
     #[test]
     fn add_get_merchant() -> Result<()> {
-        with_dirs(|_confd, datad| {
+        with_temp_dir(|dir| {
             // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(datad.child("record_import").path())?;
-            let conn = &mut test::conn_file(datad.child("record_import").path())?;
+            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
+            let conn = &mut test::conn_file(dir.child("record_import").path())?;
 
             let account = &test::account(conn, "Cash")?;
             let options = &ImportOptions::default();

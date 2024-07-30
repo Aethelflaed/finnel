@@ -179,7 +179,7 @@ mod tests {
     fn invalid_header() -> Result<()> {
         let csv = "boursobank/invalid_header.csv";
 
-        test::with_fixtures(&[csv], |dir| {
+        with_fixtures(&[csv], |dir| {
             let options = ImportOptions {
                 file: dir.child(csv).path().to_path_buf(),
                 ..ImportOptions::default()
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn import() -> Result<()> {
         let csv = "boursobank/curated.csv";
-        test::with_fixtures(&[csv], |dir| {
+        with_fixtures(&[csv], |dir| {
             // need two connections, because one is exclusively shared to the importer
             let importer_conn = &mut test::conn_file(dir.child("boursobank.db").path())?;
             let conn = &mut test::conn_file(dir.child("boursobank.db").path())?;
