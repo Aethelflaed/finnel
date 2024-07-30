@@ -14,6 +14,7 @@ use finnel::{
 use crate::cli::{category::*, Commands};
 use crate::config::Config;
 use crate::record::display::RecordToDisplay;
+use crate::utils::DeferrableResolvedUpdateArgs;
 
 use tabled::{settings::Panel, Table, Tabled};
 
@@ -82,7 +83,7 @@ impl CommandContext<'_> {
         };
 
         if let Some(ListAction::Update(args)) = &args.action {
-            let changes = DeferredUpdateArgsResolution::new(args);
+            let changes = ResolvedUpdateArgs::deferred(args);
 
             for category in query.run(self.conn)? {
                 changes
@@ -192,62 +193,38 @@ struct ResolvedUpdateArgs<'a> {
     change_args: OnceCell<ResolvedChangeCategory<'a>>,
 }
 
-impl<'a> ResolvedUpdateArgs<'a> {
-    pub fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
+impl<'a> DeferrableResolvedUpdateArgs<'a, UpdateArgs, ResolvedChangeCategory<'a>>
+    for ResolvedUpdateArgs<'a>
+{
+    fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
         Ok(Self {
-            args: args,
+            args,
             parent: args.parent(conn)?,
             replaced_by: args.replace_by(conn)?,
             change_args: Default::default(),
         })
     }
 
-    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeCategory<'a>> {
+    fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeCategory<'a>> {
+        #[allow(clippy::collapsible_if)]
         if self.change_args.get().is_none() {
-            match self.change_args.set(
-                ChangeCategory {
-                    name: self.args.new_name.as_deref(),
-                    parent: self.parent.as_ref().map(|o| o.as_ref()),
-                    replaced_by: self.replaced_by.as_ref().map(|o| o.as_ref()),
-                }
-                .into_resolved(conn)?,
-            ) {
-                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
-                _ => {}
+            if self
+                .change_args
+                .set(
+                    ChangeCategory {
+                        name: self.args.new_name.as_deref(),
+                        parent: self.parent.as_ref().map(|o| o.as_ref()),
+                        replaced_by: self.replaced_by.as_ref().map(|o| o.as_ref()),
+                    }
+                    .into_resolved(conn)?,
+                )
+                .is_err()
+            {
+                anyhow::bail!("Failed to set supposedly empty OnceCell");
             }
         }
         self.change_args
             .get()
             .context("Failed to get supposedly initialized OnceCell")
-    }
-}
-
-struct DeferredUpdateArgsResolution<'a> {
-    args: &'a UpdateArgs,
-    resolved_args: OnceCell<ResolvedUpdateArgs<'a>>,
-}
-
-impl<'a> DeferredUpdateArgsResolution<'a> {
-    pub fn new(args: &'a UpdateArgs) -> Self {
-        Self {
-            args,
-            resolved_args: Default::default(),
-        }
-    }
-
-    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeCategory<'a>> {
-        if self.resolved_args.get().is_none() {
-            match self
-                .resolved_args
-                .set(ResolvedUpdateArgs::new(conn, self.args)?)
-            {
-                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
-                _ => {}
-            }
-        }
-        self.resolved_args
-            .get()
-            .context("Failed to get supposedly initialized OnceCell")?
-            .get(conn)
     }
 }

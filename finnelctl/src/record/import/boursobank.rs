@@ -132,8 +132,7 @@ impl Profile for Boursobank<'_> {
             // boursobank's categories are not what we want
             record.category_name = importer
                 .get_merchant(&record.merchant_name)
-                .map(|(_, category)| category.as_ref().map(|c| c.name.clone()))
-                .flatten()
+                .and_then(|(_, category)| category.as_ref().map(|c| c.name.clone()))
                 .unwrap_or_else(|| detected_category_name.clone());
 
             // If we still end up with the initial category_name, only then do we add it to the

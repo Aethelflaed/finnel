@@ -39,7 +39,7 @@ impl List {
                 n = format!("%{n}");
             }
             if !n.ends_with("%") {
-                n.push_str("%");
+                n.push('%');
             }
             n
         })

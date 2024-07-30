@@ -4,6 +4,7 @@ use std::cell::OnceCell;
 use crate::cli::{record::*, Commands};
 use crate::config::Config;
 use crate::record::display::RecordToDisplay;
+use crate::utils::DeferrableResolvedUpdateArgs;
 
 use finnel::{
     prelude::*,
@@ -81,7 +82,7 @@ impl CommandContext<'_> {
 
         match &args.action {
             Some(Action::Update(args)) => {
-                let changes = DeferredUpdateArgsResolution::new(args);
+                let changes = ResolvedUpdateArgs::deferred(args);
 
                 for (record, _, _) in query.run(self.conn)? {
                     changes
@@ -120,7 +121,7 @@ impl CommandContext<'_> {
 
         match &args.action {
             Some(Action::Update(args)) => {
-                let changes = DeferredUpdateArgsResolution::new(args);
+                let changes = ResolvedUpdateArgs::deferred(args);
 
                 changes
                     .get(self.conn)?
@@ -202,79 +203,55 @@ struct ResolvedUpdateArgs<'a> {
     change_args: OnceCell<ResolvedChangeRecord<'a>>,
 }
 
-impl<'a> ResolvedUpdateArgs<'a> {
-    pub fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
+impl<'a> DeferrableResolvedUpdateArgs<'a, UpdateArgs, ResolvedChangeRecord<'a>>
+    for ResolvedUpdateArgs<'a>
+{
+    fn new(conn: &mut Conn, args: &'a UpdateArgs) -> Result<Self> {
         Ok(Self {
-            args: args,
+            args,
             category: args.category(conn)?,
             merchant: args.merchant(conn)?,
             change_args: Default::default(),
         })
     }
 
-    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeRecord<'a>> {
+    fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeRecord<'a>> {
+        #[allow(clippy::collapsible_if)]
         if self.change_args.get().is_none() {
-            match self.change_args.set(if self.args.confirm {
-                if !crate::utils::confirm()? {
-                    anyhow::bail!("operation requires confirmation");
-                }
+            if self
+                .change_args
+                .set(if self.args.confirm {
+                    if !crate::utils::confirm()? {
+                        anyhow::bail!("operation requires confirmation");
+                    }
 
-                ViolatingChangeRecord {
-                    amount: self.args.amount,
-                    operation_date: self.args.operation_date()?,
-                    value_date: self.args.value_date()?,
-                    direction: self.args.direction,
-                    mode: self.args.mode,
-                    details: self.args.details.as_deref(),
-                    category: self.category.as_ref().map(|o| o.as_ref()),
-                    merchant: self.merchant.as_ref().map(|o| o.as_ref()),
-                }
-                .into_resolved(conn)?
-            } else {
-                ChangeRecord {
-                    value_date: self.args.value_date()?,
-                    details: self.args.details.as_deref(),
-                    category: self.category.as_ref().map(|o| o.as_ref()),
-                    merchant: self.merchant.as_ref().map(|o| o.as_ref()),
-                }
-                .into_resolved(conn)?
-            }) {
-                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
-                _ => {}
+                    ViolatingChangeRecord {
+                        amount: self.args.amount,
+                        operation_date: self.args.operation_date()?,
+                        value_date: self.args.value_date()?,
+                        direction: self.args.direction,
+                        mode: self.args.mode,
+                        details: self.args.details.as_deref(),
+                        category: self.category.as_ref().map(|o| o.as_ref()),
+                        merchant: self.merchant.as_ref().map(|o| o.as_ref()),
+                    }
+                    .into_resolved(conn)?
+                } else {
+                    ChangeRecord {
+                        value_date: self.args.value_date()?,
+                        details: self.args.details.as_deref(),
+                        category: self.category.as_ref().map(|o| o.as_ref()),
+                        merchant: self.merchant.as_ref().map(|o| o.as_ref()),
+                    }
+                    .into_resolved(conn)?
+                })
+                .is_err()
+            {
+                anyhow::bail!("Failed to set supposedly empty OnceCell");
             }
         }
         self.change_args
             .get()
             .context("Failed to get supposedly initialized OnceCell")
-    }
-}
-
-struct DeferredUpdateArgsResolution<'a> {
-    args: &'a UpdateArgs,
-    resolved_args: OnceCell<ResolvedUpdateArgs<'a>>,
-}
-
-impl<'a> DeferredUpdateArgsResolution<'a> {
-    pub fn new(args: &'a UpdateArgs) -> Self {
-        Self {
-            args,
-            resolved_args: Default::default(),
-        }
-    }
-
-    pub fn get(&'a self, conn: &mut Conn) -> Result<&ResolvedChangeRecord<'a>> {
-        if self.resolved_args.get().is_none() {
-            match self
-                .resolved_args
-                .set(ResolvedUpdateArgs::new(conn, self.args)?)
-            {
-                Err(_) => anyhow::bail!("Failed to set supposedly empty OnceCell"),
-                _ => {}
-            }
-        }
-        self.resolved_args
-            .get()
-            .context("Failed to get supposedly initialized OnceCell")?
-            .get(conn)
     }
 }

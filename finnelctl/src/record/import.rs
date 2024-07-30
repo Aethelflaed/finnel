@@ -41,7 +41,7 @@ fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
     crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
 }
 
-pub fn run<'a>(conn: &mut Conn, account: &Account, options: &'a ImportOptions) -> Result<()> {
+pub fn run(conn: &mut Conn, account: &Account, options: &ImportOptions) -> Result<()> {
     let mut profile = match options.profile.to_lowercase().as_str() {
         "boursobank" => Box::new(Boursobank::new(options)?),
         _ => anyhow::bail!("Unknown profile '{}'", options.profile),
@@ -53,8 +53,8 @@ pub fn run<'a>(conn: &mut Conn, account: &Account, options: &'a ImportOptions) -
             records: Default::default(),
             categories: Default::default(),
             merchants: Default::default(),
-            conn: conn,
-            account: account,
+            conn,
+            account,
         };
 
         profile.run(&mut importer)
@@ -101,10 +101,9 @@ impl<'a> Importer<'a> {
             .save(conn)?,
         );
 
-        Ok(self
-            .records
+        self.records
             .last()
-            .ok_or(anyhow::anyhow!("No last record?"))?)
+            .ok_or(anyhow::anyhow!("No last record?"))
     }
 
     #[allow(dead_code)]

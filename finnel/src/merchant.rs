@@ -27,11 +27,15 @@ pub struct Merchant {
 
 impl Merchant {
     pub fn fetch_default_category(&self, conn: &mut Conn) -> Result<Option<Category>> {
-        self.default_category_id.map(|id| Category::find(conn, id)).transpose()
+        self.default_category_id
+            .map(|id| Category::find(conn, id))
+            .transpose()
     }
 
     pub fn fetch_replaced_by(&self, conn: &mut Conn) -> Result<Option<Merchant>> {
-        self.replaced_by_id.map(|id| Merchant::find(conn, id)).transpose()
+        self.replaced_by_id
+            .map(|id| Merchant::find(conn, id))
+            .transpose()
     }
 
     pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {

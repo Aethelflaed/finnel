@@ -26,11 +26,15 @@ pub struct Category {
 
 impl Category {
     pub fn fetch_parent(&self, conn: &mut Conn) -> Result<Option<Category>> {
-        self.parent_id.map(|id| Category::find(conn, id)).transpose()
+        self.parent_id
+            .map(|id| Category::find(conn, id))
+            .transpose()
     }
 
     pub fn fetch_replaced_by(&self, conn: &mut Conn) -> Result<Option<Category>> {
-        self.replaced_by_id.map(|id| Category::find(conn, id)).transpose()
+        self.replaced_by_id
+            .map(|id| Category::find(conn, id))
+            .transpose()
     }
 
     pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {

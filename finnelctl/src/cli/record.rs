@@ -159,11 +159,8 @@ impl ValueEnum for Sort {
     fn to_possible_value(&self) -> Option<PossibleValue> {
         let mut value = PossibleValue::new(self.to_string());
 
-        match self.0 {
-            OrderField::Date => {
-                value = value.help("Value or operation date, depending on --operation-date")
-            }
-            _ => {}
+        if let OrderField::Date = self.0 {
+            value = value.help("Value or operation date, depending on --operation-date");
         }
 
         Some(value)
@@ -284,7 +281,7 @@ impl List {
                 n = format!("%{n}");
             }
             if !n.ends_with("%") {
-                n.push_str("%");
+                n.push('%');
             }
             n
         })
