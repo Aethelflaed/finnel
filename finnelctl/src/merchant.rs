@@ -11,7 +11,7 @@ use finnel::{
     record::QueryRecord,
 };
 
-use crate::cli::{merchant::*, Commands};
+use crate::cli::merchant::*;
 use crate::config::Config;
 use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
@@ -54,11 +54,7 @@ impl Tabled for MerchantToDisplay {
     }
 }
 
-pub fn run(config: &Config) -> Result<()> {
-    let Commands::Merchant(command) = config.command().clone() else {
-        anyhow::bail!("wrong command passed: {:?}", config.command());
-    };
-
+pub fn run(config: &Config, command: &Command) -> Result<()> {
     let conn = &mut config.database()?;
     let mut cmd = CommandContext { conn, config };
 

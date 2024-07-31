@@ -9,7 +9,7 @@ fn empty() -> Result<()> {
     env.command()?
         .assert()
         .failure()
-        .stderr(str::contains("Usage:"));
+        .stderr(str::contains("No command provided"));
 
     Ok(())
 }

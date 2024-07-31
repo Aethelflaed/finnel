@@ -93,8 +93,8 @@ impl Config {
         }
     }
 
-    pub fn command(&self) -> &Commands {
-        &self.cli.command
+    pub fn command(&self) -> Option<&Commands> {
+        self.cli.command.as_ref()
     }
 
     pub fn database_path(&self) -> PathBuf {
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn parse() -> Result<()> {
         with_dirs(|confd, datad| {
-            let mut config = Config::try_parse_from(&["arg0", "account", "list"])?;
+            let mut config = Config::try_parse_from(&["arg0"])?;
 
             assert_eq!(config.dir, confd.path());
             assert_eq!(config.data_dir, datad.path());
@@ -202,17 +202,15 @@ mod tests {
                 datad.child("foo").path().display()
             ))?;
 
-            assert!(Config::try_parse_from(&["arg0", "account", "list"]).is_err());
+            assert!(Config::try_parse_from(&["arg0"]).is_err());
             let _ = create_dir(datad.child("foo").path());
-            config = Config::try_parse_from(&["arg0", "account", "list"])?;
+            config = Config::try_parse_from(&["arg0"])?;
             assert_eq!(config.data_dir, datad.child("foo").path());
 
             config = Config::try_parse_from(&[
                 "arg0",
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
-                "account",
-                "list",
             ])?;
             assert_eq!(config.dir, datad.child("bar").path());
 
@@ -221,8 +219,6 @@ mod tests {
                 "arg0",
                 "-D",
                 datad.child("bar").path().to_str().unwrap(),
-                "account",
-                "list",
             ])?;
             assert_eq!(config.data_dir, datad.child("bar").path());
 

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::cell::OnceCell;
 
-use crate::cli::{record::*, Commands};
+use crate::cli::record::*;
 use crate::config::Config;
 use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
@@ -25,11 +25,7 @@ struct CommandContext<'a> {
     account: Account,
 }
 
-pub fn run(config: &Config) -> Result<()> {
-    let Commands::Record(command) = config.command().clone() else {
-        anyhow::bail!("wrong command passed: {:?}", config.command());
-    };
-
+pub fn run(config: &Config, command: &Command) -> Result<()> {
     let conn = &mut config.database()?;
     let mut cmd = CommandContext {
         account: config.account_or_default(conn)?,
