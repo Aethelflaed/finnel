@@ -9,8 +9,8 @@ use finnel::prelude::*;
 use crate::cli::{Cli, Commands};
 
 pub struct Config {
-    dir: PathBuf,
-    data_dir: PathBuf,
+    pub dir: PathBuf,
+    pub data_dir: PathBuf,
     cli: Cli,
     table: Table,
 }
@@ -20,7 +20,7 @@ impl Config {
         Self::try_parse_from(std::env::args_os())
     }
 
-    fn try_parse_from<I, T>(iter: I) -> Result<Self>
+    pub fn try_parse_from<I, T>(iter: I) -> Result<Self>
     where
         I: IntoIterator<Item = T>,
         T: Into<std::ffi::OsString> + Clone,
@@ -127,7 +127,16 @@ impl Config {
     }
 
     pub fn path(&self, key: &str) -> Result<PathBuf> {
-        Ok(self.kvdir()?.join(key))
+        let kvdir = self.kvdir()?;
+        let path = kvdir.join(key);
+
+        if let Some(parent) = path.parent() {
+            if !parent.is_dir() {
+                std::fs::create_dir_all(parent)?;
+            }
+        }
+
+        Ok(path)
     }
 
     pub fn get(&self, key: &str) -> Result<Option<String>> {

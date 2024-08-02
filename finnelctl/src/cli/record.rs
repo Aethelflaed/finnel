@@ -504,4 +504,22 @@ pub struct Import {
     /// Import profile to use
     #[arg(short = 'P', long, help_heading = "Import")]
     pub profile: String,
+
+    /// Only import records with an operation date greater than or equal to this one
+    #[arg(long, value_name = "DATE", help_heading = "Filter records")]
+    from: Option<NaiveDate>,
+
+    /// Only import records with an operation date less than or equal to this one
+    #[arg(long, value_name = "DATE", help_heading = "Filter records")]
+    to: Option<NaiveDate>,
+}
+
+impl Import {
+    pub fn from(&self) -> Result<Option<DateTime<Utc>>> {
+        self.from.map(naive_date_to_utc).transpose()
+    }
+
+    pub fn to(&self) -> Result<Option<DateTime<Utc>>> {
+        self.to.map(naive_date_to_utc).transpose()
+    }
 }

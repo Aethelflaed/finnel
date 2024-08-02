@@ -41,6 +41,7 @@ pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {
 
 pub mod with {
     use super::Result;
+    use crate::config::Config;
 
     pub fn with_temp_dir<F, R>(function: F) -> R
     where
@@ -84,6 +85,34 @@ pub mod with {
         with_config_dir(|config| with_data_dir(|data| function(&config, &data)))
     }
 
+    pub fn with_config<F, R>(function: F) -> Result<R>
+    where
+        F: FnOnce(&Config) -> Result<R>,
+    {
+        with_config_args(&[], function)
+    }
+
+    pub fn with_config_args<F, R>(additional_args: &[&str], function: F) -> Result<R>
+    where
+        F: FnOnce(&Config) -> Result<R>,
+    {
+        with_dirs(|confd, datad| {
+            let mut args = vec![
+                "arg0",
+                "--config",
+                confd.path().to_str().unwrap(),
+                "--data",
+                datad.path().to_str().unwrap(),
+            ];
+
+            args.extend(additional_args);
+
+            let config = Config::try_parse_from(args.as_slice())?;
+
+            function(&config)
+        })
+    }
+
     pub fn with_fixtures<F, R>(patterns: &[&str], function: F) -> Result<R>
     where
         F: FnOnce(&assert_fs::TempDir) -> Result<R>,
@@ -99,6 +128,32 @@ pub mod with {
             dir.copy_from(fixtures_path, patterns)?;
 
             function(dir)
+        })
+    }
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_config() -> Result<()> {
+        with::with_config(|config| {
+            assert!(config.dir.exists());
+            assert!(config.data_dir.exists());
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn with_fixtures() -> Result<()> {
+        use assert_fs::fixture::PathChild;
+
+        let file = "boursobank/curated.csv";
+        with::with_fixtures(&[file], |dir| {
+            assert!(dir.child(file).path().exists());
+
+            Ok(())
         })
     }
 }

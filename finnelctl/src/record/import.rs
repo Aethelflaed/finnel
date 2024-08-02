@@ -1,11 +1,18 @@
 use std::collections::HashMap;
 
 use crate::cli::record::Import as ImportOptions;
+use crate::config::Config;
 
 use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::NewRecord};
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
+
+mod profile;
+use profile::ProfileInformation;
+
+mod options;
+use options::Options;
 
 mod boursobank;
 use boursobank::Boursobank;
@@ -13,10 +20,11 @@ use boursobank::Boursobank;
 type MerchantWithDefaultCategory = (Merchant, Option<Category>);
 
 pub struct Importer<'a> {
-    _options: &'a ImportOptions,
+    options: Options,
     pub records: Vec<Record>,
     categories: HashMap<String, Category>,
     merchants: HashMap<String, MerchantWithDefaultCategory>,
+    config: &'a Config,
     conn: &'a mut Conn,
     account: &'a Account,
 }
@@ -41,20 +49,20 @@ fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
     crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
 }
 
-pub fn run(conn: &mut Conn, account: &Account, options: &ImportOptions) -> Result<()> {
-    let mut profile = match options.profile.to_lowercase().as_str() {
-        "boursobank" => Box::new(Boursobank::new(options)?),
-        _ => anyhow::bail!("Unknown profile '{}'", options.profile),
-    };
+pub fn run(
+    conn: &mut Conn,
+    account: &Account,
+    config: &Config,
+    options: &ImportOptions,
+) -> Result<()> {
+    let options = Options::try_from(options, config)?;
 
     conn.transaction(|conn| {
-        let mut importer = Importer {
-            _options: options,
-            records: Default::default(),
-            categories: Default::default(),
-            merchants: Default::default(),
-            conn,
-            account,
+        let mut importer = Importer::new(conn, config, account, options);
+
+        let mut profile = match &importer.options.profile {
+            ProfileInformation::Boursobank => Box::new(Boursobank::new(&importer.options)?),
+            _ => anyhow::bail!("Profile not set"),
         };
 
         profile.run(&mut importer)
@@ -64,8 +72,31 @@ pub fn run(conn: &mut Conn, account: &Account, options: &ImportOptions) -> Resul
 }
 
 impl<'a> Importer<'a> {
-    fn add_record(&mut self, import: RecordToImport) -> Result<&Record> {
-        let conn = &mut self.conn;
+    fn new(conn: &'a mut Conn, config: &'a Config, account: &'a Account, options: Options) -> Self {
+        if options.from.is_none() {}
+
+        Importer {
+            options,
+            records: Default::default(),
+            categories: Default::default(),
+            merchants: Default::default(),
+            config,
+            conn,
+            account,
+        }
+    }
+
+    fn add_record(&mut self, import: RecordToImport) -> Result<Option<&Record>> {
+        if let Some(date) = self.options.from {
+            if import.operation_date < date {
+                return Ok(None);
+            }
+        }
+        if let Some(date) = self.options.to {
+            if import.operation_date > date {
+                return Ok(None);
+            }
+        }
 
         // rust doesn't look into the functions to ascertain we can do something or not, so
         // calling get_category/get_merchant here instead makes the borrow checker unhappy
@@ -98,12 +129,18 @@ impl<'a> Importer<'a> {
                 merchant,
                 ..NewRecord::new(self.account)
             }
-            .save(conn)?,
+            .save(self.conn)?,
         );
 
-        self.records
+        let record = self
+            .records
             .last()
-            .ok_or(anyhow::anyhow!("No last record?"))
+            .ok_or(anyhow::anyhow!("No last record?"))?;
+
+        self.options
+            .set_last_imported_unchecked(self.config, record.operation_date);
+
+        Ok(Some(record))
     }
 
     #[allow(dead_code)]
@@ -163,51 +200,42 @@ mod tests {
     use super::*;
     use crate::test::prelude::{assert_eq, *};
 
-    fn importer<'a>(
-        conn: &'a mut Conn,
-        account: &'a Account,
-        options: &'a ImportOptions,
-    ) -> Importer<'a> {
-        Importer {
-            _options: options,
-            records: Default::default(),
-            categories: Default::default(),
-            merchants: Default::default(),
-            conn,
-            account,
-        }
+    pub fn with_importer<F, R>(options: Options, function: F) -> Result<R>
+    where
+        F: FnOnce(&mut Importer) -> Result<R>,
+    {
+        with_config(|config| {
+            let conn = &mut config.database()?;
+            let account = &test::account(conn, "Importer")?;
+
+            function(&mut Importer::new(conn, config, account, options))
+        })
     }
 
     #[test]
     fn add_record() -> Result<()> {
-        with_temp_dir(|dir| {
-            // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
-            let conn = &mut test::conn_file(dir.child("record_import").path())?;
-
-            let account = &test::account(conn, "Cash")?;
-            let options = &ImportOptions::default();
-
-            let mut importer = importer(importer_conn, account, options);
+        let options = Options::default();
+        with_importer(options, |importer| {
+            let conn = &mut importer.config.database()?;
+            let account_id = importer.account.id;
 
             let date = Utc::now();
             let mut record_to_import = RecordToImport {
                 amount: Decimal::new(314, 2),
                 operation_date: date,
                 value_date: date,
-                direction: Direction::Debit,
-                mode: Mode::default(),
                 details: "Hello World".to_string(),
                 category_name: "restaurant".to_string(),
                 merchant_name: "chariot".to_string(),
+                ..Default::default()
             };
 
-            let record = importer.add_record(record_to_import.clone())?;
+            let record = importer.add_record(record_to_import.clone())?.unwrap();
 
             // the category and merchant were not added to the importer first so it doesn't work
             assert!(record.category_id.is_none());
             assert!(record.merchant_id.is_none());
-            assert_eq!(account.id, record.account_id);
+            assert_eq!(account_id, record.account_id);
 
             let restaurant = test::category(conn, "restaurant")?;
             let bar = test::category(conn, "bar")?;
@@ -221,14 +249,14 @@ mod tests {
             importer.add_merchant("chariot")?;
             importer.add_category("restaurant")?;
 
-            let record = importer.add_record(record_to_import.clone())?;
+            let record = importer.add_record(record_to_import.clone())?.unwrap();
             assert_eq!(Some(restaurant.id), record.category_id);
             assert_eq!(Some(chariot.id), record.merchant_id);
 
             record_to_import.category_name = String::new();
 
             // Use merchant's default_category by default
-            let record = importer.add_record(record_to_import)?;
+            let record = importer.add_record(record_to_import)?.unwrap();
             assert_eq!(Some(bar.id), record.category_id);
 
             Ok(())
@@ -236,16 +264,50 @@ mod tests {
     }
 
     #[test]
+    fn add_record_from_to() -> Result<()> {
+        let options = Options {
+            from: Some(parse_date_fmt("2024-07-01", "%Y-%m-%d")?),
+            to: Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?),
+            profile: ProfileInformation::Boursobank,
+            ..Options::default()
+        };
+
+        with_importer(options, |importer| {
+            let date = parse_date_fmt("2024-06-30", "%Y-%m-%d")?;
+
+            let mut record_to_import = RecordToImport {
+                amount: Decimal::new(314, 2),
+                operation_date: date,
+                value_date: Utc::now(),
+                details: "Hello World".to_string(),
+                category_name: "restaurant".to_string(),
+                merchant_name: "chariot".to_string(),
+                ..Default::default()
+            };
+
+            assert!(importer.add_record(record_to_import.clone())?.is_none());
+
+            record_to_import.operation_date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
+            assert!(importer.add_record(record_to_import.clone())?.is_none());
+
+            record_to_import.operation_date = parse_date_fmt("2024-07-01", "%Y-%m-%d")?;
+            assert!(importer.add_record(record_to_import)?.is_some());
+
+            assert!(importer
+                .options
+                .profile
+                .last_imported(importer.config)?
+                .is_some());
+
+            Ok(())
+        })
+    }
+
+    #[test]
     fn add_get_category() -> Result<()> {
-        with_temp_dir(|dir| {
-            // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
-            let conn = &mut test::conn_file(dir.child("record_import").path())?;
-
-            let account = &test::account(conn, "Cash")?;
-            let options = &ImportOptions::default();
-
-            let mut importer = importer(importer_conn, account, options);
+        let options = Options::default();
+        with_importer(options, |importer| {
+            let conn = &mut importer.config.database()?;
 
             assert!(importer.add_category("").is_ok());
             assert!(importer.add_category("").is_ok());
@@ -277,15 +339,9 @@ mod tests {
 
     #[test]
     fn add_get_merchant() -> Result<()> {
-        with_temp_dir(|dir| {
-            // need two connections, because one is exclusively shared to the importer
-            let importer_conn = &mut test::conn_file(dir.child("record_import").path())?;
-            let conn = &mut test::conn_file(dir.child("record_import").path())?;
-
-            let account = &test::account(conn, "Cash")?;
-            let options = &ImportOptions::default();
-
-            let mut importer = importer(importer_conn, account, options);
+        let options = Options::default();
+        with_importer(options, |importer| {
+            let conn = &mut importer.config.database()?;
 
             importer.add_merchant("")?;
             importer.add_merchant("")?;

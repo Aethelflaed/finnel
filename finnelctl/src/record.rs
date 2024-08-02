@@ -20,7 +20,7 @@ pub mod display;
 mod import;
 
 struct CommandContext<'a> {
-    _config: &'a Config,
+    config: &'a Config,
     conn: &'a mut Database,
     account: Account,
 }
@@ -30,7 +30,7 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
     let mut cmd = CommandContext {
         account: config.account_or_default(conn)?,
         conn,
-        _config: config,
+        config,
     };
 
     match &command {
@@ -186,9 +186,7 @@ impl CommandContext<'_> {
     }
 
     fn import(&mut self, args: &Import) -> Result<()> {
-        import::run(self.conn, &self.account, args)?;
-
-        Ok(())
+        import::run(self.conn, &self.account, &self.config, args)
     }
 }
 
