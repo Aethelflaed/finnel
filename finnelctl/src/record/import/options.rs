@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::ProfileInformation;
+use super::{Information, Profile};
 use crate::cli::record::Import as ImportOptions;
 use crate::config::Config;
 
@@ -10,36 +10,44 @@ use chrono::{offset::Utc, DateTime};
 #[derive(Default, Clone, Debug)]
 pub struct Options {
     pub file: PathBuf,
-    pub profile: ProfileInformation,
+    pub profile_info: Information,
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
 }
 
 impl Options {
     pub fn try_from(cli: &ImportOptions, config: &Config) -> Result<Self> {
-        let profile = cli.profile.parse::<ProfileInformation>()?;
+        let profile_info = cli.profile.parse::<Information>()?;
 
         let from = cli
             .from()?
-            .or_else(|| profile.last_imported(config).ok().flatten());
+            .or_else(|| profile_info.last_imported(config).ok().flatten());
 
         Ok(Self {
             file: cli.file.clone(),
-            profile,
+            profile_info,
             from,
             to: cli.to()?.or_else(|| Some(Utc::now())),
         })
     }
 
+    pub fn new_profile(&self) -> Result<Box<dyn Profile>> {
+        self.profile_info.new_profile(self)
+    }
+
+    pub fn last_imported(&self, config: &Config) -> Result<Option<DateTime<Utc>>> {
+        self.profile_info.last_imported(config)
+    }
+
     pub fn set_last_imported_unchecked(&self, config: &Config, date: DateTime<Utc>) {
-        let _ = self.profile.set_last_imported(config, Some(date));
+        let _ = self.profile_info.set_last_imported(config, Some(date));
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{Cli, record::Command, Commands};
+    use crate::cli::{record::Command, Cli, Commands};
     use crate::record::import::parse_date_fmt;
     use crate::test::prelude::{assert_eq, *};
 
@@ -66,7 +74,7 @@ mod tests {
 
                 let options = Options::try_from(import, config)?;
 
-                assert_eq!(ProfileInformation::Boursobank, options.profile);
+                assert_eq!(Information::Boursobank, options.profile_info);
                 assert_eq!(
                     Some(parse_date_fmt("2024-07-01", "%Y-%m-%d")?),
                     options.from
@@ -76,14 +84,8 @@ mod tests {
                 let date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
                 options.set_last_imported_unchecked(config, date);
 
-                let cli = Cli::try_parse_from(&[
-                    "arg0",
-                    "record",
-                    "import",
-                    "-P",
-                    "BoursoBank",
-                    "FILE",
-                ])?;
+                let cli =
+                    Cli::try_parse_from(&["arg0", "record", "import", "-P", "BoursoBank", "FILE"])?;
                 let Some(Commands::Record(Command::Import(import))) = cli.command.as_ref() else {
                     panic!("Unexpected CLI parse")
                 };

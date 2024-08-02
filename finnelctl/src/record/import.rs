@@ -9,13 +9,15 @@ use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
 
 mod profile;
-use profile::ProfileInformation;
+use profile::{Information, Profile};
 
 mod options;
 use options::Options;
 
 mod boursobank;
 use boursobank::Boursobank;
+mod logseq;
+use logseq::Logseq;
 
 type MerchantWithDefaultCategory = (Merchant, Option<Category>);
 
@@ -41,10 +43,6 @@ pub struct RecordToImport {
     pub merchant_name: String,
 }
 
-trait Profile {
-    fn run(&mut self, importer: &mut Importer) -> Result<()>;
-}
-
 fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
     crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
 }
@@ -57,24 +55,13 @@ pub fn run(
 ) -> Result<()> {
     let options = Options::try_from(options, config)?;
 
-    conn.transaction(|conn| {
-        let mut importer = Importer::new(conn, config, account, options);
-
-        let mut profile = match &importer.options.profile {
-            ProfileInformation::Boursobank => Box::new(Boursobank::new(&importer.options)?),
-            _ => anyhow::bail!("Profile not set"),
-        };
-
-        profile.run(&mut importer)
-    })?;
+    conn.transaction(|conn| Importer::new(conn, config, account, options).run())?;
 
     Ok(())
 }
 
 impl<'a> Importer<'a> {
     fn new(conn: &'a mut Conn, config: &'a Config, account: &'a Account, options: Options) -> Self {
-        if options.from.is_none() {}
-
         Importer {
             options,
             records: Default::default(),
@@ -84,6 +71,10 @@ impl<'a> Importer<'a> {
             conn,
             account,
         }
+    }
+
+    fn run(&mut self) -> Result<()> {
+        self.options.new_profile()?.run(self)
     }
 
     fn add_record(&mut self, import: RecordToImport) -> Result<Option<&Record>> {
@@ -268,7 +259,7 @@ mod tests {
         let options = Options {
             from: Some(parse_date_fmt("2024-07-01", "%Y-%m-%d")?),
             to: Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?),
-            profile: ProfileInformation::Boursobank,
+            profile_info: Information::Boursobank,
             ..Options::default()
         };
 
@@ -293,11 +284,7 @@ mod tests {
             record_to_import.operation_date = parse_date_fmt("2024-07-01", "%Y-%m-%d")?;
             assert!(importer.add_record(record_to_import)?.is_some());
 
-            assert!(importer
-                .options
-                .profile
-                .last_imported(importer.config)?
-                .is_some());
+            assert!(importer.options.last_imported(importer.config)?.is_some());
 
             Ok(())
         })

@@ -1,32 +1,47 @@
 use std::str::FromStr;
 
+use super::{Boursobank, Importer, Logseq, Options};
 use crate::config::Config;
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime};
 
+pub trait Profile {
+    fn run(&mut self, importer: &mut Importer) -> Result<()>;
+}
+
 #[derive(Default, Clone, Debug, PartialEq)]
-pub enum ProfileInformation {
+pub enum Information {
+    Logseq,
     Boursobank,
     #[default]
     None,
 }
 
-impl FromStr for ProfileInformation {
+impl FromStr for Information {
     type Err = anyhow::Error;
 
     fn from_str(name: &str) -> Result<Self> {
         match name.to_lowercase().as_str() {
-            "boursobank" => Ok(ProfileInformation::Boursobank),
+            "logseq" => Ok(Information::Logseq),
+            "boursobank" => Ok(Information::Boursobank),
             _ => anyhow::bail!("Unknown profile '{}'", name),
         }
     }
 }
 
-impl ProfileInformation {
+impl Information {
+    pub fn new_profile(&self, options: &Options) -> Result<Box<dyn Profile>> {
+        Ok(match self {
+            Information::Boursobank => Box::new(Boursobank::new(options)?),
+            Information::Logseq => Box::new(Logseq::new(options)?),
+            _ => anyhow::bail!("Profile not set"),
+        })
+    }
+
     pub fn name(&self) -> Result<&str> {
         Ok(match self {
-            ProfileInformation::Boursobank => "boursobank",
+            Information::Boursobank => "boursobank",
             _ => anyhow::bail!("Profile not set"),
         })
     }
@@ -57,15 +72,15 @@ mod tests {
 
     #[test]
     fn parse() -> Result<()> {
-        assert_eq!(ProfileInformation::Boursobank, "Boursobank".parse()?);
-        assert!("".parse::<ProfileInformation>().is_err());
+        assert_eq!(Information::Boursobank, "Boursobank".parse()?);
+        assert!("".parse::<Information>().is_err());
 
         Ok(())
     }
 
     #[test]
     fn last_imported() -> Result<()> {
-        let profile = ProfileInformation::Boursobank;
+        let profile = Information::Boursobank;
 
         with_config(|config| {
             assert!(profile.last_imported(config)?.is_none());

@@ -186,7 +186,7 @@ impl CommandContext<'_> {
     }
 
     fn import(&mut self, args: &Import) -> Result<()> {
-        import::run(self.conn, &self.account, &self.config, args)
+        import::run(self.conn, &self.account, self.config, args)
     }
 }
 
