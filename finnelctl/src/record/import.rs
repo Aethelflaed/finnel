@@ -22,11 +22,10 @@ use logseq::Logseq;
 type MerchantWithDefaultCategory = (Merchant, Option<Category>);
 
 pub struct Importer<'a> {
-    options: Options,
+    options: Options<'a>,
     pub records: Vec<Record>,
     categories: HashMap<String, Category>,
     merchants: HashMap<String, MerchantWithDefaultCategory>,
-    config: &'a Config,
     conn: &'a mut Conn,
     account: &'a Account,
 }
@@ -55,19 +54,18 @@ pub fn run(
 ) -> Result<()> {
     let options = Options::try_from(options, config)?;
 
-    conn.transaction(|conn| Importer::new(conn, config, account, options).run())?;
+    conn.transaction(|conn| Importer::new(conn, account, options).run())?;
 
     Ok(())
 }
 
 impl<'a> Importer<'a> {
-    fn new(conn: &'a mut Conn, config: &'a Config, account: &'a Account, options: Options) -> Self {
+    fn new(conn: &'a mut Conn, account: &'a Account, options: Options<'a>) -> Self {
         Importer {
             options,
             records: Default::default(),
             categories: Default::default(),
             merchants: Default::default(),
-            config,
             conn,
             account,
         }
@@ -129,7 +127,7 @@ impl<'a> Importer<'a> {
             .ok_or(anyhow::anyhow!("No last record?"))?;
 
         self.options
-            .set_last_imported_unchecked(self.config, record.operation_date);
+            .set_last_imported_unchecked(record.operation_date);
 
         Ok(Some(record))
     }
@@ -191,23 +189,30 @@ mod tests {
     use super::*;
     use crate::test::prelude::{assert_eq, *};
 
-    pub fn with_importer<F, R>(options: Options, function: F) -> Result<R>
+    pub fn with_default_importer<F, R>(function: F) -> Result<R>
     where
         F: FnOnce(&mut Importer) -> Result<R>,
     {
         with_config(|config| {
-            let conn = &mut config.database()?;
-            let account = &test::account(conn, "Importer")?;
-
-            function(&mut Importer::new(conn, config, account, options))
+            let options = Options::new(config);
+            with_importer(options, function)
         })
+    }
+
+    pub fn with_importer<F, R>(options: Options, function: F) -> Result<R>
+    where
+        F: FnOnce(&mut Importer) -> Result<R>,
+    {
+        let conn = &mut options.config.database()?;
+        let account = &test::account(conn, "Importer")?;
+
+        function(&mut Importer::new(conn, account, options))
     }
 
     #[test]
     fn add_record() -> Result<()> {
-        let options = Options::default();
-        with_importer(options, |importer| {
-            let conn = &mut importer.config.database()?;
+        with_default_importer(|importer| {
+            let conn = &mut importer.options.config.database()?;
             let account_id = importer.account.id;
 
             let date = Utc::now();
@@ -256,45 +261,46 @@ mod tests {
 
     #[test]
     fn add_record_from_to() -> Result<()> {
-        let options = Options {
-            from: Some(parse_date_fmt("2024-07-01", "%Y-%m-%d")?),
-            to: Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?),
-            profile_info: Information::Boursobank,
-            ..Options::default()
-        };
-
-        with_importer(options, |importer| {
-            let date = parse_date_fmt("2024-06-30", "%Y-%m-%d")?;
-
-            let mut record_to_import = RecordToImport {
-                amount: Decimal::new(314, 2),
-                operation_date: date,
-                value_date: Utc::now(),
-                details: "Hello World".to_string(),
-                category_name: "restaurant".to_string(),
-                merchant_name: "chariot".to_string(),
-                ..Default::default()
+        with_config(|config| {
+            let options = Options {
+                from: Some(parse_date_fmt("2024-07-01", "%Y-%m-%d")?),
+                to: Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?),
+                profile_info: Information::Boursobank,
+                ..Options::new(config)
             };
 
-            assert!(importer.add_record(record_to_import.clone())?.is_none());
+            with_importer(options, |importer| {
+                let date = parse_date_fmt("2024-06-30", "%Y-%m-%d")?;
 
-            record_to_import.operation_date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
-            assert!(importer.add_record(record_to_import.clone())?.is_none());
+                let mut record_to_import = RecordToImport {
+                    amount: Decimal::new(314, 2),
+                    operation_date: date,
+                    value_date: Utc::now(),
+                    details: "Hello World".to_string(),
+                    category_name: "restaurant".to_string(),
+                    merchant_name: "chariot".to_string(),
+                    ..Default::default()
+                };
 
-            record_to_import.operation_date = parse_date_fmt("2024-07-01", "%Y-%m-%d")?;
-            assert!(importer.add_record(record_to_import)?.is_some());
+                assert!(importer.add_record(record_to_import.clone())?.is_none());
 
-            assert!(importer.options.last_imported(importer.config)?.is_some());
+                record_to_import.operation_date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
+                assert!(importer.add_record(record_to_import.clone())?.is_none());
 
-            Ok(())
+                record_to_import.operation_date = parse_date_fmt("2024-07-01", "%Y-%m-%d")?;
+                assert!(importer.add_record(record_to_import)?.is_some());
+
+                assert!(importer.options.last_imported()?.is_some());
+
+                Ok(())
+            })
         })
     }
 
     #[test]
     fn add_get_category() -> Result<()> {
-        let options = Options::default();
-        with_importer(options, |importer| {
-            let conn = &mut importer.config.database()?;
+        with_default_importer(|importer| {
+            let conn = &mut importer.options.config.database()?;
 
             assert!(importer.add_category("").is_ok());
             assert!(importer.add_category("").is_ok());
@@ -326,9 +332,8 @@ mod tests {
 
     #[test]
     fn add_get_merchant() -> Result<()> {
-        let options = Options::default();
-        with_importer(options, |importer| {
-            let conn = &mut importer.config.database()?;
+        with_default_importer(|importer| {
+            let conn = &mut importer.options.config.database()?;
 
             importer.add_merchant("")?;
             importer.add_merchant("")?;

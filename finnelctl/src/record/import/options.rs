@@ -7,16 +7,27 @@ use crate::config::Config;
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime};
 
-#[derive(Default, Clone, Debug)]
-pub struct Options {
+#[derive(Clone, Debug)]
+pub struct Options<'a> {
+    pub config: &'a Config,
     pub file: PathBuf,
     pub profile_info: Information,
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
 }
 
-impl Options {
-    pub fn try_from(cli: &ImportOptions, config: &Config) -> Result<Self> {
+impl<'a> Options<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        Options {
+            config,
+            file: Default::default(),
+            profile_info: Default::default(),
+            from: Default::default(),
+            to: Default::default(),
+        }
+    }
+
+    pub fn try_from(cli: &ImportOptions, config: &'a Config) -> Result<Self> {
         let profile_info = cli.profile.parse::<Information>()?;
 
         let from = cli
@@ -24,6 +35,7 @@ impl Options {
             .or_else(|| profile_info.last_imported(config).ok().flatten());
 
         Ok(Self {
+            config,
             file: cli.file.clone(),
             profile_info,
             from,
@@ -35,12 +47,12 @@ impl Options {
         self.profile_info.new_profile(self)
     }
 
-    pub fn last_imported(&self, config: &Config) -> Result<Option<DateTime<Utc>>> {
-        self.profile_info.last_imported(config)
+    pub fn last_imported(&self) -> Result<Option<DateTime<Utc>>> {
+        self.profile_info.last_imported(self.config)
     }
 
-    pub fn set_last_imported_unchecked(&self, config: &Config, date: DateTime<Utc>) {
-        let _ = self.profile_info.set_last_imported(config, Some(date));
+    pub fn set_last_imported_unchecked(&self, date: DateTime<Utc>) {
+        let _ = self.profile_info.set_last_imported(self.config, Some(date));
     }
 }
 
@@ -82,7 +94,7 @@ mod tests {
                 assert_eq!(Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?), options.to);
 
                 let date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
-                options.set_last_imported_unchecked(config, date);
+                options.set_last_imported_unchecked(date);
 
                 let cli =
                     Cli::try_parse_from(&["arg0", "record", "import", "-P", "BoursoBank", "FILE"])?;

@@ -156,7 +156,7 @@ fn parse_decimal(number: &str) -> Result<Decimal> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::record::import::tests::with_importer;
+    use crate::record::import::tests::with_default_importer;
     use crate::test::prelude::{assert_eq, Result, *};
     use finnel::{category::NewCategory, merchant::NewMerchant};
 
@@ -165,14 +165,16 @@ mod tests {
         let csv = "boursobank/invalid_header.csv";
 
         with_fixtures(&[csv], |dir| {
-            let options = Options {
-                file: dir.child(csv).path().to_path_buf(),
-                ..Default::default()
-            };
-            let result = Boursobank::new(&options);
-            assert!(result.is_err());
+            with_config(|config| {
+                let options = Options {
+                    file: dir.child(csv).path().to_path_buf(),
+                    ..Options::new(config)
+                };
+                let result = Boursobank::new(&options);
+                assert!(result.is_err());
 
-            Ok(())
+                Ok(())
+            })
         })
     }
 
@@ -180,9 +182,8 @@ mod tests {
     fn import() -> Result<()> {
         let csv = "boursobank/curated.csv";
         with_fixtures(&[csv], |dir| {
-            let options = Options::default();
-            with_importer(options, |mut importer| {
-                let conn = &mut importer.config.database()?;
+            with_default_importer(|importer| {
+                let conn = &mut importer.options.config.database()?;
 
                 let bar = test::category(conn, "Bar")?;
                 let chariot = NewMerchant {
@@ -216,11 +217,11 @@ mod tests {
 
                 let options = Options {
                     file: dir.child(csv).path().to_path_buf(),
-                    ..Default::default()
+                    ..Options::new(importer.options.config)
                 };
 
                 let mut profile = Boursobank::new(&options)?;
-                profile.run(&mut importer)?;
+                profile.run(importer)?;
 
                 assert_eq!(9, importer.records.len());
 
