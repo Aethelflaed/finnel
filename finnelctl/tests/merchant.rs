@@ -40,7 +40,7 @@ fn show() -> Result<()> {
 
     cmd!(env, merchant show Chariot)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Merchant not found by name"));
 
     cmd!(env, merchant create Chariot).success();
     cmd!(env, merchant show Chariot)
@@ -119,7 +119,7 @@ fn update() -> Result<()> {
 
     cmd!(env, merchant update Chariot)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Merchant not found by name"));
 
     cmd!(env, merchant create Chariot)
         .success()
@@ -141,7 +141,7 @@ fn update() -> Result<()> {
 
     cmd!(env, merchant show Chariot)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Merchant not found by name"));
 
     cmd!(env, merchant show Grognon)
         .success()
@@ -183,7 +183,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, merchant delete Chariot)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Merchant not found by name"));
 
     cmd!(env, merchant create Chariot)
         .success()
@@ -201,7 +201,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, merchant show Chariot)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Merchant not found by name"));
 
     Ok(())
 }

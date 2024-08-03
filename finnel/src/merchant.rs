@@ -43,7 +43,7 @@ impl Merchant {
             .find(id)
             .select(Merchant::as_select())
             .first(conn)
-            .map_err(|e| e.into())
+            .map_err(|e| Error::from_diesel_error(e, "Merchant", None))
     }
 
     pub fn find_by_name(conn: &mut Conn, name: &str) -> Result<Self> {
@@ -51,7 +51,7 @@ impl Merchant {
             .filter(merchants::name.eq(name))
             .select(Merchant::as_select())
             .first(conn)
-            .map_err(|e| e.into())
+            .map_err(|e| Error::from_diesel_error(e, "Merchant", Some("name")))
     }
 
     /// Delete the current merchant, nulling references to it where possible

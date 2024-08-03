@@ -8,6 +8,7 @@ use finnel::prelude::*;
 
 use crate::cli::{Cli, Commands};
 
+#[derive(Debug)]
 pub struct Config {
     pub dir: PathBuf,
     pub data_dir: PathBuf,
@@ -66,7 +67,7 @@ impl Config {
         if let Some(name) = self.account_name() {
             match Account::find_by_name(conn, name) {
                 Ok(account) => Ok(account),
-                Err(Error::NotFound) => Err(anyhow!("Account not found: {}", name)),
+                Err(e) if e.is_not_found() => Err(anyhow!("Account not found: {}", name)),
                 Err(e) => Err(e.into()),
             }
         } else {
@@ -82,7 +83,7 @@ impl Config {
         if let Some(account_name) = self.get("default_account")? {
             match Account::find_by_name(conn, &account_name) {
                 Ok(entity) => Ok(Some(entity)),
-                Err(Error::NotFound) => {
+                Err(e) if e.is_not_found() => {
                     self.reset("default_account")?;
                     Ok(None)
                 }

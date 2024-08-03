@@ -145,7 +145,7 @@ impl<'a> Importer<'a> {
         if !name.is_empty() && !self.categories.contains_key(name) {
             let category = match Category::find_by_name(self.conn, name) {
                 Ok(category) => category,
-                Err(Error::NotFound) => NewCategory::new(name).save(self.conn)?,
+                Err(e) if e.is_not_found() => NewCategory::new(name).save(self.conn)?,
                 Err(e) => return Err(e.into()),
             };
 
@@ -169,7 +169,7 @@ impl<'a> Importer<'a> {
         if !name.is_empty() && !self.merchants.contains_key(name) {
             let merchant = match Merchant::find_by_name(self.conn, name) {
                 Ok(merchant) => merchant,
-                Err(Error::NotFound) => NewMerchant::new(name).save(self.conn)?,
+                Err(e) if e.is_not_found() => NewMerchant::new(name).save(self.conn)?,
                 Err(e) => return Err(e.into()),
             };
 

@@ -40,7 +40,7 @@ fn show() -> Result<()> {
 
     cmd!(env, category show Bar)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Category not found by name"));
 
     cmd!(env, category create Bar).success();
     cmd!(env, category show Bar)
@@ -98,7 +98,7 @@ fn update() -> Result<()> {
 
     cmd!(env, category update Bar)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Category not found by name"));
 
     cmd!(env, category create Bar).success();
 
@@ -116,7 +116,7 @@ fn update() -> Result<()> {
 
     cmd!(env, category show Bar)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Category not found by name"));
 
     cmd!(env, category show Resto)
         .success()
@@ -135,7 +135,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, category delete Bar)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Category not found by name"));
 
     cmd!(env, category create Bar).success();
 
@@ -151,7 +151,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, category show Bar)
         .failure()
-        .stderr(str::contains("Not found"));
+        .stderr(str::contains("Category not found by name"));
 
     Ok(())
 }

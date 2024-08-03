@@ -42,7 +42,7 @@ impl Category {
             .find(id)
             .select(Category::as_select())
             .first(conn)
-            .map_err(|e| e.into())
+            .map_err(|e| Error::from_diesel_error(e, "Category", None))
     }
 
     pub fn find_by_name(conn: &mut Conn, name: &str) -> Result<Self> {
@@ -50,7 +50,7 @@ impl Category {
             .filter(categories::name.eq(name))
             .select(Category::as_select())
             .first(conn)
-            .map_err(|e| e.into())
+            .map_err(|e| Error::from_diesel_error(e, "Category", Some("name")))
     }
 
     /// Delete the current category, nulling references to it where possible

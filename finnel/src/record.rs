@@ -56,7 +56,7 @@ impl Record {
             .find(id)
             .select(Record::as_select())
             .first(conn)
-            .map_err(|e| e.into())
+            .map_err(|e| Error::from_diesel_error(e, "Record", None))
     }
 
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {

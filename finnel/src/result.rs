@@ -6,6 +6,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("Not found")]
     NotFound,
+    #[error("{0} not found")]
+    ModelNotFound(&'static str),
+    #[error("{0} not found by {1}")]
+    ModelNotFoundBy(&'static str, &'static str),
     #[error("Conflict with existing data. {0}")]
     NonUnique(String),
     #[error("Invalid. {0}")]
@@ -20,6 +24,28 @@ pub enum Error {
     ConnectionError(#[from] diesel::result::ConnectionError),
     #[error("Diesel error. {0}")]
     DieselError(diesel::result::Error),
+}
+
+impl Error {
+    pub fn from_diesel_error(error: diesel::result::Error, model: &'static str, by: Option<&'static str>) -> Self {
+        match error {
+            diesel::result::Error::NotFound => {
+                if let Some(by) = by {
+                    Error::ModelNotFoundBy(model, by)
+                } else {
+                    Error::ModelNotFound(model)
+                }
+            }
+            _ => error.into()
+        }
+    }
+
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            Error::NotFound | Error::ModelNotFound(_) | Error::ModelNotFoundBy(_, _) => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<diesel::result::Error> for Error {
