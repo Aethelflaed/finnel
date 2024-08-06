@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::cli::record::Import as ImportOptions;
 use crate::config::Config;
@@ -44,6 +45,12 @@ pub struct RecordToImport {
 
 fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
     crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
+}
+
+fn parse_decimal(number: &str) -> Result<Decimal> {
+    Ok(Decimal::from_str(
+        number.replace(",", ".").replace(" ", "").as_str(),
+    )?)
 }
 
 pub fn run(
@@ -399,5 +406,17 @@ mod tests {
 
             Ok(())
         })
+    }
+
+    #[test]
+    fn parse_decimal() -> Result<()> {
+        assert!(super::parse_decimal("hello").is_err());
+
+        assert_eq!(Decimal::new(314, 2), super::parse_decimal("3,14")?);
+        assert_eq!(Decimal::new(314, 2), super::parse_decimal("3.14")?);
+
+        assert_eq!(Decimal::new(65536, 0), super::parse_decimal("65536")?);
+        assert_eq!(Decimal::new(65536, 0), super::parse_decimal("65 536")?);
+        Ok(())
     }
 }

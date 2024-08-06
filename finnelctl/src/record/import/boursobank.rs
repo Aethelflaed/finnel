@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use super::{parse_date_fmt, Importer, Options, Profile, RecordToImport};
+use super::{parse_date_fmt, parse_decimal, Importer, Options, Profile, RecordToImport};
 
 use finnel::prelude::*;
 
@@ -145,12 +143,6 @@ impl Profile for Boursobank {
 
 fn parse_date(date: &str) -> Result<DateTime<Utc>> {
     parse_date_fmt(date, "%d/%m/%Y")
-}
-
-fn parse_decimal(number: &str) -> Result<Decimal> {
-    Ok(Decimal::from_str(
-        number.replace(",", ".").replace(" ", "").as_str(),
-    )?)
 }
 
 #[cfg(test)]
@@ -315,17 +307,5 @@ mod tests {
                 Ok(())
             })
         })
-    }
-
-    #[test]
-    fn parse_decimal() -> Result<()> {
-        assert!(super::parse_decimal("hello").is_err());
-
-        assert_eq!(Decimal::new(314, 2), super::parse_decimal("3,14")?);
-        assert_eq!(Decimal::new(314, 2), super::parse_decimal("3.14")?);
-
-        assert_eq!(Decimal::new(65536, 0), super::parse_decimal("65536")?);
-        assert_eq!(Decimal::new(65536, 0), super::parse_decimal("65 536")?);
-        Ok(())
     }
 }

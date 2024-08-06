@@ -566,6 +566,7 @@ dependencies = [
  "finnel",
  "predicates",
  "pretty_assertions",
+ "regex",
  "tabled",
  "temp-env",
  "toml",
