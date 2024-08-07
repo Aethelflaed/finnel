@@ -25,7 +25,18 @@ fn list() -> Result<()> {
         .stdout(str::contains("1  | Bar"))
         .stdout(str::contains("2  | Restaurant"));
 
-    cmd!(env, category list update --create_parent "Bar or Restaurant").success();
+    cmd!(env, category list update --create_parent Establishment).success();
+
+    raw_cmd!(env, category list --name Bar delete --confirm)
+        .write_stdin("yes")
+        .assert()
+        .success();
+
+    cmd!(env, category list)
+        .success()
+        .stdout(str::contains("1  | Bar").not())
+        .stdout(str::contains("2  | Restaurant"))
+        .stdout(str::contains("3  | Establishment"));
 
     Ok(())
 }
@@ -60,7 +71,8 @@ fn show() -> Result<()> {
         .success()
         .stdout(str::contains("€ -5.00"));
 
-    cmd!(env, category create Bars --replace_by Bar).success();
+    cmd!(env, category create Bars).success();
+    cmd!(env, category show Bars update --replace_by Bar).success();
     cmd!(env, category show Bars)
         .success()
         .stdout(str::contains("  Replaced by: 1 | Bar"));
@@ -69,6 +81,12 @@ fn show() -> Result<()> {
     cmd!(env, category show Rent)
         .success()
         .stdout(str::contains("  Parent: 3 | Lodging"));
+
+    raw_cmd!(env, category show Rent delete --confirm)
+        .write_stdin("yes")
+        .assert()
+        .success();
+    cmd!(env, category show Rent).failure();
 
     Ok(())
 }

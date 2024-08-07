@@ -5,10 +5,10 @@ use assert_fs::TempDir;
 pub mod prelude {
     pub use super::Env;
     pub use anyhow::Result;
+    pub use assert_fs::prelude::*;
     #[allow(unused_imports)]
     pub use predicates::prelude::*;
     pub use predicates::str;
-    pub use assert_fs::prelude::*;
 }
 
 pub struct Env {

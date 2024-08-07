@@ -25,7 +25,18 @@ fn list() -> Result<()> {
         .stdout(str::contains("1  | Chariot"))
         .stdout(str::contains("2  | Grognon"));
 
-    cmd!(env, merchant list update --create_replace_by "Bar").success();
+    cmd!(env, merchant list update --create_replace_by Bar).success();
+
+    raw_cmd!(env, merchant list --name Grognon delete --confirm)
+        .write_stdin("yes")
+        .assert()
+        .success();
+
+    cmd!(env, merchant list)
+        .success()
+        .stdout(str::contains("1  | Chariot"))
+        .stdout(str::contains("2  | Grognon").not())
+        .stdout(str::contains("3  | Bar"));
 
     Ok(())
 }
@@ -50,7 +61,7 @@ fn show() -> Result<()> {
         .stdout(str::contains("Default category").not());
 
     cmd!(env, category create Bar).success();
-    cmd!(env, merchant update Chariot --default_category Bar).success();
+    cmd!(env, merchant show Chariot update --default_category Bar).success();
 
     cmd!(env, merchant show Chariot)
         .success()
@@ -68,6 +79,12 @@ fn show() -> Result<()> {
     cmd!(env, merchant show Chariot -A Cash)
         .success()
         .stdout(str::contains("€ -5.00"));
+
+    raw_cmd!(env, merchant show Chariot delete --confirm)
+        .write_stdin("yes")
+        .assert()
+        .success();
+    cmd!(env, merchant show Chariot).failure();
 
     Ok(())
 }

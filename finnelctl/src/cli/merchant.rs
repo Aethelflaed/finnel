@@ -21,7 +21,7 @@ pub enum Command {
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
-    pub action: Option<ListAction>,
+    pub action: Option<Action>,
 
     /// Show only merchants with this text in the name
     #[arg(long, help_heading = "Filter merchants")]
@@ -47,9 +47,16 @@ impl List {
 }
 
 #[derive(Subcommand, Clone, Debug)]
-pub enum ListAction {
-    /// Update the listed merchants
+pub enum Action {
+    /// Update the listed merchant(s)
     Update(UpdateArgs),
+
+    /// Delete the listed merchant(s)
+    Delete {
+        /// Confirm the deletion
+        #[arg(long)]
+        confirm: bool,
+    },
 }
 
 #[derive(Args, Clone, Debug)]
@@ -169,6 +176,9 @@ impl UpdateArgs {
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
+    #[command(subcommand)]
+    pub action: Option<Action>,
+
     /// Name of the merchant to show
     pub name: String,
 }

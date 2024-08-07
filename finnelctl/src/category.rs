@@ -78,69 +78,103 @@ impl CommandContext<'_> {
             ..Default::default()
         };
 
-        if let Some(ListAction::Update(args)) = &args.action {
-            let changes = ResolvedUpdateArgs::deferred(args);
+        match &args.action {
+            Some(Action::Update(args)) => {
+                let changes = ResolvedUpdateArgs::deferred(args);
 
-            for category in query.run(self.conn)? {
-                changes
-                    .get(self.conn)?
-                    .validate(self.conn, &category)?
-                    .save(self.conn)?;
+                for category in query.run(self.conn)? {
+                    changes
+                        .get(self.conn)?
+                        .validate(self.conn, &category)?
+                        .save(self.conn)?;
+                }
             }
-        } else {
-            let categories = query
-                .with_parent()
-                .with_replacer()
-                .run(self.conn)?
-                .into_iter()
-                .map(CategoryToDisplay::from)
-                .collect::<Vec<_>>();
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+                self.conn.transaction(|conn| {
+                    for mut category in query.run(conn)? {
+                        category.delete(conn)?;
+                    }
+                    Result::<()>::Ok(())
+                })?;
+            }
+            None => {
+                let categories = query
+                    .with_parent()
+                    .with_replacer()
+                    .run(self.conn)?
+                    .into_iter()
+                    .map(CategoryToDisplay::from)
+                    .collect::<Vec<_>>();
 
-            println!("{}", Table::new(categories));
+                println!("{}", Table::new(categories));
+            }
         }
 
         Ok(())
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let category = Category::find_by_name(self.conn, &args.name)?;
+        let mut category = Category::find_by_name(self.conn, &args.name)?;
 
-        println!("{} | {}", category.id, category.name);
+        match &args.action {
+            Some(Action::Update(args)) => {
+                let changes = ResolvedUpdateArgs::deferred(args);
 
-        if let Some(parent) = category.fetch_parent(self.conn)? {
-            println!("  Parent: {} | {}", parent.id, parent.name);
-        }
-        if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
-            println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
-        }
-
-        println!();
-        if let Ok(account) = self.config.account_or_default(self.conn) {
-            let records = QueryRecord {
-                account_id: Some(account.id),
-                category_id: Some(Some(category.id)),
-                ..Default::default()
+                changes
+                    .get(self.conn)?
+                    .validate(self.conn, &category)?
+                    .save(self.conn)?;
             }
-            .run(self.conn)?
-            .into_iter()
-            .map(RecordToDisplay::from)
-            .collect::<Vec<_>>();
-
-            let count = records.len();
-
-            if count > 0 {
-                println!(
-                    "{}",
-                    Table::new(records).with(Panel::header(format!(
-                        "{} associated records for account {}",
-                        count, account.name
-                    )))
-                );
-            } else {
-                println!("No associated records for account {}", account.name);
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+                self.conn.transaction(|conn| {
+                    category.delete(conn)
+                })?;
             }
-        } else {
-            println!("Specify an account to see associated records");
+            None => {
+                println!("{} | {}", category.id, category.name);
+
+                if let Some(parent) = category.fetch_parent(self.conn)? {
+                    println!("  Parent: {} | {}", parent.id, parent.name);
+                }
+                if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
+                    println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
+                }
+
+                println!();
+                if let Ok(account) = self.config.account_or_default(self.conn) {
+                    let records = QueryRecord {
+                        account_id: Some(account.id),
+                        category_id: Some(Some(category.id)),
+                        ..Default::default()
+                    }
+                    .run(self.conn)?
+                    .into_iter()
+                    .map(RecordToDisplay::from)
+                    .collect::<Vec<_>>();
+
+                    let count = records.len();
+
+                    if count > 0 {
+                        println!(
+                            "{}",
+                            Table::new(records).with(Panel::header(format!(
+                                "{} associated records for account {}",
+                                count, account.name
+                            )))
+                        );
+                    } else {
+                        println!("No associated records for account {}", account.name);
+                    }
+                } else {
+                    println!("Specify an account to see associated records");
+                }
+            }
         }
 
         Ok(())

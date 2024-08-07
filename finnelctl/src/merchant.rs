@@ -77,72 +77,106 @@ impl CommandContext<'_> {
             count: count.map(|c| c as i64),
         };
 
-        if let Some(ListAction::Update(args)) = &args.action {
-            let changes = ResolvedUpdateArgs::deferred(args);
+        match &args.action {
+            Some(Action::Update(args)) => {
+                let changes = ResolvedUpdateArgs::deferred(args);
 
-            for merchant in query.run(self.conn)? {
-                changes
-                    .get(self.conn)?
-                    .validate(self.conn, &merchant)?
-                    .save(self.conn)?;
+                for merchant in query.run(self.conn)? {
+                    changes
+                        .get(self.conn)?
+                        .validate(self.conn, &merchant)?
+                        .save(self.conn)?;
+                }
             }
-        } else {
-            let merchants = query
-                .with_replacer()
-                .with_category()
-                .run(self.conn)?
-                .into_iter()
-                .map(MerchantToDisplay::from)
-                .collect::<Vec<_>>();
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+                self.conn.transaction(|conn| {
+                    for mut merchant in query.run(conn)? {
+                        merchant.delete(conn)?;
+                    }
+                    Result::<()>::Ok(())
+                })?;
+            }
+            None => {
+                let merchants = query
+                    .with_replacer()
+                    .with_category()
+                    .run(self.conn)?
+                    .into_iter()
+                    .map(MerchantToDisplay::from)
+                    .collect::<Vec<_>>();
 
-            println!("{}", Table::new(merchants));
+                println!("{}", Table::new(merchants));
+            }
         }
 
         Ok(())
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let merchant = Merchant::find_by_name(self.conn, &args.name)?;
+        let mut merchant = Merchant::find_by_name(self.conn, &args.name)?;
 
-        println!("{} | {}", merchant.id, merchant.name);
+        match &args.action {
+            Some(Action::Update(args)) => {
+                let changes = ResolvedUpdateArgs::deferred(args);
 
-        if let Some(default_category) = merchant.fetch_default_category(self.conn)? {
-            println!(
-                "  Default category: {} | {}",
-                default_category.id, default_category.name
-            );
-        }
-        if let Some(replaced_by) = merchant.fetch_replaced_by(self.conn)? {
-            println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
-        }
-
-        println!();
-        if let Ok(account) = self.config.account_or_default(self.conn) {
-            let records = QueryRecord {
-                account_id: Some(account.id),
-                merchant_id: Some(Some(merchant.id)),
-                ..Default::default()
+                changes
+                    .get(self.conn)?
+                    .validate(self.conn, &merchant)?
+                    .save(self.conn)?;
             }
-            .run(self.conn)?
-            .into_iter()
-            .map(RecordToDisplay::from)
-            .collect::<Vec<_>>();
-
-            let count = records.len();
-
-            if count > 0 {
-                println!(
-                    "{}",
-                    Table::new(records).with(Panel::header(format!(
-                        "{} associated records for account {}",
-                        count, account.name
-                    )))
-                );
-            } else {
-                println!("No associated records for account {}", account.name);
+            Some(Action::Delete { confirm }) => {
+                if !confirm || !crate::utils::confirm()? {
+                    anyhow::bail!("operation requires confirmation");
+                }
+                self.conn.transaction(|conn| {
+                    merchant.delete(conn)
+                })?;
             }
-        } else {
-            println!("Specify an account to see associated records");
+            None => {
+                println!("{} | {}", merchant.id, merchant.name);
+
+                if let Some(default_category) = merchant.fetch_default_category(self.conn)? {
+                    println!(
+                        "  Default category: {} | {}",
+                        default_category.id, default_category.name
+                    );
+                }
+                if let Some(replaced_by) = merchant.fetch_replaced_by(self.conn)? {
+                    println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
+                }
+
+                println!();
+                if let Ok(account) = self.config.account_or_default(self.conn) {
+                    let records = QueryRecord {
+                        account_id: Some(account.id),
+                        merchant_id: Some(Some(merchant.id)),
+                        ..Default::default()
+                    }
+                    .run(self.conn)?
+                    .into_iter()
+                    .map(RecordToDisplay::from)
+                    .collect::<Vec<_>>();
+
+                    let count = records.len();
+
+                    if count > 0 {
+                        println!(
+                            "{}",
+                            Table::new(records).with(Panel::header(format!(
+                                "{} associated records for account {}",
+                                count, account.name
+                            )))
+                        );
+                    } else {
+                        println!("No associated records for account {}", account.name);
+                    }
+                } else {
+                    println!("Specify an account to see associated records");
+                }
+            }
         }
 
         Ok(())
