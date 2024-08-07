@@ -27,7 +27,11 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn from_diesel_error(error: diesel::result::Error, model: &'static str, by: Option<&'static str>) -> Self {
+    pub fn from_diesel_error(
+        error: diesel::result::Error,
+        model: &'static str,
+        by: Option<&'static str>,
+    ) -> Self {
         match error {
             diesel::result::Error::NotFound => {
                 if let Some(by) = by {
@@ -36,15 +40,15 @@ impl Error {
                     Error::ModelNotFound(model)
                 }
             }
-            _ => error.into()
+            _ => error.into(),
         }
     }
 
     pub fn is_not_found(&self) -> bool {
-        match self {
-            Error::NotFound | Error::ModelNotFound(_) | Error::ModelNotFoundBy(_, _) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Error::NotFound | Error::ModelNotFound(_) | Error::ModelNotFoundBy(_, _)
+        )
     }
 }
 
