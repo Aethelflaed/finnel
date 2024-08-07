@@ -96,6 +96,10 @@ mod tests {
                 let date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
                 options.set_last_imported_unchecked(date);
 
+                // check that using a previous date afterwards does not change the last_imported
+                // and error is silently ignored
+                options.set_last_imported_unchecked(date - core::time::Duration::from_secs(86400));
+
                 let cli =
                     Cli::try_parse_from(&["arg0", "record", "import", "-P", "BoursoBank", "FILE"])?;
                 let Some(Commands::Record(Command::Import(import))) = cli.command.as_ref() else {

@@ -55,6 +55,12 @@ impl Information {
 
     pub fn set_last_imported(&self, config: &Config, date: Option<DateTime<Utc>>) -> Result<()> {
         if let Some(date) = date {
+            if let Some(previous_date) = self.last_imported(config).ok().flatten() {
+                if previous_date > date {
+                    anyhow::bail!("Cannot set last_imported to ");
+                }
+            }
+
             config.set(
                 format!("{}/last_imported", self.name()?).as_str(),
                 date.to_string().as_str(),
@@ -86,8 +92,12 @@ mod tests {
             assert!(profile.last_imported(config)?.is_none());
 
             let date = Utc::now();
+            let past_date = date - core::time::Duration::from_secs(86400);
 
+            profile.set_last_imported(config, Some(past_date))?;
             profile.set_last_imported(config, Some(date))?;
+
+            assert!(profile.set_last_imported(config, Some(past_date)).is_err());
 
             assert_eq!(Some(date), profile.last_imported(config)?);
 
