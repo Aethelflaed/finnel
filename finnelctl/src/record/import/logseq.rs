@@ -54,7 +54,7 @@ impl Logseq {
                 (?:DONE[[:blank:]]*)?
                 (?<sign>[+-]?)
                 (?<amount>\d+(?:[,.]\d+)?)
-                (?<currency>[€]?)
+                (?<currency>[€])
                 [[:blank:]]*
                 (?<details>(?:"[^"\r\n]+")|[^\r\n-]*)
                 (?:
@@ -142,6 +142,8 @@ mod tests {
             {
                 let mut file = File::create(path.as_path())?;
                 writeln!(file, "- 2.5€ cookie - snack - roc en stock")?;
+                writeln!(file, "- 2.5 cookie - snack - roc en stock")?;
+                writeln!(file, "- 10h50 RDV")?;
                 writeln!(file, "blabla")?;
                 writeln!(file, "- TODO 1.5€ cookie - snack - roc en stock ")?;
                 writeln!(file, "- DONE +3,5€ cookie - snack - roc en stock")?;
