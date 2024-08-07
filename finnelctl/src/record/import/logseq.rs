@@ -83,7 +83,7 @@ impl Logseq {
 
         for captures in self.regex.captures_iter(&content) {
             match &captures["currency"] {
-                "" | "€" => {}
+                "€" => {}
                 _ => anyhow::bail!("Unknown currency {}", &captures["currency"]),
             }
 
