@@ -3,6 +3,13 @@ use crate::prelude::*;
 use crate::schema::categories;
 
 pub fn consolidate(conn: &mut Conn) -> Result<()> {
+    consolidate_replace_by(conn)?;
+    consolidate_parent(conn)?;
+
+    Ok(())
+}
+
+pub fn consolidate_replace_by(conn: &mut Conn) -> Result<()> {
     let query = query::CATEGORIES_ALIAS
         .inner_join(
             query::REPLACERS.on(query::CATEGORIES_ALIAS
@@ -32,13 +39,43 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
     Ok(())
 }
 
+pub fn consolidate_parent(conn: &mut Conn) -> Result<()> {
+    let query = query::CATEGORIES_ALIAS
+        .inner_join(
+            query::PARENTS.on(query::CATEGORIES_ALIAS
+                .field(categories::parent_id)
+                .eq(query::PARENTS.field(categories::id).nullable())),
+        )
+        .filter(
+            query::PARENTS
+            .field(categories::replaced_by_id)
+            .is_not_null(),
+        )
+        .select((
+                query::CATEGORIES_ALIAS.fields(categories::all_columns),
+                query::PARENTS.fields(categories::all_columns),
+        ));
+
+    for (category, parent) in query.load::<(Category, Category)>(conn)? {
+        let parent = parent.resolve(conn)?;
+
+        ChangeCategory {
+            parent: Some(Some(&parent)),
+            ..Default::default()
+        }.save(conn, &category)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::category::NewCategory;
     use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn consolidate() -> Result<()> {
+    fn consolidate_replace_by() -> Result<()> {
         let conn = &mut test::db()?;
 
         let transfer = test::category(conn, "transfer")?;
@@ -59,6 +96,31 @@ mod tests {
 
         virement_2.reload(conn)?;
         assert_eq!(Some(transfer.id), virement_2.replaced_by_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn consolidate_parent() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut alcool = test::category(conn, "alcool")?;
+        let mut bar = NewCategory {
+            name: "bar",
+            parent: Some(&alcool),
+            ..NewCategory::default()
+        }.save(conn)?;
+
+        let alcohol = test::category(conn, "alcohol")?;
+        ChangeCategory {
+            replaced_by: Some(Some(&alcohol)),
+            ..ChangeCategory::default()
+        }.apply(conn, &mut alcool)?;
+
+        super::consolidate(conn)?;
+
+        bar.reload(conn)?;
+        assert_eq!(Some(alcohol.id), bar.parent_id);
 
         Ok(())
     }
