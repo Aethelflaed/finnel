@@ -34,6 +34,7 @@ pub struct QueryRecord<'a> {
     pub details: Option<&'a str>,
     pub merchant_id: Option<Option<i64>>,
     pub category_id: Option<Option<i64>>,
+    pub category_ids: Option<&'a[i64]>,
     pub count: Option<i64>,
     pub order: Vec<(OrderField, OrderDirection)>,
 }
@@ -112,6 +113,9 @@ impl QueryRecord<'_> {
         }
         if let Some(category_id) = self.category_id {
             query = query.filter(records::category_id.is(category_id));
+        }
+        if let Some(category_ids) = self.category_ids {
+            query = query.filter(records::category_id.eq_any(category_ids));
         }
         if let Some(merchant_id) = self.merchant_id {
             query = query.filter(records::merchant_id.is(merchant_id));

@@ -136,21 +136,39 @@ impl CommandContext<'_> {
                 self.conn.transaction(|conn| category.delete(conn))?;
             }
             None => {
+                let mut ids = vec![category.id];
                 println!("{} | {}", category.id, category.name);
 
                 if let Some(parent) = category.fetch_parent(self.conn)? {
+                    ids.push(parent.id);
                     println!("  Parent: {} | {}", parent.id, parent.name);
                 }
                 if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
                     println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
                 }
 
-                println!();
+                let mut children = vec![];
+                for child in (QueryCategory {
+                    parent_id: Some(Some(category.id)),
+                    ..QueryCategory::default()
+                })
+                .with_parent()
+                .with_replacer()
+                .run(self.conn)?
+                {
+                    ids.push(child.0.id);
+                    children.push(CategoryToDisplay::from(child));
+                }
+
+                if !children.is_empty() {
+                    println!("{}", Table::new(children));
+                }
+
                 if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
-                    self.show_category_records(&category, &account)?;
+                    self.show_category_records(&ids, &account)?;
                 } else {
                     for account in QueryAccount::default().run(self.conn)? {
-                        self.show_category_records(&category, &account)?;
+                        self.show_category_records(&ids, &account)?;
                     }
                 }
             }
@@ -159,10 +177,11 @@ impl CommandContext<'_> {
         Ok(())
     }
 
-    fn show_category_records(&mut self, category: &Category, account: &Account) -> Result<()> {
+    fn show_category_records(&mut self, ids: &Vec<i64>, account: &Account) -> Result<()> {
+        println!();
         let records = QueryRecord {
             account_id: Some(account.id),
-            category_id: Some(Some(category.id)),
+            category_ids: Some(ids),
             ..Default::default()
         }
         .run(self.conn)?

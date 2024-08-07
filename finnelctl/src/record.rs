@@ -77,6 +77,7 @@ impl CommandContext<'_> {
                 .into_iter()
                 .map(|o| o.into())
                 .collect::<Vec<_>>(),
+            ..QueryRecord::default()
         };
 
         match &args.action {
