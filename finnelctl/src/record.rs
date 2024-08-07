@@ -131,14 +131,8 @@ impl CommandContext<'_> {
                 record.delete(self.conn)?;
             }
             None => {
-                let category = record
-                    .category_id
-                    .map(|id| Category::find(self.conn, id))
-                    .transpose()?;
-                let merchant = record
-                    .merchant_id
-                    .map(|id| Merchant::find(self.conn, id))
-                    .transpose()?;
+                let category = record.fetch_category(self.conn)?;
+                let merchant = record.fetch_merchant(self.conn)?;
                 println!(
                     "{}",
                     Table::new(vec![RecordToDisplay::from((record, category, merchant,))])

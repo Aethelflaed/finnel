@@ -233,8 +233,8 @@ mod tests {
                 let record = &importer.records[1];
                 assert_eq!(Some(insurances.id), record.category_id);
                 assert_eq!(
-                    "rac insurance qb",
-                    Merchant::find(conn, record.merchant_id.unwrap())?.name
+                    Some("rac insurance qb"),
+                    record.fetch_merchant(conn)?.map(|m| m.name).as_deref()
                 );
                 assert_eq!(
                     Mode::Direct(PaymentMethod::CardLast4Digit('4', '1', '3', '2')),
@@ -257,8 +257,8 @@ mod tests {
                 let record = &importer.records[3];
                 assert_eq!(None, record.category_id);
                 assert_eq!(
-                    "cpam moselle",
-                    Merchant::find(conn, record.merchant_id.unwrap())?.name
+                    Some("cpam moselle"),
+                    record.fetch_merchant(conn)?.map(|m| m.name).as_deref()
                 );
                 assert_eq!("CPAM MOSELLE", record.details);
                 assert_eq!(Mode::Transfer, record.mode);
@@ -268,8 +268,8 @@ mod tests {
                 assert_eq!(None, record.category_id);
                 assert!(record.merchant_id.is_some());
                 assert_eq!(
-                    "livret a",
-                    Merchant::find(conn, record.merchant_id.unwrap())?.name
+                    Some("livret a"),
+                    record.fetch_merchant(conn)?.map(|c| c.name).as_deref()
                 );
                 assert_eq!("Virement interne depuis LIVRET A", record.details);
                 assert_eq!(Mode::Transfer, record.mode);
@@ -297,8 +297,8 @@ mod tests {
 
                 let record = &importer.records[8];
                 assert_eq!(
-                    "BLOC EN STOCK",
-                    Merchant::find(conn, record.merchant_id.unwrap())?.name
+                    Some("BLOC EN STOCK"),
+                    record.fetch_merchant(conn)?.map(|m| m.name).as_deref()
                 );
                 assert_eq!("BLOC EN STOCK", record.details);
                 assert_eq!(Mode::Transfer, record.mode);

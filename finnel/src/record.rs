@@ -51,6 +51,18 @@ impl Record {
         Amount(self.amount, self.currency)
     }
 
+    pub fn fetch_category(&self, conn: &mut Conn) -> Result<Option<Category>> {
+        self.category_id
+            .map(|id| Category::find(conn, id))
+            .transpose()
+    }
+
+    pub fn fetch_merchant(&self, conn: &mut Conn) -> Result<Option<Merchant>> {
+        self.merchant_id
+            .map(|id| Merchant::find(conn, id))
+            .transpose()
+    }
+
     pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {
         records::table
             .find(id)

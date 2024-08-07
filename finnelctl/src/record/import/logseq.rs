@@ -156,12 +156,12 @@ mod tests {
             assert_eq!(Decimal::new(25, 1), record.amount);
             assert_eq!("cookie", record.details);
             assert_eq!(
-                "snack",
-                Category::find(conn, record.category_id.unwrap())?.name
+                Some("snack"),
+                record.fetch_category(conn)?.map(|c| c.name).as_deref()
             );
             assert_eq!(
-                "roc en stock",
-                Merchant::find(conn, record.merchant_id.unwrap())?.name
+                Some("roc en stock"),
+                record.fetch_merchant(conn)?.map(|m| m.name).as_deref()
             );
             assert_eq!(
                 parse_date_fmt("2024-07-31", "%Y-%m-%d")?,
@@ -185,8 +185,8 @@ mod tests {
             assert_eq!(Decimal::new(5, 0), record.amount);
             assert_eq!("", record.details);
             assert_eq!(
-                "beer",
-                Category::find(conn, record.category_id.unwrap())?.name
+                Some("beer"),
+                record.fetch_category(conn)?.map(|c| c.name).as_deref()
             );
             assert!(record.merchant_id.is_none());
 
@@ -195,8 +195,8 @@ mod tests {
             assert_eq!("", record.details);
             assert!(record.category_id.is_none());
             assert_eq!(
-                "mc do",
-                Merchant::find(conn, record.merchant_id.unwrap())?.name
+                Some("mc do"),
+                record.fetch_merchant(conn)?.map(|c| c.name).as_deref()
             );
 
             Ok(())
