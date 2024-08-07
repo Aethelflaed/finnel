@@ -63,19 +63,15 @@ impl Config {
         self.cli.account.as_deref()
     }
 
-    pub fn account_or_default(&self, conn: &mut Database) -> Result<Account> {
+    pub fn account_or_default(&self, conn: &mut Database) -> Result<Option<Account>> {
         if let Some(name) = self.account_name() {
             match Account::find_by_name(conn, name) {
-                Ok(account) => Ok(account),
+                Ok(account) => Ok(Some(account)),
                 Err(e) if e.is_not_found() => Err(anyhow!("Account not found: {}", name)),
                 Err(e) => Err(e.into()),
             }
         } else {
-            match self.default_account(conn) {
-                Ok(None) => Err(anyhow!("Account not provided")),
-                Ok(Some(account)) => Ok(account),
-                Err(e) => Err(e),
-            }
+            self.default_account(conn)
         }
     }
 

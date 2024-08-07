@@ -53,7 +53,9 @@ impl CommandContext<'_> {
         Ok(if let Some(name) = name {
             Account::find_by_name(self.conn, name)?
         } else {
-            self.config.account_or_default(self.conn)?
+            self.config
+                .account_or_default(self.conn)?
+                .ok_or(anyhow::anyhow!("Account not provided"))?
         })
     }
 

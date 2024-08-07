@@ -132,9 +132,7 @@ impl CommandContext<'_> {
                 if !confirm || !crate::utils::confirm()? {
                     anyhow::bail!("operation requires confirmation");
                 }
-                self.conn.transaction(|conn| {
-                    category.delete(conn)
-                })?;
+                self.conn.transaction(|conn| category.delete(conn))?;
             }
             None => {
                 println!("{} | {}", category.id, category.name);
@@ -147,7 +145,7 @@ impl CommandContext<'_> {
                 }
 
                 println!();
-                if let Ok(account) = self.config.account_or_default(self.conn) {
+                if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
                     let records = QueryRecord {
                         account_id: Some(account.id),
                         category_id: Some(Some(category.id)),

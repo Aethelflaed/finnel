@@ -22,7 +22,7 @@ mod import;
 struct CommandContext<'a> {
     config: &'a Config,
     conn: &'a mut Database,
-    account: Account,
+    account: Option<Account>,
 }
 
 pub fn run(config: &Config, command: &Command) -> Result<()> {
@@ -55,8 +55,11 @@ impl CommandContext<'_> {
         } = args;
         let details = args.details();
 
+        let Some(account) = self.account.as_ref() else {
+            anyhow::bail!("Account not provided")
+        };
         let query = QueryRecord {
-            account_id: Some(self.account.id),
+            account_id: Some(account.id),
             after: args.after()?,
             before: args.before()?,
             operation_date: *operation_date,
@@ -151,6 +154,10 @@ impl CommandContext<'_> {
             ..
         } = args;
 
+        let Some(account) = self.account.as_ref() else {
+            anyhow::bail!("Account not provided")
+        };
+
         NewRecord {
             amount: *amount,
             operation_date: args.operation_date()?,
@@ -160,7 +167,7 @@ impl CommandContext<'_> {
             details: details.as_str(),
             category: args.category(self.conn)?.as_ref(),
             merchant: args.merchant(self.conn)?.as_ref(),
-            ..NewRecord::new(&self.account)
+            ..NewRecord::new(account)
         }
         .save(self.conn)?;
 
@@ -180,7 +187,10 @@ impl CommandContext<'_> {
     }
 
     fn import(&mut self, args: &Import) -> Result<()> {
-        import::run(self.conn, &self.account, self.config, args)
+        let Some(account) = self.account.as_ref() else {
+            anyhow::bail!("Account not provided")
+        };
+        import::run(self.conn, account, self.config, args)
     }
 }
 
