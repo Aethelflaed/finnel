@@ -8,6 +8,7 @@ use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::N
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
+use tabled::Table;
 
 mod profile;
 use profile::{Information, Profile};
@@ -61,9 +62,37 @@ pub fn run(
 ) -> Result<()> {
     let options = Options::try_from(options, config)?;
 
-    conn.transaction(|conn| Importer::new(conn, account, options).run())?;
+    conn.transaction(|conn| {
+        let Importer {
+            conn,
+            records,
+            options,
+            ..
+        } = {
+            let mut importer = Importer::new(conn, account, options);
+            importer.run().map(|_| importer)
+        }?;
 
-    Ok(())
+        if options.print {
+            let records_to_display = records
+                .into_iter()
+                .map(|record| {
+                    let category = record.fetch_category(conn)?;
+                    let merchant = record.fetch_merchant(conn)?;
+                    Ok(crate::record::RecordToDisplay::from((
+                        record, category, merchant,
+                    )))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            println!("{}", Table::new(records_to_display));
+        }
+
+        if options.pretend {
+            anyhow::bail!("No records were saved as we are pretending");
+        }
+
+        Ok(())
+    })
 }
 
 impl<'a> Importer<'a> {

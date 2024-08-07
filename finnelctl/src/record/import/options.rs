@@ -14,6 +14,8 @@ pub struct Options<'a> {
     pub profile_info: Information,
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
+    pub print: bool,
+    pub pretend: bool,
 }
 
 impl<'a> Options<'a> {
@@ -24,6 +26,8 @@ impl<'a> Options<'a> {
             profile_info: Default::default(),
             from: Default::default(),
             to: Default::default(),
+            print: false,
+            pretend: false,
         }
     }
 
@@ -40,6 +44,8 @@ impl<'a> Options<'a> {
             profile_info,
             from,
             to: cli.to()?.or_else(|| Some(Utc::now())),
+            print: cli.print,
+            pretend: cli.pretend,
         })
     }
 

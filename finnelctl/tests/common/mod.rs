@@ -8,6 +8,7 @@ pub mod prelude {
     #[allow(unused_imports)]
     pub use predicates::prelude::*;
     pub use predicates::str;
+    pub use assert_fs::prelude::*;
 }
 
 pub struct Env {
@@ -74,5 +75,18 @@ impl Env {
             .arg("-D")
             .arg(self.data_dir.path());
         Ok(cmd)
+    }
+
+    pub fn copy_fixtures(&self, patterns: &[&str]) -> Result<()> {
+        use assert_fs::fixture::PathCopy;
+        use std::path::PathBuf;
+
+        let fixtures_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures");
+
+        self.data_dir.copy_from(fixtures_path, patterns)?;
+
+        Ok(())
     }
 }

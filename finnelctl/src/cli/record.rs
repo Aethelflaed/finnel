@@ -505,6 +505,14 @@ pub struct Import {
     #[arg(short = 'P', long, help_heading = "Import")]
     pub profile: String,
 
+    /// Print importer records
+    #[arg(long, help_heading = "Import")]
+    pub print: bool,
+
+    /// Do not persist any of the imported records
+    #[arg(long, help_heading = "Import")]
+    pub pretend: bool,
+
     /// Only import records with an operation date greater than or equal to this one
     #[arg(long, value_name = "DATE", help_heading = "Filter records")]
     from: Option<NaiveDate>,
