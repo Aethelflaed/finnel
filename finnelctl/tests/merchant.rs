@@ -57,38 +57,58 @@ fn show() -> Result<()> {
     cmd!(env, merchant show Chariot)
         .success()
         .stdout(str::contains("1 | Chariot"))
-        .stdout(str::contains("Specify an account"))
         .stdout(str::contains("Default category").not());
 
     cmd!(env, merchant show 1)
         .success()
         .stdout(str::contains("1 | Chariot"));
 
-    cmd!(env, category create Bar).success();
-    cmd!(env, merchant show Chariot update --default_category Bar).success();
+    cmd!(env, merchant show Chariot update --create_default_category Bar).success();
 
     cmd!(env, merchant show Chariot)
         .success()
         .stdout(str::contains("1 | Chariot"))
         .stdout(str::contains("Default category: 1 | Bar"));
 
-    cmd!(env, account create Cash).success();
-
-    cmd!(env, merchant show Chariot -A Cash)
-        .success()
-        .stdout(str::contains("No associated"));
-
-    cmd!(env, record create -A Cash 5 beer --merchant Chariot).success();
-
-    cmd!(env, merchant show Chariot -A Cash)
-        .success()
-        .stdout(str::contains("€ -5.00"));
-
     raw_cmd!(env, merchant show Chariot delete --confirm)
         .write_stdin("yes")
         .assert()
         .success();
     cmd!(env, merchant show Chariot).failure();
+
+    Ok(())
+}
+
+#[test]
+fn show_records() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, merchant create Chariot).success();
+    cmd!(env, account create Cash).success();
+    cmd!(env, account create Bank).success();
+
+    cmd!(env, merchant show Chariot -A Bank)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("No associated records for account Bank"));
+
+    cmd!(env, merchant show Chariot -A Cash)
+        .success()
+        .stdout(str::contains("No associated records for account Cash"))
+        .stdout(str::contains("No associated records for account Bank").not());
+
+    cmd!(env, record create -A Cash 5 beer --merchant Chariot).success();
+
+    cmd!(env, merchant show Chariot -A Cash)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("€ -5.00"));
+
+    cmd!(env, merchant show Chariot)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("No associated records for account Bank"))
+        .stdout(str::contains("€ -5.00"));
 
     Ok(())
 }

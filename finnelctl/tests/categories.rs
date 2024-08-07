@@ -58,22 +58,11 @@ fn show() -> Result<()> {
         .success()
         .stdout(str::contains("1 | Bar"))
         .stdout(str::contains("\n  Parent:").not())
-        .stdout(str::contains("\n  Replaced by:").not())
-        .stdout(str::contains("Specify an account"));
+        .stdout(str::contains("\n  Replaced by:").not());
 
     cmd!(env, category show 1)
         .success()
         .stdout(str::contains("1 | Bar"));
-
-    cmd!(env, account create Cash).success();
-    cmd!(env, category show Bar -A Cash)
-        .success()
-        .stdout(str::contains("No associated"));
-
-    cmd!(env, record create -A Cash 5 beer --category Bar).success();
-    cmd!(env, category show Bar -A Cash)
-        .success()
-        .stdout(str::contains("€ -5.00"));
 
     cmd!(env, category create Bars).success();
     cmd!(env, category show Bars update --replace_by Bar).success();
@@ -91,6 +80,40 @@ fn show() -> Result<()> {
         .assert()
         .success();
     cmd!(env, category show Rent).failure();
+
+    Ok(())
+}
+
+#[test]
+fn show_records() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, category create Bar).success();
+    cmd!(env, account create Cash).success();
+    cmd!(env, account create Bank).success();
+
+    cmd!(env, category show Bar -A Bank)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("No associated records for account Bank"));
+
+    cmd!(env, category show Bar -A Cash)
+        .success()
+        .stdout(str::contains("No associated records for account Cash"))
+        .stdout(str::contains("No associated records for account Bank").not());
+
+    cmd!(env, record create -A Cash 5 beer --category Bar).success();
+
+    cmd!(env, category show Bar -A Cash)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("€ -5.00"));
+
+    cmd!(env, category show Bar)
+        .success()
+        .stdout(str::contains("No associated records for account Cash").not())
+        .stdout(str::contains("No associated records for account Bank"))
+        .stdout(str::contains("€ -5.00"));
 
     Ok(())
 }

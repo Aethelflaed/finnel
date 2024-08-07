@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use std::cell::OnceCell;
 
 use finnel::{
+    account::QueryAccount,
     merchant::{
         change::{ChangeMerchant, ResolvedChangeMerchant},
         NewMerchant, QueryMerchant,
@@ -149,33 +150,41 @@ impl CommandContext<'_> {
 
                 println!();
                 if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
-                    let records = QueryRecord {
-                        account_id: Some(account.id),
-                        merchant_id: Some(Some(merchant.id)),
-                        ..Default::default()
-                    }
-                    .run(self.conn)?
-                    .into_iter()
-                    .map(RecordToDisplay::from)
-                    .collect::<Vec<_>>();
-
-                    let count = records.len();
-
-                    if count > 0 {
-                        println!(
-                            "{}",
-                            Table::new(records).with(Panel::header(format!(
-                                "{} associated records for account {}",
-                                count, account.name
-                            )))
-                        );
-                    } else {
-                        println!("No associated records for account {}", account.name);
-                    }
+                    self.show_merchant_records(&merchant, &account)?;
                 } else {
-                    println!("Specify an account to see associated records");
+                    for account in QueryAccount::default().run(self.conn)? {
+                        self.show_merchant_records(&merchant, &account)?;
+                    }
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    fn show_merchant_records(&mut self, merchant: &Merchant, account: &Account) -> Result<()> {
+        let records = QueryRecord {
+            account_id: Some(account.id),
+            merchant_id: Some(Some(merchant.id)),
+            ..Default::default()
+        }
+        .run(self.conn)?
+        .into_iter()
+        .map(RecordToDisplay::from)
+        .collect::<Vec<_>>();
+
+        let count = records.len();
+
+        if count > 0 {
+            println!(
+                "{}",
+                Table::new(records).with(Panel::header(format!(
+                    "{} associated records for account {}",
+                    count, account.name
+                )))
+            );
+        } else {
+            println!("No associated records for account {}", account.name);
         }
 
         Ok(())
