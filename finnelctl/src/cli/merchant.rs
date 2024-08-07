@@ -110,8 +110,8 @@ impl Create {
 
 #[derive(Args, Clone, Debug)]
 pub struct Update {
-    /// Name of the merchant to update
-    pub name: String,
+    #[command(flatten)]
+    pub identifier: Identifier,
 
     #[command(flatten)]
     pub args: UpdateArgs,
@@ -176,17 +176,17 @@ impl UpdateArgs {
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
+    #[command(flatten)]
+    pub identifier: Identifier,
+
     #[command(subcommand)]
     pub action: Option<Action>,
-
-    /// Name of the merchant to show
-    pub name: String,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Delete {
-    /// Name of the merchant to delete
-    pub name: String,
+    #[command(flatten)]
+    pub identifier: Identifier,
 
     /// Confirm deletion
     #[arg(long)]
@@ -273,6 +273,22 @@ impl ReplaceByArgs {
             Ok(Some(None))
         } else {
             Ok(None)
+        }
+    }
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct Identifier {
+    /// Name or id of the merchant
+    pub name_or_id: String,
+}
+
+impl Identifier {
+    pub fn find(&self, conn: &mut Conn) -> Result<Merchant> {
+        if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
+            Ok(Merchant::find(conn, self.name_or_id.parse()?)?)
+        } else {
+            Ok(Merchant::find_by_name(conn, &self.name_or_id)?)
         }
     }
 }

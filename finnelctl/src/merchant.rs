@@ -116,7 +116,8 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let mut merchant = Merchant::find_by_name(self.conn, &args.name)?;
+        //let mut merchant = Merchant::find_by_name(self.conn, &args.name)?;
+        let mut merchant = args.identifier.find(self.conn)?;
 
         match &args.action {
             Some(Action::Update(args)) => {
@@ -194,7 +195,7 @@ impl CommandContext<'_> {
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let merchant = Merchant::find_by_name(self.conn, &args.name)?;
+        let merchant = args.identifier.find(self.conn)?;
 
         ResolvedUpdateArgs::new(self.conn, &args.args)?
             .get(self.conn)?
@@ -206,7 +207,7 @@ impl CommandContext<'_> {
     }
 
     fn delete(&mut self, args: &Delete) -> Result<()> {
-        let mut merchant = Merchant::find_by_name(self.conn, &args.name)?;
+        let mut merchant = args.identifier.find(self.conn)?;
 
         if args.confirm && crate::utils::confirm()? {
             merchant.delete(self.conn)?;

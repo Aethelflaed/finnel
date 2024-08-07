@@ -117,7 +117,7 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, args: &Show) -> Result<()> {
-        let mut category = Category::find_by_name(self.conn, &args.name)?;
+        let mut category = args.identifier.find(self.conn)?;
 
         match &args.action {
             Some(Action::Update(args)) => {
@@ -192,7 +192,7 @@ impl CommandContext<'_> {
     }
 
     fn update(&mut self, args: &Update) -> Result<()> {
-        let category = Category::find_by_name(self.conn, &args.name)?;
+        let category = args.identifier.find(self.conn)?;
 
         ResolvedUpdateArgs::new(self.conn, &args.args)?
             .get(self.conn)?
@@ -204,7 +204,7 @@ impl CommandContext<'_> {
     }
 
     fn delete(&mut self, args: &Delete) -> Result<()> {
-        let mut category = Category::find_by_name(self.conn, &args.name)?;
+        let mut category = args.identifier.find(self.conn)?;
 
         if args.confirm && crate::utils::confirm()? {
             category.delete(self.conn)?;

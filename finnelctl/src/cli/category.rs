@@ -111,8 +111,8 @@ impl Create {
 
 #[derive(Args, Clone, Debug)]
 pub struct Update {
-    /// Name of the category to update
-    pub name: String,
+    #[command(flatten)]
+    pub identifier: Identifier,
 
     #[command(flatten)]
     pub args: UpdateArgs,
@@ -175,17 +175,17 @@ impl UpdateArgs {
 
 #[derive(Args, Clone, Debug)]
 pub struct Show {
+    #[command(flatten)]
+    pub identifier: Identifier,
+
     #[command(subcommand)]
     pub action: Option<Action>,
-
-    /// Name of the category to show
-    pub name: String,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct Delete {
-    /// Name of the category to delete
-    pub name: String,
+    #[command(flatten)]
+    pub identifier: Identifier,
 
     /// Confirm deletion
     #[arg(long)]
@@ -272,6 +272,22 @@ impl ParentArgs {
             Ok(Some(None))
         } else {
             Ok(None)
+        }
+    }
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct Identifier {
+    /// Name or id of the category
+    pub name_or_id: String,
+}
+
+impl Identifier {
+    pub fn find(&self, conn: &mut Conn) -> Result<Category> {
+        if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
+            Ok(Category::find(conn, self.name_or_id.parse()?)?)
+        } else {
+            Ok(Category::find_by_name(conn, &self.name_or_id)?)
         }
     }
 }

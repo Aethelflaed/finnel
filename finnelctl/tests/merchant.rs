@@ -47,7 +47,7 @@ fn show() -> Result<()> {
 
     cmd!(env, merchant show)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, merchant show Chariot)
         .failure()
@@ -59,6 +59,10 @@ fn show() -> Result<()> {
         .stdout(str::contains("1 | Chariot"))
         .stdout(str::contains("Specify an account"))
         .stdout(str::contains("Default category").not());
+
+    cmd!(env, merchant show 1)
+        .success()
+        .stdout(str::contains("1 | Chariot"));
 
     cmd!(env, category create Bar).success();
     cmd!(env, merchant show Chariot update --default_category Bar).success();
@@ -132,7 +136,7 @@ fn update() -> Result<()> {
 
     cmd!(env, merchant update)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, merchant update Chariot)
         .failure()
@@ -196,7 +200,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, merchant delete)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, merchant delete Chariot)
         .failure()

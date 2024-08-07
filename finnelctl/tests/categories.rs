@@ -47,7 +47,7 @@ fn show() -> Result<()> {
 
     cmd!(env, category show)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, category show Bar)
         .failure()
@@ -60,6 +60,10 @@ fn show() -> Result<()> {
         .stdout(str::contains("\n  Parent:").not())
         .stdout(str::contains("\n  Replaced by:").not())
         .stdout(str::contains("Specify an account"));
+
+    cmd!(env, category show 1)
+        .success()
+        .stdout(str::contains("1 | Bar"));
 
     cmd!(env, account create Cash).success();
     cmd!(env, category show Bar -A Cash)
@@ -112,7 +116,7 @@ fn update() -> Result<()> {
 
     cmd!(env, category update)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, category update Bar)
         .failure()
@@ -149,7 +153,7 @@ fn delete() -> Result<()> {
 
     cmd!(env, category delete)
         .failure()
-        .stderr(str::contains("  <NAME>"));
+        .stderr(str::contains("  <NAME_OR_ID>"));
 
     cmd!(env, category delete Bar)
         .failure()
