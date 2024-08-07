@@ -1,4 +1,4 @@
-use std::collections::BinaryHeap;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use super::{parse_date_fmt, parse_decimal, Importer, Options, Profile, RecordToImport};
@@ -9,7 +9,7 @@ use anyhow::Result;
 use regex::Regex;
 
 pub struct Logseq {
-    entries: BinaryHeap<PathBuf>,
+    entries: BTreeSet<PathBuf>,
     regex: Regex,
 }
 
@@ -17,7 +17,7 @@ const FORMAT: &str = "%Y_%m_%d.md";
 
 impl Logseq {
     pub fn new(options: &Options) -> Result<Self> {
-        let mut entries = BinaryHeap::new();
+        let mut entries = BTreeSet::new();
         let from = options.from.map(|d| d.format(FORMAT).to_string());
         let to = options.to.map(|d| d.format(FORMAT).to_string());
 
@@ -34,7 +34,7 @@ impl Logseq {
                         continue;
                     }
                 }
-                entries.push(entry.path());
+                entries.insert(entry.path());
             }
         }
 
