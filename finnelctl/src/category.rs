@@ -159,6 +159,8 @@ impl CommandContext<'_> {
             category_ids: Some(ids),
             ..Default::default()
         }
+        .with_category()
+        .with_merchant()
         .run(self.conn)?
         .into_iter()
         .map(RecordToDisplay::from)

@@ -48,12 +48,12 @@ pub fn consolidate_parent(conn: &mut Conn) -> Result<()> {
         )
         .filter(
             query::PARENTS
-            .field(categories::replaced_by_id)
-            .is_not_null(),
+                .field(categories::replaced_by_id)
+                .is_not_null(),
         )
         .select((
-                query::CATEGORIES_ALIAS.fields(categories::all_columns),
-                query::PARENTS.fields(categories::all_columns),
+            query::CATEGORIES_ALIAS.fields(categories::all_columns),
+            query::PARENTS.fields(categories::all_columns),
         ));
 
     for (category, parent) in query.load::<(Category, Category)>(conn)? {
@@ -62,7 +62,8 @@ pub fn consolidate_parent(conn: &mut Conn) -> Result<()> {
         ChangeCategory {
             parent: Some(Some(&parent)),
             ..Default::default()
-        }.save(conn, &category)?;
+        }
+        .save(conn, &category)?;
     }
 
     Ok(())
@@ -109,13 +110,15 @@ mod tests {
             name: "bar",
             parent: Some(&alcool),
             ..NewCategory::default()
-        }.save(conn)?;
+        }
+        .save(conn)?;
 
         let alcohol = test::category(conn, "alcohol")?;
         ChangeCategory {
             replaced_by: Some(Some(&alcohol)),
             ..ChangeCategory::default()
-        }.apply(conn, &mut alcool)?;
+        }
+        .apply(conn, &mut alcool)?;
 
         super::consolidate(conn)?;
 

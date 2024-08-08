@@ -1,11 +1,20 @@
 use crate::prelude::*;
-use crate::schema::records;
+use crate::schema::{categories, merchants, records};
 
 use chrono::{offset::Utc, DateTime};
 
 use diesel::{
-    expression::SqlLiteral, helper_types::*, prelude::*, sql_types::BigInt, sqlite::Sqlite,
+    expression::SqlLiteral,
+    helper_types::*,
+    prelude::*,
+    sql_types::BigInt,
+    sqlite::Sqlite,
 };
+
+diesel::alias! {
+    const CATEGORIES: Alias<Categories> = categories as categories_alias;
+    const CAT_PARENTS: Alias<CategoriesParent> = categories as categories_parent;
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum OrderField {
@@ -34,18 +43,29 @@ pub struct QueryRecord<'a> {
     pub details: Option<&'a str>,
     pub merchant_id: Option<Option<i64>>,
     pub category_id: Option<Option<i64>>,
-    pub category_ids: Option<&'a[i64]>,
+    pub category_ids: Option<&'a [i64]>,
     pub count: Option<i64>,
     pub order: Vec<(OrderField, OrderDirection)>,
 }
 
-type QueryRecordResult = (Record, Option<Category>, Option<Merchant>);
+pub struct QueryRecordWithCategory<'a>(QueryRecord<'a>);
+pub struct QueryRecordWithCategoryAndParent<'a>(QueryRecord<'a>);
+pub struct QueryRecordWithMerchant<'a>(QueryRecord<'a>);
+pub struct QueryRecordWithCategoryAndMerchant<'a>(QueryRecord<'a>);
+pub struct QueryRecordWithCategoryAndParentAndMerchant<'a>(QueryRecord<'a>);
+
+type RecordWithCategory<'a> = (Record, Option<Category>);
+type RecordWithCategoryAndParent<'a> = (Record, Option<Category>, Option<Category>);
+type RecordWithMerchant<'a> = (Record, Option<Merchant>);
+type RecordWithCategoryAndMerchant<'a> = (Record, Option<Category>, Option<Merchant>);
+type RecordWithCategoryAndParentAndMerchant<'a> =
+    (Record, Option<Category>, Option<Category>, Option<Merchant>);
 
 type QueryType<'a> =
     IntoBoxed<'a, Filter<records::table, Eq<records::account_id, SqlLiteral<BigInt>>>, Sqlite>;
 
-impl QueryRecord<'_> {
-    fn sort_by_column<'a, U>(
+impl<'a> QueryRecord<'a> {
+    fn sort_by_column<U>(
         query: QueryType<'a>,
         column: U,
         direction: &OrderDirection,
@@ -63,7 +83,7 @@ impl QueryRecord<'_> {
         }
     }
 
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<QueryRecordResult>> {
+    fn build(&'a self) -> Result<QueryType<'a>> {
         let Some(account_id) = self.account_id else {
             return Err(Error::Invalid("Missing account_id".to_owned()));
         };
@@ -119,9 +139,7 @@ impl QueryRecord<'_> {
 
         for (field, direction) in &self.order {
             query = match field {
-                OrderField::Amount => {
-                    Self::sort_by_column(query, records::amount, direction)
-                }
+                OrderField::Amount => Self::sort_by_column(query, records::amount, direction),
                 OrderField::Date => {
                     if self.operation_date {
                         Self::sort_by_column(query, records::operation_date, direction)
@@ -138,14 +156,138 @@ impl QueryRecord<'_> {
             };
         }
 
-        Ok(query
-            .left_join(crate::schema::categories::table)
-            .left_join(crate::schema::merchants::table)
+        Ok(query)
+    }
+
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<Record>> {
+        Ok(self
+            .build()?
+            .left_join(categories::table)
+            .left_join(merchants::table)
+            .select(
+                Record::as_select(),
+            )
+            .load::<Record>(conn)?)
+    }
+
+    pub fn with_category(self) -> QueryRecordWithCategory<'a> {
+        QueryRecordWithCategory(self)
+    }
+
+    pub fn with_merchant(self) -> QueryRecordWithMerchant<'a> {
+        QueryRecordWithMerchant(self)
+    }
+}
+
+impl<'a> QueryRecordWithCategory<'a> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategory>> {
+        Ok(self
+            .0
+            .build()?
+            .left_join(
+                CATEGORIES.on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+            )
             .select((
                 Record::as_select(),
-                Option::<Category>::as_select(),
+                CATEGORIES.fields(categories::all_columns.nullable()),
+            ))
+            .load::<RecordWithCategory>(conn)?)
+    }
+
+    pub fn with_merchant(self) -> QueryRecordWithCategoryAndMerchant<'a> {
+        QueryRecordWithCategoryAndMerchant(self.0)
+    }
+
+    pub fn with_parent(self) -> QueryRecordWithCategoryAndParent<'a> {
+        QueryRecordWithCategoryAndParent(self.0)
+    }
+}
+
+impl<'a> QueryRecordWithMerchant<'a> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithMerchant>> {
+        Ok(self
+            .0
+            .build()?
+            .left_join(merchants::table)
+            .select((Record::as_select(), Option::<Merchant>::as_select()))
+            .load::<RecordWithMerchant>(conn)?)
+    }
+
+    pub fn with_category(self) -> QueryRecordWithCategoryAndMerchant<'a> {
+        QueryRecordWithCategoryAndMerchant(self.0)
+    }
+}
+
+impl<'a> QueryRecordWithCategoryAndMerchant<'a> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndMerchant>> {
+        Ok(self
+            .0
+            .build()?
+            .left_join(
+                CATEGORIES.on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+            )
+            .left_join(merchants::table)
+            .select((
+                Record::as_select(),
+                CATEGORIES.fields(categories::all_columns.nullable()),
                 Option::<Merchant>::as_select(),
             ))
-            .load::<QueryRecordResult>(conn)?)
+            .load::<RecordWithCategoryAndMerchant>(conn)?)
+    }
+
+    pub fn with_parent(self) -> QueryRecordWithCategoryAndParent<'a> {
+        QueryRecordWithCategoryAndParent(self.0)
+    }
+}
+
+impl<'a> QueryRecordWithCategoryAndParent<'a> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndParent>> {
+        Ok(self
+            .0
+            .build()?
+            .left_join(
+                CATEGORIES
+                    .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                    .left_join(
+                        CAT_PARENTS.on(CATEGORIES
+                            .field(categories::parent_id)
+                            .eq(CAT_PARENTS.field(categories::id).nullable())),
+                    ),
+            )
+            .select((
+                Record::as_select(),
+                CATEGORIES.fields(categories::all_columns.nullable()),
+                CAT_PARENTS.fields(categories::all_columns.nullable()),
+            ))
+            .load::<RecordWithCategoryAndParent>(conn)?)
+    }
+
+    pub fn with_merchant(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
+        QueryRecordWithCategoryAndParentAndMerchant(self.0)
+    }
+}
+
+impl<'a> QueryRecordWithCategoryAndParentAndMerchant<'a> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndParentAndMerchant>> {
+        Ok(self
+            .0
+            .build()?
+            .left_join(
+                CATEGORIES
+                    .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                    .left_join(
+                        CAT_PARENTS.on(CATEGORIES
+                            .field(categories::parent_id)
+                            .eq(CAT_PARENTS.field(categories::id).nullable())),
+                    ),
+            )
+            .left_join(merchants::table)
+            .select((
+                Record::as_select(),
+                CATEGORIES.fields(categories::all_columns.nullable()),
+                CAT_PARENTS.fields(categories::all_columns.nullable()),
+                Option::<Merchant>::as_select(),
+            ))
+            .load::<RecordWithCategoryAndParentAndMerchant>(conn)?)
     }
 }

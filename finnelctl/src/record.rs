@@ -84,7 +84,7 @@ impl CommandContext<'_> {
             Some(Action::Update(args)) => {
                 let changes = ResolvedUpdateArgs::deferred(args);
 
-                for (record, _, _) in query.run(self.conn)? {
+                for record in query.run(self.conn)? {
                     changes
                         .get(self.conn)?
                         .validate(self.conn, &record)?
@@ -96,7 +96,7 @@ impl CommandContext<'_> {
                     anyhow::bail!("operation requires confirmation");
                 }
                 self.conn.transaction(|conn| {
-                    for (mut record, _, _) in query.run(conn)? {
+                    for mut record in query.run(conn)? {
                         record.delete(conn)?;
                     }
                     Result::<()>::Ok(())
@@ -104,6 +104,8 @@ impl CommandContext<'_> {
             }
             None => {
                 let records = query
+                    .with_category()
+                    .with_merchant()
                     .run(self.conn)?
                     .into_iter()
                     .map(RecordToDisplay::from)
