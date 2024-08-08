@@ -49,7 +49,6 @@ impl QueryRecord<'_> {
         query: QueryType<'a>,
         column: U,
         direction: &OrderDirection,
-        first: bool,
     ) -> QueryType<'a>
     where
         U: 'a
@@ -58,16 +57,9 @@ impl QueryRecord<'_> {
             + AppearsOnTable<records::table>
             + std::marker::Send,
     {
-        if first {
-            match direction {
-                OrderDirection::Asc => query.order_by(column.asc()),
-                OrderDirection::Desc => query.order_by(column.desc()),
-            }
-        } else {
-            match direction {
-                OrderDirection::Asc => query.then_order_by(column.asc()),
-                OrderDirection::Desc => query.then_order_by(column.desc()),
-            }
+        match direction {
+            OrderDirection::Asc => query.then_order_by(column.asc()),
+            OrderDirection::Desc => query.then_order_by(column.desc()),
         }
     }
 
@@ -125,28 +117,25 @@ impl QueryRecord<'_> {
             query = query.limit(count);
         }
 
-        let mut first_order = true;
         for (field, direction) in &self.order {
             query = match field {
                 OrderField::Amount => {
-                    Self::sort_by_column(query, records::amount, direction, first_order)
+                    Self::sort_by_column(query, records::amount, direction)
                 }
                 OrderField::Date => {
                     if self.operation_date {
-                        Self::sort_by_column(query, records::operation_date, direction, first_order)
+                        Self::sort_by_column(query, records::operation_date, direction)
                     } else {
-                        Self::sort_by_column(query, records::value_date, direction, first_order)
+                        Self::sort_by_column(query, records::value_date, direction)
                     }
                 }
                 OrderField::CategoryId => {
-                    Self::sort_by_column(query, records::category_id, direction, first_order)
+                    Self::sort_by_column(query, records::category_id, direction)
                 }
                 OrderField::MerchantId => {
-                    Self::sort_by_column(query, records::merchant_id, direction, first_order)
+                    Self::sort_by_column(query, records::merchant_id, direction)
                 }
             };
-
-            first_order = false;
         }
 
         Ok(query
