@@ -13,10 +13,9 @@ use finnel::{
 
 use crate::cli::merchant::*;
 use crate::config::Config;
-use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{builder::Builder as TableBuilder, settings::Panel, Table};
+use tabled::{builder::Builder as TableBuilder, settings::Panel};
 
 struct CommandContext<'a> {
     config: &'a Config,
@@ -70,11 +69,11 @@ impl CommandContext<'_> {
             }
             None => {
                 let mut builder = TableBuilder::new();
-                table_push_columns!(builder, "id", "name", "default category", "replaced by");
+                table_push_row_elements!(builder, "id", "name", "default category", "replaced by");
                 for (merchant, default_category, replacer) in
                     query.with_replacer().with_category().run(self.conn)?
                 {
-                    table_push_columns!(
+                    table_push_row_elements!(
                         builder,
                         merchant.id,
                         merchant.name,
@@ -122,7 +121,6 @@ impl CommandContext<'_> {
                     println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
                 }
 
-                println!();
                 if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
                     self.show_merchant_records(&merchant, &account)?;
                 } else {
@@ -137,24 +135,26 @@ impl CommandContext<'_> {
     }
 
     fn show_merchant_records(&mut self, merchant: &Merchant, account: &Account) -> Result<()> {
-        let records = QueryRecord {
+        println!();
+        let query = QueryRecord {
             account_id: Some(account.id),
             merchant_id: Some(Some(merchant.id)),
             ..Default::default()
         }
-        .with_category()
-        .with_merchant()
-        .run(self.conn)?
-        .into_iter()
-        .map(RecordToDisplay::from)
-        .collect::<Vec<_>>();
+        .with_category();
 
-        let count = records.len();
+        let mut builder = TableBuilder::new();
+        table_push_row!(builder, query.type_marker());
+        for result in query.run(self.conn)? {
+            table_push_row!(builder, result);
+        }
+
+        let count = builder.count_records() - 1;
 
         if count > 0 {
             println!(
                 "{}",
-                Table::new(records).with(Panel::header(format!(
+                builder.build().with(Panel::header(format!(
                     "{} associated records for account {}",
                     count, account.name
                 )))

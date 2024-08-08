@@ -41,10 +41,10 @@ impl CommandContext<'_> {
 
     fn list(&mut self, _args: &List) -> Result<()> {
         let mut builder = TableBuilder::new();
-        table_push_columns!(builder, "id", "name", "balance");
+        table_push_row_elements!(builder, "id", "name", "balance");
 
         for account in QueryAccount::default().run(self.conn)? {
-            table_push_columns!(builder, account.id, account.name, account.balance());
+            table_push_row_elements!(builder, account.id, account.name, account.balance());
         }
 
         println!("{}", builder.build());

@@ -1,36 +1,134 @@
-use finnel::prelude::*;
+use std::marker::PhantomData;
+
+use finnel::{
+    prelude::*,
+    record::query::{
+        RecordWithCategory, RecordWithCategoryAndMerchant, RecordWithCategoryAndParentAndMerchant,
+    },
+};
 
 use chrono::{DateTime, Utc};
 
-macro_rules! table_push_columns {
+macro_rules! table_push_row_elements {
     ( $builder:ident, $($col:expr),* $(,)? ) => {
         {
-            use crate::utils::table_display::ColumnDisplay;
-            $builder.push_record([$(ColumnDisplay::to_column(&$col),)*])
+            use crate::utils::table_display::RowElementDisplay;
+            $builder.push_record([$(RowElementDisplay::to_row_element(&$col),)*])
         }
     }
 }
 
-pub trait ColumnDisplay {
-    fn to_column(&self) -> String;
+macro_rules! table_push_row {
+    ( $builder:ident, $row:expr ) => {{
+        use crate::utils::table_display::RowDisplay;
+        $builder.push_record(RowDisplay::to_row(&$row))
+    }};
 }
 
-impl ColumnDisplay for (Amount, Direction) {
-    fn to_column(&self) -> String {
-        let mut amount = self.0.clone();
+pub trait RowDisplay {
+    fn to_row(&self) -> Vec<String>;
+}
+
+impl RowDisplay for Record {
+    fn to_row(&self) -> Vec<String> {
+        vec![
+            self.id.to_row_element(),
+            (self.amount(), self.direction).to_row_element(),
+            self.mode.to_row_element(),
+            self.operation_date.to_row_element(),
+            self.value_date.to_row_element(),
+            self.details.to_row_element(),
+        ]
+    }
+}
+
+impl RowDisplay for PhantomData<Record> {
+    fn to_row(&self) -> Vec<String> {
+        [
+            "id",
+            "amount",
+            "mode",
+            "operation date",
+            "value date",
+            "details",
+        ]
+        .map(str::to_owned)
+        .into_iter()
+        .collect()
+    }
+}
+
+impl RowDisplay for RecordWithCategory<'_> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = self.0.to_row();
+        vec.extend([self.1.to_row_element()]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RecordWithCategory<'_>> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = PhantomData::<Record>.to_row();
+        vec.extend(["category"].map(str::to_owned));
+        vec
+    }
+}
+
+impl RowDisplay for RecordWithCategoryAndMerchant<'_> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = self.0.to_row();
+        vec.extend([self.1.to_row_element(), self.2.to_row_element()]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RecordWithCategoryAndMerchant<'_>> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = PhantomData::<Record>.to_row();
+        vec.extend(["category", "merchant"].map(str::to_owned));
+        vec
+    }
+}
+
+impl RowDisplay for RecordWithCategoryAndParentAndMerchant<'_> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = self.0.to_row();
+        vec.extend([
+            (self.1.as_ref(), self.2.as_ref()).to_row_element(),
+            self.3.to_row_element(),
+        ]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RecordWithCategoryAndParentAndMerchant<'_>> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = PhantomData::<Record>.to_row();
+        vec.extend(["categories", "merchant"].map(str::to_owned));
+        vec
+    }
+}
+
+pub trait RowElementDisplay {
+    fn to_row_element(&self) -> String;
+}
+
+impl RowElementDisplay for (Amount, Direction) {
+    fn to_row_element(&self) -> String {
+        let mut amount = self.0;
         amount.0.set_sign_negative(self.1.is_debit());
         amount.to_string()
     }
 }
 
-impl ColumnDisplay for Option<Category> {
-    fn to_column(&self) -> String {
-        self.as_ref().map(|c| c.name.clone()).to_column()
+impl RowElementDisplay for Option<Category> {
+    fn to_row_element(&self) -> String {
+        self.as_ref().map(|c| c.name.clone()).to_row_element()
     }
 }
 
-impl ColumnDisplay for (Option<Category>, Option<Category>) {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for (Option<Category>, Option<Category>) {
+    fn to_row_element(&self) -> String {
         if let Some(category) = &self.0 {
             if let Some(parent) = &self.1 {
                 format!("{}, {}", category.name, parent.name)
@@ -43,50 +141,64 @@ impl ColumnDisplay for (Option<Category>, Option<Category>) {
     }
 }
 
-impl ColumnDisplay for Option<Merchant> {
-    fn to_column(&self) -> String {
-        self.as_ref().map(|c| c.name.clone()).to_column()
+impl RowElementDisplay for (Option<&Category>, Option<&Category>) {
+    fn to_row_element(&self) -> String {
+        if let Some(category) = &self.0 {
+            if let Some(parent) = &self.1 {
+                format!("{}, {}", category.name, parent.name)
+            } else {
+                category.name.clone()
+            }
+        } else {
+            String::new()
+        }
     }
 }
 
-impl ColumnDisplay for Option<String> {
-    fn to_column(&self) -> String {
-        self.clone().unwrap_or_else(String::default)
+impl RowElementDisplay for Option<Merchant> {
+    fn to_row_element(&self) -> String {
+        self.as_ref().map(|c| c.name.clone()).to_row_element()
     }
 }
 
-impl ColumnDisplay for String {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for Option<String> {
+    fn to_row_element(&self) -> String {
+        self.clone().unwrap_or_default()
+    }
+}
+
+impl RowElementDisplay for String {
+    fn to_row_element(&self) -> String {
         self.clone()
     }
 }
 
-impl ColumnDisplay for &str {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for &str {
+    fn to_row_element(&self) -> String {
         self.to_string()
     }
 }
 
-impl ColumnDisplay for i64 {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for i64 {
+    fn to_row_element(&self) -> String {
         self.to_string()
     }
 }
 
-impl ColumnDisplay for Amount {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for Amount {
+    fn to_row_element(&self) -> String {
         self.to_string()
     }
 }
 
-impl ColumnDisplay for Mode {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for Mode {
+    fn to_row_element(&self) -> String {
         self.to_string()
     }
 }
 
-impl ColumnDisplay for DateTime<Utc> {
-    fn to_column(&self) -> String {
+impl RowElementDisplay for DateTime<Utc> {
+    fn to_row_element(&self) -> String {
         self.date_naive().to_string()
     }
 }

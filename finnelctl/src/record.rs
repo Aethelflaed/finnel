@@ -3,7 +3,6 @@ use std::cell::OnceCell;
 
 use crate::cli::record::*;
 use crate::config::Config;
-use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
 use finnel::{
@@ -14,9 +13,8 @@ use finnel::{
     },
 };
 
-use tabled::{builder::Builder as TableBuilder, Table};
+use tabled::builder::Builder as TableBuilder;
 
-pub mod display;
 mod import;
 
 struct CommandContext<'a> {
@@ -103,37 +101,12 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
+                let query = query.with_category().with_merchant().with_parent();
+
                 let mut builder = TableBuilder::new();
-
-                table_push_columns!(
-                    builder,
-                    "id",
-                    "amount",
-                    "mode",
-                    "operation date",
-                    "value date",
-                    "details",
-                    "category",
-                    "merchant"
-                );
-
-                for (record, category, parent, merchant) in query
-                    .with_category()
-                    .with_merchant()
-                    .with_parent()
-                    .run(self.conn)?
-                {
-                    table_push_columns!(
-                        builder,
-                        record.id,
-                        (record.amount(), record.direction),
-                        record.mode,
-                        record.operation_date,
-                        record.value_date,
-                        record.details,
-                        (category, parent),
-                        merchant,
-                    );
+                table_push_row!(builder, query.type_marker());
+                for result in query.run(self.conn)? {
+                    table_push_row!(builder, result);
                 }
 
                 println!("{}", builder.build());
@@ -164,10 +137,12 @@ impl CommandContext<'_> {
             None => {
                 let category = record.fetch_category(self.conn)?;
                 let merchant = record.fetch_merchant(self.conn)?;
-                println!(
-                    "{}",
-                    Table::new(vec![RecordToDisplay::from((record, category, merchant,))])
-                );
+
+                let mut builder = TableBuilder::new();
+                table_push_row!(builder, std::marker::PhantomData::<(Record, Option<Category>, Option<Merchant>)>);
+                table_push_row!(builder, (record, category, merchant));
+
+                println!("{}", builder.build());
             }
         }
         Ok(())

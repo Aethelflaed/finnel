@@ -13,10 +13,9 @@ use finnel::{
 
 use crate::cli::category::*;
 use crate::config::Config;
-use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{builder::Builder as TableBuilder, settings::Panel, Table};
+use tabled::{builder::Builder as TableBuilder, settings::Panel};
 
 struct CommandContext<'a> {
     config: &'a Config,
@@ -71,12 +70,12 @@ impl CommandContext<'_> {
             }
             None => {
                 let mut builder = TableBuilder::new();
-                table_push_columns!(builder, "id", "name", "parent", "replaced by");
+                table_push_row_elements!(builder, "id", "name", "parent", "replaced by");
 
                 for (category, parent, replacer) in
                     query.with_parent().with_replacer().run(self.conn)?
                 {
-                    table_push_columns!(builder, category.id, category.name, parent, replacer,)
+                    table_push_row_elements!(builder, category.id, category.name, parent, replacer);
                 }
 
                 println!("{}", builder.build());
@@ -117,7 +116,7 @@ impl CommandContext<'_> {
                 }
 
                 let mut builder = TableBuilder::new();
-                table_push_columns!(builder, "id", "name", "replaced by");
+                table_push_row_elements!(builder, "id", "name", "replaced by");
                 for (child, replacer) in (QueryCategory {
                     parent_id: Some(Some(category.id)),
                     ..QueryCategory::default()
@@ -126,10 +125,10 @@ impl CommandContext<'_> {
                 .run(self.conn)?
                 {
                     ids.push(child.id);
-                    table_push_columns!(builder, child.id, child.name, replacer)
+                    table_push_row_elements!(builder, child.id, child.name, replacer);
                 }
 
-                if !builder.count_columns() > 0 {
+                if builder.count_records() > 1 {
                     println!("Children:\n{}", builder.build());
                 }
 
@@ -148,24 +147,26 @@ impl CommandContext<'_> {
 
     fn show_category_records(&mut self, ids: &Vec<i64>, account: &Account) -> Result<()> {
         println!();
-        let records = QueryRecord {
+        let query = QueryRecord {
             account_id: Some(account.id),
             category_ids: Some(ids),
             ..Default::default()
         }
         .with_category()
-        .with_merchant()
-        .run(self.conn)?
-        .into_iter()
-        .map(RecordToDisplay::from)
-        .collect::<Vec<_>>();
+        .with_merchant();
 
-        let count = records.len();
+        let mut builder = TableBuilder::new();
+        table_push_row!(builder, query.type_marker());
+        for result in query.run(self.conn)? {
+            table_push_row!(builder, result);
+        }
+
+        let count = builder.count_records() - 1;
 
         if count > 0 {
             println!(
                 "{}",
-                Table::new(records).with(Panel::header(format!(
+                builder.build().with(Panel::header(format!(
                     "{} associated records for account {}",
                     count, account.name
                 )))

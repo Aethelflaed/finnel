@@ -8,7 +8,7 @@ use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::N
 
 use anyhow::Result;
 use chrono::{offset::Utc, DateTime, NaiveDate};
-use tabled::Table;
+use tabled::builder::Builder as TableBuilder;
 
 mod profile;
 use profile::{Information, Profile};
@@ -74,17 +74,19 @@ pub fn run(
         }?;
 
         if options.print {
-            let records_to_display = records
-                .into_iter()
-                .map(|record| {
-                    let category = record.fetch_category(conn)?;
-                    let merchant = record.fetch_merchant(conn)?;
-                    Ok(crate::record::RecordToDisplay::from((
-                        record, category, merchant,
-                    )))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            println!("{}", Table::new(records_to_display));
+            let mut builder = TableBuilder::new();
+            table_push_row!(
+                builder,
+                std::marker::PhantomData::<(Record, Option<Category>, Option<Merchant>)>
+            );
+
+            for record in records {
+                let category = record.fetch_category(conn)?;
+                let merchant = record.fetch_merchant(conn)?;
+
+                table_push_row!(builder, (record, category, merchant));
+            }
+            println!("{}", builder.build());
         }
 
         if options.pretend {

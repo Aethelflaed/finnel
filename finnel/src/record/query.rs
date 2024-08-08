@@ -4,11 +4,7 @@ use crate::schema::{categories, merchants, records};
 use chrono::{offset::Utc, DateTime};
 
 use diesel::{
-    expression::SqlLiteral,
-    helper_types::*,
-    prelude::*,
-    sql_types::BigInt,
-    sqlite::Sqlite,
+    expression::SqlLiteral, helper_types::*, prelude::*, sql_types::BigInt, sqlite::Sqlite,
 };
 
 diesel::alias! {
@@ -54,11 +50,11 @@ pub struct QueryRecordWithMerchant<'a>(QueryRecord<'a>);
 pub struct QueryRecordWithCategoryAndMerchant<'a>(QueryRecord<'a>);
 pub struct QueryRecordWithCategoryAndParentAndMerchant<'a>(QueryRecord<'a>);
 
-type RecordWithCategory<'a> = (Record, Option<Category>);
-type RecordWithCategoryAndParent<'a> = (Record, Option<Category>, Option<Category>);
-type RecordWithMerchant<'a> = (Record, Option<Merchant>);
-type RecordWithCategoryAndMerchant<'a> = (Record, Option<Category>, Option<Merchant>);
-type RecordWithCategoryAndParentAndMerchant<'a> =
+pub type RecordWithCategory<'a> = (Record, Option<Category>);
+pub type RecordWithCategoryAndParent<'a> = (Record, Option<Category>, Option<Category>);
+pub type RecordWithMerchant<'a> = (Record, Option<Merchant>);
+pub type RecordWithCategoryAndMerchant<'a> = (Record, Option<Category>, Option<Merchant>);
+pub type RecordWithCategoryAndParentAndMerchant<'a> =
     (Record, Option<Category>, Option<Category>, Option<Merchant>);
 
 type QueryType<'a> =
@@ -164,10 +160,12 @@ impl<'a> QueryRecord<'a> {
             .build()?
             .left_join(categories::table)
             .left_join(merchants::table)
-            .select(
-                Record::as_select(),
-            )
+            .select(Record::as_select())
             .load::<Record>(conn)?)
+    }
+
+    pub fn type_marker(&self) -> std::marker::PhantomData<Record> {
+        Default::default()
     }
 
     pub fn with_category(self) -> QueryRecordWithCategory<'a> {
@@ -194,6 +192,10 @@ impl<'a> QueryRecordWithCategory<'a> {
             .load::<RecordWithCategory>(conn)?)
     }
 
+    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategory> {
+        Default::default()
+    }
+
     pub fn with_merchant(self) -> QueryRecordWithCategoryAndMerchant<'a> {
         QueryRecordWithCategoryAndMerchant(self.0)
     }
@@ -211,6 +213,10 @@ impl<'a> QueryRecordWithMerchant<'a> {
             .left_join(merchants::table)
             .select((Record::as_select(), Option::<Merchant>::as_select()))
             .load::<RecordWithMerchant>(conn)?)
+    }
+
+    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithMerchant> {
+        Default::default()
     }
 
     pub fn with_category(self) -> QueryRecordWithCategoryAndMerchant<'a> {
@@ -233,6 +239,10 @@ impl<'a> QueryRecordWithCategoryAndMerchant<'a> {
                 Option::<Merchant>::as_select(),
             ))
             .load::<RecordWithCategoryAndMerchant>(conn)?)
+    }
+
+    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndMerchant> {
+        Default::default()
     }
 
     pub fn with_parent(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
@@ -262,6 +272,10 @@ impl<'a> QueryRecordWithCategoryAndParent<'a> {
             .load::<RecordWithCategoryAndParent>(conn)?)
     }
 
+    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndParent> {
+        Default::default()
+    }
+
     pub fn with_merchant(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
         QueryRecordWithCategoryAndParentAndMerchant(self.0)
     }
@@ -289,5 +303,9 @@ impl<'a> QueryRecordWithCategoryAndParentAndMerchant<'a> {
                 Option::<Merchant>::as_select(),
             ))
             .load::<RecordWithCategoryAndParentAndMerchant>(conn)?)
+    }
+
+    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndParentAndMerchant> {
+        Default::default()
     }
 }
