@@ -76,13 +76,7 @@ impl CommandContext<'_> {
                 for (category, parent, replacer) in
                     query.with_parent().with_replacer().run(self.conn)?
                 {
-                    push_record!(
-                        builder,
-                        category.id,
-                        category.name,
-                        parent.map(|c| c.name),
-                        replacer.map(|c| c.name),
-                    )
+                    push_record!(builder, category.id, category.name, parent, replacer,)
                 }
 
                 println!("{}", builder.build());
@@ -132,7 +126,7 @@ impl CommandContext<'_> {
                 .run(self.conn)?
                 {
                     ids.push(child.id);
-                    push_record!(builder, child.id, child.name, replacer.map(|c| c.name),)
+                    push_record!(builder, child.id, child.name, replacer)
                 }
 
                 if !builder.count_columns() > 0 {

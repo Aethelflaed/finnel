@@ -235,8 +235,8 @@ impl<'a> QueryRecordWithCategoryAndMerchant<'a> {
             .load::<RecordWithCategoryAndMerchant>(conn)?)
     }
 
-    pub fn with_parent(self) -> QueryRecordWithCategoryAndParent<'a> {
-        QueryRecordWithCategoryAndParent(self.0)
+    pub fn with_parent(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
+        QueryRecordWithCategoryAndParentAndMerchant(self.0)
     }
 }
 

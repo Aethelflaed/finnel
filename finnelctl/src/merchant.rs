@@ -78,8 +78,8 @@ impl CommandContext<'_> {
                         builder,
                         merchant.id,
                         merchant.name,
-                        default_category.map(|c| c.name),
-                        replacer.map(|m| m.name),
+                        default_category,
+                        replacer,
                     );
                 }
 

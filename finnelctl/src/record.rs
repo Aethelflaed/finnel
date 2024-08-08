@@ -14,7 +14,7 @@ use finnel::{
     },
 };
 
-use tabled::Table;
+use tabled::{builder::Builder as TableBuilder, Table};
 
 pub mod display;
 mod import;
@@ -103,15 +103,40 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
-                let records = query
+                let mut builder = TableBuilder::new();
+
+                push_record!(
+                    builder,
+                    "id",
+                    "amount",
+                    "mode",
+                    "operation date",
+                    "value date",
+                    "details",
+                    "category",
+                    "merchant"
+                );
+
+                for (record, category, parent, merchant) in query
                     .with_category()
                     .with_merchant()
+                    .with_parent()
                     .run(self.conn)?
-                    .into_iter()
-                    .map(RecordToDisplay::from)
-                    .collect::<Vec<_>>();
+                {
+                    push_record!(
+                        builder,
+                        record.id,
+                        (record.amount(), record.direction),
+                        record.mode,
+                        record.operation_date,
+                        record.value_date,
+                        record.details,
+                        (category, parent),
+                        merchant,
+                    );
+                }
 
-                println!("{}", Table::new(records));
+                println!("{}", builder.build());
             }
         }
 
