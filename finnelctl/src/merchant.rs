@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use std::borrow::Cow;
 use std::cell::OnceCell;
 
 use finnel::{
@@ -17,42 +16,11 @@ use crate::config::Config;
 use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{settings::Panel, Table, Tabled};
+use tabled::{builder::Builder as TableBuilder, settings::Panel, Table};
 
 struct CommandContext<'a> {
     config: &'a Config,
     conn: &'a mut Database,
-}
-
-#[derive(derive_more::From)]
-struct MerchantToDisplay(Merchant, Option<Category>, Option<Merchant>);
-
-impl Tabled for MerchantToDisplay {
-    const LENGTH: usize = 2;
-
-    fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![
-            self.0.id.to_string().into(),
-            self.0.name.clone().into(),
-            self.1
-                .as_ref()
-                .map(|c| c.name.clone().into())
-                .unwrap_or("".into()),
-            self.2
-                .as_ref()
-                .map(|c| c.name.clone().into())
-                .unwrap_or("".into()),
-        ]
-    }
-
-    fn headers() -> Vec<Cow<'static, str>> {
-        vec![
-            "id".into(),
-            "name".into(),
-            "default category".into(),
-            "replaced by".into(),
-        ]
-    }
 }
 
 pub fn run(config: &Config, command: &Command) -> Result<()> {
@@ -101,15 +69,21 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
-                let merchants = query
-                    .with_replacer()
-                    .with_category()
-                    .run(self.conn)?
-                    .into_iter()
-                    .map(MerchantToDisplay::from)
-                    .collect::<Vec<_>>();
+                let mut builder = TableBuilder::new();
+                push_record!(builder, "id", "name", "default category", "replaced by");
+                for (merchant, default_category, replacer) in
+                    query.with_replacer().with_category().run(self.conn)?
+                {
+                    push_record!(
+                        builder,
+                        merchant.id,
+                        merchant.name,
+                        default_category.map(|c| c.name),
+                        replacer.map(|m| m.name),
+                    );
+                }
 
-                println!("{}", Table::new(merchants));
+                println!("{}", builder.build());
             }
         }
 

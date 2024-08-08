@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use std::borrow::Cow;
 use std::cell::OnceCell;
 
 use finnel::{
@@ -17,42 +16,11 @@ use crate::config::Config;
 use crate::record::display::RecordToDisplay;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{settings::Panel, Table, Tabled};
+use tabled::{builder::Builder as TableBuilder, settings::Panel, Table};
 
 struct CommandContext<'a> {
     config: &'a Config,
     conn: &'a mut Database,
-}
-
-#[derive(derive_more::From)]
-struct CategoryToDisplay(Category, Option<Category>, Option<Category>);
-
-impl Tabled for CategoryToDisplay {
-    const LENGTH: usize = 2;
-
-    fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![
-            self.0.id.to_string().into(),
-            self.0.name.clone().into(),
-            self.1
-                .as_ref()
-                .map(|c| c.name.clone().into())
-                .unwrap_or("".into()),
-            self.2
-                .as_ref()
-                .map(|c| c.name.clone().into())
-                .unwrap_or("".into()),
-        ]
-    }
-
-    fn headers() -> Vec<Cow<'static, str>> {
-        vec![
-            "id".into(),
-            "name".into(),
-            "parent".into(),
-            "replaced by".into(),
-        ]
-    }
 }
 
 pub fn run(config: &Config, command: &Command) -> Result<()> {
@@ -102,15 +70,22 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
-                let categories = query
-                    .with_parent()
-                    .with_replacer()
-                    .run(self.conn)?
-                    .into_iter()
-                    .map(CategoryToDisplay::from)
-                    .collect::<Vec<_>>();
+                let mut builder = TableBuilder::new();
+                builder.push_record(["id", "name", "parent", "replaced by"]);
 
-                println!("{}", Table::new(categories));
+                for (category, parent, replacer) in
+                    query.with_parent().with_replacer().run(self.conn)?
+                {
+                    push_record!(
+                        builder,
+                        category.id,
+                        category.name,
+                        parent.map(|c| c.name),
+                        replacer.map(|c| c.name),
+                    )
+                }
+
+                println!("{}", builder.build());
             }
         }
 
@@ -147,21 +122,21 @@ impl CommandContext<'_> {
                     println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
                 }
 
-                let mut children = vec![];
-                for child in (QueryCategory {
+                let mut builder = TableBuilder::new();
+                builder.push_record(["id", "name", "replaced by"]);
+                for (child, replacer) in (QueryCategory {
                     parent_id: Some(Some(category.id)),
                     ..QueryCategory::default()
                 })
-                .with_parent()
                 .with_replacer()
                 .run(self.conn)?
                 {
-                    ids.push(child.0.id);
-                    children.push(CategoryToDisplay::from(child));
+                    ids.push(child.id);
+                    push_record!(builder, child.id, child.name, replacer.map(|c| c.name),)
                 }
 
-                if !children.is_empty() {
-                    println!("{}", Table::new(children));
+                if !builder.count_columns() > 0 {
+                    println!("Children:\n{}", builder.build());
                 }
 
                 if let Ok(Some(account)) = self.config.account_or_default(self.conn) {

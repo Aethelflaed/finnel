@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::borrow::Cow;
 
 use finnel::{
     account::{NewAccount, QueryAccount},
@@ -9,30 +8,11 @@ use finnel::{
 use crate::cli::account::*;
 use crate::config::Config;
 
-use tabled::{Table, Tabled};
+use tabled::builder::Builder as TableBuilder;
 
 struct CommandContext<'a> {
     config: &'a Config,
     conn: &'a mut Database,
-}
-
-#[derive(derive_more::From)]
-struct AccountToDisplay(Account);
-
-impl Tabled for AccountToDisplay {
-    const LENGTH: usize = 3;
-
-    fn fields(&self) -> Vec<Cow<'_, str>> {
-        vec![
-            self.0.id.to_string().into(),
-            self.0.name.clone().into(),
-            self.0.balance().to_string().into(),
-        ]
-    }
-
-    fn headers() -> Vec<Cow<'static, str>> {
-        vec!["id".into(), "name".into(), "balance".into()]
-    }
 }
 
 pub fn run(config: &Config, command: &Command) -> Result<()> {
@@ -60,13 +40,14 @@ impl CommandContext<'_> {
     }
 
     fn list(&mut self, _args: &List) -> Result<()> {
-        let accounts = QueryAccount::default()
-            .run(self.conn)?
-            .into_iter()
-            .map(AccountToDisplay::from)
-            .collect::<Vec<_>>();
+        let mut builder = TableBuilder::new();
+        push_record!(builder, "id", "name", "balance");
 
-        println!("{}", Table::new(accounts));
+        for account in QueryAccount::default().run(self.conn)? {
+            push_record!(builder, account.id, account.name, account.balance());
+        }
+
+        println!("{}", builder.build());
 
         Ok(())
     }

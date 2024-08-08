@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+#[macro_use]
 mod utils;
 
 mod account;

@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod table_display;
+
 use anyhow::{Context, Result};
 use chrono::{
     offset::{Local, MappedLocalTime, Utc},
