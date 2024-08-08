@@ -70,11 +70,11 @@ impl CommandContext<'_> {
             }
             None => {
                 let mut builder = TableBuilder::new();
-                push_record!(builder, "id", "name", "default category", "replaced by");
+                table_push_columns!(builder, "id", "name", "default category", "replaced by");
                 for (merchant, default_category, replacer) in
                     query.with_replacer().with_category().run(self.conn)?
                 {
-                    push_record!(
+                    table_push_columns!(
                         builder,
                         merchant.id,
                         merchant.name,

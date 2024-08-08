@@ -71,12 +71,12 @@ impl CommandContext<'_> {
             }
             None => {
                 let mut builder = TableBuilder::new();
-                builder.push_record(["id", "name", "parent", "replaced by"]);
+                table_push_columns!(builder, "id", "name", "parent", "replaced by");
 
                 for (category, parent, replacer) in
                     query.with_parent().with_replacer().run(self.conn)?
                 {
-                    push_record!(builder, category.id, category.name, parent, replacer,)
+                    table_push_columns!(builder, category.id, category.name, parent, replacer,)
                 }
 
                 println!("{}", builder.build());
@@ -117,7 +117,7 @@ impl CommandContext<'_> {
                 }
 
                 let mut builder = TableBuilder::new();
-                builder.push_record(["id", "name", "replaced by"]);
+                table_push_columns!(builder, "id", "name", "replaced by");
                 for (child, replacer) in (QueryCategory {
                     parent_id: Some(Some(category.id)),
                     ..QueryCategory::default()
@@ -126,7 +126,7 @@ impl CommandContext<'_> {
                 .run(self.conn)?
                 {
                     ids.push(child.id);
-                    push_record!(builder, child.id, child.name, replacer)
+                    table_push_columns!(builder, child.id, child.name, replacer)
                 }
 
                 if !builder.count_columns() > 0 {

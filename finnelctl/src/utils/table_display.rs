@@ -2,7 +2,7 @@ use finnel::prelude::*;
 
 use chrono::{DateTime, Utc};
 
-macro_rules! push_record {
+macro_rules! table_push_columns {
     ( $builder:ident, $($col:expr),* $(,)? ) => {
         {
             use crate::utils::table_display::ColumnDisplay;

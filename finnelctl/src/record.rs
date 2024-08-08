@@ -105,7 +105,7 @@ impl CommandContext<'_> {
             None => {
                 let mut builder = TableBuilder::new();
 
-                push_record!(
+                table_push_columns!(
                     builder,
                     "id",
                     "amount",
@@ -123,7 +123,7 @@ impl CommandContext<'_> {
                     .with_parent()
                     .run(self.conn)?
                 {
-                    push_record!(
+                    table_push_columns!(
                         builder,
                         record.id,
                         (record.amount(), record.direction),
