@@ -4,6 +4,7 @@ use anyhow::Result;
 mod utils;
 
 mod account;
+mod calendar;
 mod category;
 mod cli;
 mod config;
@@ -25,6 +26,7 @@ fn main() -> Result<()> {
             Commands::Record(cmd) => record::run(&config, cmd)?,
             Commands::Category(cmd) => category::run(&config, cmd)?,
             Commands::Merchant(cmd) => merchant::run(&config, cmd)?,
+            Commands::Calendar(cmd) => calendar::run(&config, cmd)?,
             Commands::Consolidate { .. } => {
                 let conn = &mut config.database()?;
 

@@ -139,7 +139,10 @@ impl CommandContext<'_> {
                 let merchant = record.fetch_merchant(self.conn)?;
 
                 let mut builder = TableBuilder::new();
-                table_push_row!(builder, std::marker::PhantomData::<(Record, Option<Category>, Option<Merchant>)>);
+                table_push_row!(
+                    builder,
+                    std::marker::PhantomData::<(Record, Option<Category>, Option<Merchant>)>
+                );
                 table_push_row!(builder, (record, category, merchant));
 
                 println!("{}", builder.build());
