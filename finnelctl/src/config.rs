@@ -59,6 +59,10 @@ impl Config {
         })
     }
 
+    pub fn log_level_filter(&self) -> log::LevelFilter {
+        self.cli.verbose.log_level_filter()
+    }
+
     pub fn account_name(&self) -> Option<&str> {
         self.cli.account.as_deref()
     }

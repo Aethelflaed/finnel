@@ -64,7 +64,8 @@ impl CommandContext<'_> {
                             Ok(Some(
                                 NaiveDate::from_ymd_opt(date.year(), date.month(), index - offset)
                                     .ok_or(anyhow::anyhow!(
-                                        "Cannot compute day {}", index - offset
+                                        "Cannot compute day {}",
+                                        index - offset
                                     ))?,
                             ))
                         }

@@ -7,7 +7,7 @@ use finnel::{
     },
 };
 
-use chrono::{NaiveDate, DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 
 macro_rules! table_push_row_elements {
     ( $builder:ident, $($col:expr),* $(,)? ) => {

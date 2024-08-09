@@ -12,8 +12,11 @@ clap = { version = "4.5.4", features = ["string"] }
 clap-verbosity-flag = "2.2.0"
 csv = "1.3.0"
 derive_more = "0.99.18"
+env_logger = "0.11.5"
 finnel = { path = "../finnel" }
+log = "0.4.22"
 regex = "1.10.5"
+systemd-journal-logger = "2.1.1"
 tabled = "0.15.0"
 toml = "0.8.14"
 xdg = "2.5.2"
