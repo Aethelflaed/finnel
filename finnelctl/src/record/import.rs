@@ -7,7 +7,7 @@ use crate::config::Config;
 use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::NewRecord};
 
 use anyhow::Result;
-use chrono::{offset::Utc, DateTime, NaiveDate};
+use chrono::NaiveDate;
 use tabled::builder::Builder as TableBuilder;
 
 mod profile;
@@ -34,8 +34,8 @@ pub struct Importer<'a> {
 
 #[derive(Default, Clone)]
 pub struct RecordToImport {
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
+    pub operation_date: NaiveDate,
+    pub value_date: NaiveDate,
     pub amount: Decimal,
     pub direction: Direction,
     pub mode: Mode,
@@ -44,8 +44,8 @@ pub struct RecordToImport {
     pub merchant_name: String,
 }
 
-fn parse_date_fmt(date: &str, fmt: &str) -> Result<DateTime<Utc>> {
-    crate::utils::naive_date_to_utc(NaiveDate::parse_from_str(date, fmt)?)
+fn parse_date_fmt(date: &str, fmt: &str) -> Result<NaiveDate> {
+    Ok(NaiveDate::parse_from_str(date, fmt)?)
 }
 
 fn parse_decimal(number: &str) -> Result<Decimal> {
@@ -253,7 +253,7 @@ mod tests {
             let conn = &mut importer.options.config.database()?;
             let account_id = importer.account.id;
 
-            let date = Utc::now();
+            let date = chrono::Utc::now().date_naive();
             let mut record_to_import = RecordToImport {
                 amount: Decimal::new(314, 2),
                 operation_date: date,
@@ -313,7 +313,7 @@ mod tests {
                 let mut record_to_import = RecordToImport {
                     amount: Decimal::new(314, 2),
                     operation_date: date,
-                    value_date: Utc::now(),
+                    value_date: chrono::Utc::now().date_naive(),
                     details: "Hello World".to_string(),
                     category_name: "restaurant".to_string(),
                     merchant_name: "chariot".to_string(),

@@ -4,7 +4,7 @@ use super::{Boursobank, Importer, Logseq, Options};
 use crate::config::Config;
 
 use anyhow::Result;
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 
 pub trait Profile {
     fn run(&mut self, importer: &mut Importer) -> Result<()>;
@@ -61,14 +61,14 @@ impl Information {
         })
     }
 
-    pub fn last_imported(&self, config: &Config) -> Result<Option<DateTime<Utc>>> {
+    pub fn last_imported(&self, config: &Config) -> Result<Option<NaiveDate>> {
         Ok(config
             .get(format!("{}/last_imported", self.name()?).as_str())?
             .map(|value| value.parse())
             .transpose()?)
     }
 
-    pub fn set_last_imported(&self, config: &Config, date: Option<DateTime<Utc>>) -> Result<()> {
+    pub fn set_last_imported(&self, config: &Config, date: Option<NaiveDate>) -> Result<()> {
         if let Some(date) = date {
             if let Some(previous_date) = self.last_imported(config).ok().flatten() {
                 if previous_date > date {
@@ -106,8 +106,8 @@ mod tests {
         with_config(|config| {
             assert!(profile.last_imported(config)?.is_none());
 
-            let date = Utc::now();
-            let past_date = date - core::time::Duration::from_secs(86400);
+            let date = chrono::Utc::now().date_naive();
+            let past_date = date - chrono::naive::Days::new(1);
 
             profile.set_last_imported(config, Some(past_date))?;
             profile.set_last_imported(config, Some(date))?;

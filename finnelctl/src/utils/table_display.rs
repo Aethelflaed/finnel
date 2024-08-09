@@ -7,7 +7,7 @@ use finnel::{
     },
 };
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 
 macro_rules! table_push_row_elements {
     ( $builder:ident, $($col:expr),* $(,)? ) => {
@@ -194,12 +194,6 @@ impl RowElementDisplay for Amount {
 impl RowElementDisplay for Mode {
     fn to_row_element(&self) -> String {
         self.to_string()
-    }
-}
-
-impl RowElementDisplay for DateTime<Utc> {
-    fn to_row_element(&self) -> String {
-        self.date_naive().to_string()
     }
 }
 

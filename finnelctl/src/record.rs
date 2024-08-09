@@ -58,8 +58,8 @@ impl CommandContext<'_> {
         };
         let query = QueryRecord {
             account_id: Some(account.id),
-            after: args.after()?,
-            before: args.before()?,
+            after: args.after,
+            before: args.before,
             operation_date: *operation_date,
             greater_than: *greater_than,
             less_than: *less_than,
@@ -166,8 +166,8 @@ impl CommandContext<'_> {
 
         NewRecord {
             amount: *amount,
-            operation_date: args.operation_date()?,
-            value_date: args.value_date()?,
+            operation_date: args.operation_date(),
+            value_date: args.value_date(),
             direction: *direction,
             mode: *mode,
             details: details.as_str(),
@@ -231,8 +231,8 @@ impl<'a> DeferrableResolvedUpdateArgs<'a, UpdateArgs, ResolvedChangeRecord<'a>>
 
                     ViolatingChangeRecord {
                         amount: self.args.amount,
-                        operation_date: self.args.operation_date()?,
-                        value_date: self.args.value_date()?,
+                        operation_date: self.args.operation_date,
+                        value_date: self.args.value_date,
                         direction: self.args.direction,
                         mode: self.args.mode,
                         details: self.args.details.as_deref(),
@@ -242,7 +242,7 @@ impl<'a> DeferrableResolvedUpdateArgs<'a, UpdateArgs, ResolvedChangeRecord<'a>>
                     .into_resolved(conn)?
                 } else {
                     ChangeRecord {
-                        value_date: self.args.value_date()?,
+                        value_date: self.args.value_date,
                         details: self.args.details.as_deref(),
                         category: self.category.as_ref().map(|o| o.as_ref()),
                         merchant: self.merchant.as_ref().map(|o| o.as_ref()),

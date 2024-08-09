@@ -5,15 +5,15 @@ use crate::cli::record::Import as ImportOptions;
 use crate::config::Config;
 
 use anyhow::Result;
-use chrono::{offset::Utc, DateTime};
+use chrono::{Utc, NaiveDate};
 
 #[derive(Clone, Debug)]
 pub struct Options<'a> {
     pub config: &'a Config,
     pub file: PathBuf,
     pub profile_info: Information,
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<NaiveDate>,
+    pub to: Option<NaiveDate>,
     pub print: bool,
     pub pretend: bool,
 }
@@ -35,7 +35,7 @@ impl<'a> Options<'a> {
         let profile_info = cli.profile.parse::<Information>()?;
 
         let from = cli
-            .from()?
+            .from
             .or_else(|| {
                 let from = profile_info.last_imported(config).ok().flatten();
                 if let Some(date) = from {
@@ -49,7 +49,7 @@ impl<'a> Options<'a> {
             file: cli.file.clone(),
             profile_info,
             from,
-            to: cli.to()?.or_else(|| Some(Utc::now())),
+            to: cli.to.or_else(|| Some(Utc::now().date_naive())),
             print: cli.print,
             pretend: cli.pretend,
         })
@@ -59,11 +59,11 @@ impl<'a> Options<'a> {
         self.profile_info.new_profile(self)
     }
 
-    pub fn last_imported(&self) -> Result<Option<DateTime<Utc>>> {
+    pub fn last_imported(&self) -> Result<Option<NaiveDate>> {
         self.profile_info.last_imported(self.config)
     }
 
-    pub fn set_last_imported(&self, date: DateTime<Utc>) -> Result<()> {
+    pub fn set_last_imported(&self, date: NaiveDate) -> Result<()> {
         if let Some(previous_date) = self.last_imported().ok().flatten() {
             if previous_date > date {
                 return Ok(());
@@ -116,7 +116,7 @@ mod tests {
 
                 // check that using a previous date afterwards does not change the last_imported
                 // and error is silently ignored
-                options.set_last_imported(date - core::time::Duration::from_secs(86400))?;
+                options.set_last_imported(date - chrono::naive::Days::new(1))?;
 
                 let cli =
                     Cli::try_parse_from(&["arg0", "record", "import", "-P", "BoursoBank", "FILE"])?;
@@ -128,7 +128,7 @@ mod tests {
 
                 assert_eq!(Some(date), options.from);
                 let to = options.to.unwrap();
-                assert!(to - Utc::now() < chrono::TimeDelta::new(1, 0).unwrap());
+                assert!(to - Utc::now().date_naive() < chrono::TimeDelta::new(1, 0).unwrap());
 
                 Ok(())
             },

@@ -1,11 +1,9 @@
 use std::path::PathBuf;
 
-use crate::utils::naive_date_to_utc;
-
 use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
 
 use anyhow::Result;
-use chrono::{offset::Utc, DateTime, NaiveDate};
+use chrono::{Utc, NaiveDate};
 use clap::{builder::PossibleValue, Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Subcommand)]
@@ -95,16 +93,12 @@ pub struct Create {
 }
 
 impl Create {
-    pub fn value_date(&self) -> Result<DateTime<Utc>> {
-        self.value_date
-            .map(naive_date_to_utc)
-            .unwrap_or(Ok(Utc::now()))
+    pub fn operation_date(&self) -> NaiveDate {
+        self.operation_date.unwrap_or_else(|| Utc::now().date_naive())
     }
 
-    pub fn operation_date(&self) -> Result<DateTime<Utc>> {
-        self.operation_date
-            .map(naive_date_to_utc)
-            .unwrap_or(Ok(Utc::now()))
+    pub fn value_date(&self) -> NaiveDate {
+        self.value_date.unwrap_or_else(|| Utc::now().date_naive())
     }
 
     pub fn category(&self, conn: &mut Conn) -> Result<Option<Category>> {
@@ -202,7 +196,7 @@ pub struct List {
         value_name = "DATE",
         help_heading = "Filter records"
     )]
-    after: Option<NaiveDate>,
+    pub after: Option<NaiveDate>,
 
     /// Show only records from before this date
     #[arg(
@@ -211,7 +205,7 @@ pub struct List {
         value_name = "DATE",
         help_heading = "Filter records"
     )]
-    before: Option<NaiveDate>,
+    pub before: Option<NaiveDate>,
 
     /// Sort and filter according to the operation date instead of the
     /// value date
@@ -287,14 +281,6 @@ impl List {
         })
     }
 
-    pub fn after(&self) -> Result<Option<DateTime<Utc>>> {
-        self.after.map(naive_date_to_utc).transpose()
-    }
-
-    pub fn before(&self) -> Result<Option<DateTime<Utc>>> {
-        self.before.map(naive_date_to_utc).transpose()
-    }
-
     pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
         self.category.resolve(conn, None, self.no_category)
     }
@@ -325,7 +311,7 @@ pub struct UpdateArgs {
 
     /// Change the value date
     #[arg(long, value_name = "DATE", help_heading = "Record")]
-    value_date: Option<NaiveDate>,
+    pub value_date: Option<NaiveDate>,
 
     /// Confirm update of sensitive information
     #[arg(long)]
@@ -354,7 +340,7 @@ pub struct UpdateArgs {
         requires = "confirm",
         help_heading = "Record"
     )]
-    operation_date: Option<NaiveDate>,
+    pub operation_date: Option<NaiveDate>,
 
     #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
@@ -392,14 +378,6 @@ pub struct UpdateArgs {
 }
 
 impl UpdateArgs {
-    pub fn operation_date(&self) -> Result<Option<DateTime<Utc>>> {
-        self.operation_date.map(naive_date_to_utc).transpose()
-    }
-
-    pub fn value_date(&self) -> Result<Option<DateTime<Utc>>> {
-        self.value_date.map(naive_date_to_utc).transpose()
-    }
-
     pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
         self.category
             .resolve(conn, self.create_category.as_deref(), self.no_category)
@@ -515,19 +493,9 @@ pub struct Import {
 
     /// Only import records with an operation date greater than or equal to this one
     #[arg(long, value_name = "DATE", help_heading = "Filter records")]
-    from: Option<NaiveDate>,
+    pub from: Option<NaiveDate>,
 
     /// Only import records with an operation date less than or equal to this one
     #[arg(long, value_name = "DATE", help_heading = "Filter records")]
-    to: Option<NaiveDate>,
-}
-
-impl Import {
-    pub fn from(&self) -> Result<Option<DateTime<Utc>>> {
-        self.from.map(naive_date_to_utc).transpose()
-    }
-
-    pub fn to(&self) -> Result<Option<DateTime<Utc>>> {
-        self.to.map(naive_date_to_utc).transpose()
-    }
+    pub to: Option<NaiveDate>,
 }

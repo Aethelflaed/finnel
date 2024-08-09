@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::schema::{categories, merchants, records};
 
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 
 use diesel::{
     expression::SqlLiteral, helper_types::*, prelude::*, sql_types::BigInt, sqlite::Sqlite,
@@ -29,8 +29,8 @@ pub enum OrderDirection {
 #[derive(Default)]
 pub struct QueryRecord<'a> {
     pub account_id: Option<i64>,
-    pub after: Option<DateTime<Utc>>,
-    pub before: Option<DateTime<Utc>>,
+    pub after: Option<NaiveDate>,
+    pub before: Option<NaiveDate>,
     pub operation_date: bool,
     pub greater_than: Option<Decimal>,
     pub less_than: Option<Decimal>,

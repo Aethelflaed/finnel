@@ -41,13 +41,13 @@ diesel::table! {
         account_id -> BigInt,
         amount -> BigInt,
         currency -> Text,
-        operation_date -> TimestamptzSqlite,
-        value_date -> TimestamptzSqlite,
         direction -> Text,
         mode -> Text,
         details -> Text,
         category_id -> Nullable<BigInt>,
         merchant_id -> Nullable<BigInt>,
+        operation_date -> Date,
+        value_date -> Date,
     }
 }
 
@@ -56,4 +56,9 @@ diesel::joinable!(records -> accounts (account_id));
 diesel::joinable!(records -> categories (category_id));
 diesel::joinable!(records -> merchants (merchant_id));
 
-diesel::allow_tables_to_appear_in_same_query!(accounts, categories, merchants, records,);
+diesel::allow_tables_to_appear_in_same_query!(
+    accounts,
+    categories,
+    merchants,
+    records,
+);

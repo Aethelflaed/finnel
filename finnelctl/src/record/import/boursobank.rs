@@ -3,7 +3,7 @@ use super::{parse_date_fmt, parse_decimal, Importer, Options, Profile, RecordToI
 use finnel::prelude::*;
 
 use anyhow::Result;
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 
 pub struct Boursobank {
     reader: csv::Reader<std::fs::File>,
@@ -141,7 +141,7 @@ impl Profile for Boursobank {
     }
 }
 
-fn parse_date(date: &str) -> Result<DateTime<Utc>> {
+fn parse_date(date: &str) -> Result<NaiveDate> {
     parse_date_fmt(date, "%d/%m/%Y")
 }
 

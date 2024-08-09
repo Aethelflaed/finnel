@@ -3,7 +3,7 @@ use crate::{
     Amount, Currency, Decimal,
 };
 
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 use diesel::prelude::*;
 
 mod direction;
@@ -37,13 +37,13 @@ pub struct Record {
     pub amount: Decimal,
     #[diesel(deserialize_as = crate::db::Currency)]
     pub currency: Currency,
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
     pub direction: Direction,
     pub mode: Mode,
     pub details: String,
     pub category_id: Option<i64>,
     pub merchant_id: Option<i64>,
+    pub operation_date: NaiveDate,
+    pub value_date: NaiveDate,
 }
 
 impl Record {

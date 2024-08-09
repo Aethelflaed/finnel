@@ -4,15 +4,15 @@ use crate::{
     schema::records,
 };
 
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 use diesel::prelude::*;
 
 pub struct NewRecord<'a> {
     pub account: &'a Account,
     pub amount: Decimal,
     pub currency: Currency,
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
+    pub operation_date: NaiveDate,
+    pub value_date: NaiveDate,
     pub direction: Direction,
     pub mode: Mode,
     pub details: &'a str,
@@ -22,7 +22,7 @@ pub struct NewRecord<'a> {
 
 impl<'a> NewRecord<'a> {
     pub fn new(account: &'a Account) -> Self {
-        let date = Utc::now();
+        let date = chrono::Utc::now().date_naive();
 
         Self {
             account,
@@ -62,8 +62,8 @@ pub struct ResolvedNewRecord<'a> {
     pub account: &'a Account,
     pub amount: Decimal,
     pub currency: Currency,
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
+    pub operation_date: NaiveDate,
+    pub value_date: NaiveDate,
     pub direction: Direction,
     pub mode: Mode,
     pub details: &'a str,
@@ -117,8 +117,8 @@ pub struct InsertableRecord<'a> {
     pub amount: Decimal,
     #[diesel(serialize_as = crate::db::Currency)]
     pub currency: Currency,
-    pub operation_date: DateTime<Utc>,
-    pub value_date: DateTime<Utc>,
+    pub operation_date: NaiveDate,
+    pub value_date: NaiveDate,
     pub direction: Direction,
     pub mode: Mode,
     pub details: &'a str,

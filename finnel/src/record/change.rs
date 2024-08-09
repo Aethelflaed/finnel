@@ -4,12 +4,12 @@ use crate::{
     schema::records,
 };
 
-use chrono::{offset::Utc, DateTime};
+use chrono::NaiveDate;
 use diesel::prelude::*;
 
 #[derive(Default, Clone)]
 pub struct ChangeRecord<'a> {
-    pub value_date: Option<DateTime<Utc>>,
+    pub value_date: Option<NaiveDate>,
     pub details: Option<&'a str>,
     pub category: Option<Option<&'a Category>>,
     pub merchant: Option<Option<&'a Merchant>>,
@@ -43,8 +43,8 @@ impl<'a> ChangeRecord<'a> {
 #[derive(Default, Clone)]
 pub struct ViolatingChangeRecord<'a> {
     pub amount: Option<Decimal>,
-    pub operation_date: Option<DateTime<Utc>>,
-    pub value_date: Option<DateTime<Utc>>,
+    pub operation_date: Option<NaiveDate>,
+    pub value_date: Option<NaiveDate>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
     pub details: Option<&'a str>,
@@ -106,8 +106,8 @@ impl<'a> ViolatingChangeRecord<'a> {
 
 pub struct ResolvedChangeRecord<'a> {
     pub amount: Option<Decimal>,
-    pub operation_date: Option<DateTime<Utc>>,
-    pub value_date: Option<DateTime<Utc>>,
+    pub operation_date: Option<NaiveDate>,
+    pub value_date: Option<NaiveDate>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
     pub details: Option<&'a str>,
@@ -154,8 +154,8 @@ impl<'a> ValidatedChangeRecord<'a> {
 pub struct RecordChangeset<'a> {
     #[diesel(serialize_as = crate::db::Decimal)]
     pub amount: Option<Decimal>,
-    pub operation_date: Option<DateTime<Utc>>,
-    pub value_date: Option<DateTime<Utc>>,
+    pub operation_date: Option<NaiveDate>,
+    pub value_date: Option<NaiveDate>,
     pub direction: Option<Direction>,
     pub mode: Option<Mode>,
     pub details: Option<&'a str>,
