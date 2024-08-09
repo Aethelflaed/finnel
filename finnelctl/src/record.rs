@@ -58,8 +58,8 @@ impl CommandContext<'_> {
         };
         let query = QueryRecord {
             account_id: Some(account.id),
-            after: args.after,
-            before: args.before,
+            from: args.from,
+            to: args.to,
             operation_date: *operation_date,
             greater_than: *greater_than,
             less_than: *less_than,

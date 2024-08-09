@@ -196,7 +196,7 @@ pub struct List {
         value_name = "DATE",
         help_heading = "Filter records"
     )]
-    pub after: Option<NaiveDate>,
+    pub from: Option<NaiveDate>,
 
     /// Show only records from before this date
     #[arg(
@@ -205,7 +205,7 @@ pub struct List {
         value_name = "DATE",
         help_heading = "Filter records"
     )]
-    pub before: Option<NaiveDate>,
+    pub to: Option<NaiveDate>,
 
     /// Sort and filter according to the operation date instead of the
     /// value date

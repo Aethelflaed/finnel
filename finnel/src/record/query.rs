@@ -29,8 +29,8 @@ pub enum OrderDirection {
 #[derive(Default)]
 pub struct QueryRecord<'a> {
     pub account_id: Option<i64>,
-    pub after: Option<NaiveDate>,
-    pub before: Option<NaiveDate>,
+    pub from: Option<NaiveDate>,
+    pub to: Option<NaiveDate>,
     pub operation_date: bool,
     pub greater_than: Option<Decimal>,
     pub less_than: Option<Decimal>,
@@ -89,17 +89,17 @@ impl<'a> QueryRecord<'a> {
             .filter(records::account_id.eq(account_id));
 
         if self.operation_date {
-            if let Some(date) = self.after {
+            if let Some(date) = self.from {
                 query = query.filter(records::operation_date.ge(date));
             }
-            if let Some(date) = self.before {
+            if let Some(date) = self.to {
                 query = query.filter(records::operation_date.lt(date));
             }
         } else {
-            if let Some(date) = self.after {
+            if let Some(date) = self.from {
                 query = query.filter(records::value_date.ge(date));
             }
-            if let Some(date) = self.before {
+            if let Some(date) = self.to {
                 query = query.filter(records::value_date.lt(date));
             }
         }
