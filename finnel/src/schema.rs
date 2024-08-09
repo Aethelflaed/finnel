@@ -41,13 +41,13 @@ diesel::table! {
         account_id -> BigInt,
         amount -> BigInt,
         currency -> Text,
+        operation_date -> Date,
+        value_date -> Date,
         direction -> Text,
         mode -> Text,
         details -> Text,
         category_id -> Nullable<BigInt>,
         merchant_id -> Nullable<BigInt>,
-        operation_date -> Date,
-        value_date -> Date,
     }
 }
 
