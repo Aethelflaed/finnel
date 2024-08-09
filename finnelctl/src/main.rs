@@ -23,6 +23,7 @@ fn main() -> Result<()> {
     setup_log(config.log_level_filter())?;
 
     if let Some(command) = config.command() {
+        log::debug!("Executing {:?}", command);
         match command {
             Commands::Account(cmd) => account::run(&config, cmd)?,
             Commands::Record(cmd) => record::run(&config, cmd)?,

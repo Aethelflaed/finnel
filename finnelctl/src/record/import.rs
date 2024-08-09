@@ -165,7 +165,7 @@ impl<'a> Importer<'a> {
             .ok_or(anyhow::anyhow!("No last record?"))?;
 
         self.options
-            .set_last_imported_unchecked(record.operation_date);
+            .set_last_imported(record.operation_date)?;
 
         Ok(Some(record))
     }

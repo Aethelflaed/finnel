@@ -36,7 +36,13 @@ impl<'a> Options<'a> {
 
         let from = cli
             .from()?
-            .or_else(|| profile_info.last_imported(config).ok().flatten());
+            .or_else(|| {
+                let from = profile_info.last_imported(config).ok().flatten();
+                if let Some(date) = from {
+                    log::info!("Starting import from last imported date: {}", date);
+                }
+                from
+            });
 
         Ok(Self {
             config,
@@ -57,8 +63,14 @@ impl<'a> Options<'a> {
         self.profile_info.last_imported(self.config)
     }
 
-    pub fn set_last_imported_unchecked(&self, date: DateTime<Utc>) {
-        let _ = self.profile_info.set_last_imported(self.config, Some(date));
+    pub fn set_last_imported(&self, date: DateTime<Utc>) -> Result<()> {
+        if let Some(previous_date) = self.last_imported().ok().flatten() {
+            if previous_date > date {
+                return Ok(());
+            }
+        }
+
+        self.profile_info.set_last_imported(self.config, Some(date))
     }
 }
 
@@ -100,11 +112,11 @@ mod tests {
                 assert_eq!(Some(parse_date_fmt("2024-07-31", "%Y-%m-%d")?), options.to);
 
                 let date = parse_date_fmt("2024-08-01", "%Y-%m-%d")?;
-                options.set_last_imported_unchecked(date);
+                options.set_last_imported(date)?;
 
                 // check that using a previous date afterwards does not change the last_imported
                 // and error is silently ignored
-                options.set_last_imported_unchecked(date - core::time::Duration::from_secs(86400));
+                options.set_last_imported(date - core::time::Duration::from_secs(86400))?;
 
                 let cli =
                     Cli::try_parse_from(&["arg0", "record", "import", "-P", "BoursoBank", "FILE"])?;

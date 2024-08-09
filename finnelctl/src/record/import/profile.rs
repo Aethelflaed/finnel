@@ -10,12 +10,22 @@ pub trait Profile {
     fn run(&mut self, importer: &mut Importer) -> Result<()>;
 }
 
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Information {
     Logseq,
     Boursobank,
-    #[default]
     None,
+    #[cfg(test)]
+    Test,
+}
+
+impl Default for Information {
+    fn default() -> Self {
+        #[cfg(test)]
+        return Information::Test;
+        #[cfg(not(test))]
+        return Information::None;
+    }
 }
 
 impl FromStr for Information {
@@ -35,14 +45,19 @@ impl Information {
         Ok(match self {
             Information::Boursobank => Box::new(Boursobank::new(options)?),
             Information::Logseq => Box::new(Logseq::new(options)?),
-            _ => anyhow::bail!("Profile not set"),
+            Information::None => anyhow::bail!("Profile not set"),
+            #[cfg(test)]
+            Information::Test => anyhow::bail!("test profile"),
         })
     }
 
     pub fn name(&self) -> Result<&str> {
         Ok(match self {
             Information::Boursobank => "boursobank",
-            _ => anyhow::bail!("Profile not set"),
+            Information::Logseq => "logseq",
+            Information::None => anyhow::bail!("Profile not set"),
+            #[cfg(test)]
+            Information::Test => "test",
         })
     }
 
