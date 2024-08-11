@@ -152,6 +152,9 @@ impl<'a> QueryRecord<'a> {
             };
         }
 
+        #[cfg(debug_assertions)]
+        log::debug!("{:?}", diesel::debug_query::<Sqlite, _>(&query));
+
         Ok(query)
     }
 

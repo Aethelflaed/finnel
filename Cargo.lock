@@ -567,6 +567,7 @@ dependencies = [
  "derive_more",
  "diesel",
  "diesel_migrations",
+ "log",
  "oxydized-money",
  "predicates",
  "pretty_assertions",

@@ -12,6 +12,7 @@ oxydized-money = "0.3.0"
 semver = "1.0.23"
 thiserror = "1.0.61"
 diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
+log = "0.4.22"
 
 [dependencies.diesel]
 version = "2.2.1"
