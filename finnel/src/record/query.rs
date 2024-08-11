@@ -80,13 +80,11 @@ impl<'a> QueryRecord<'a> {
     }
 
     fn build(&'a self) -> Result<QueryType<'a>> {
-        let Some(account_id) = self.account_id else {
-            return Err(Error::Invalid("Missing account_id".to_owned()));
-        };
+        let mut query = records::table.into_boxed();
 
-        let mut query = records::table
-            .into_boxed()
-            .filter(records::account_id.eq(account_id));
+        if let Some(account_id) = self.account_id {
+            query = query.filter(records::account_id.eq(account_id));
+        }
 
         if self.operation_date {
             if let Some(date) = self.from {

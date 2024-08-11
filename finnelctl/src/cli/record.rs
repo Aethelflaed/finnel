@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
 
 use anyhow::Result;
-use chrono::{Utc, NaiveDate};
+use chrono::{NaiveDate, Utc};
 use clap::{builder::PossibleValue, Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Subcommand)]
@@ -94,7 +94,8 @@ pub struct Create {
 
 impl Create {
     pub fn operation_date(&self) -> NaiveDate {
-        self.operation_date.unwrap_or_else(|| Utc::now().date_naive())
+        self.operation_date
+            .unwrap_or_else(|| Utc::now().date_naive())
     }
 
     pub fn value_date(&self) -> NaiveDate {

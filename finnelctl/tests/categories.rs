@@ -94,26 +94,15 @@ fn show_records() -> Result<()> {
 
     cmd!(env, category show Bar -A Bank)
         .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("No associated records for account Bank"));
-
-    cmd!(env, category show Bar -A Cash)
-        .success()
-        .stdout(str::contains("No associated records for account Cash"))
-        .stdout(str::contains("No associated records for account Bank").not());
+        .stdout(str::contains("No associated records"));
 
     cmd!(env, record create -A Cash 5 beer --category Bar).success();
-
-    cmd!(env, category show Bar -A Cash)
-        .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("€ -5.00"));
+    cmd!(env, record create -A Bank 10 beer --category Bar).success();
 
     cmd!(env, category show Bar)
         .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("No associated records for account Bank"))
-        .stdout(str::contains("€ -5.00"));
+        .stdout(str::contains("€ -5.00"))
+        .stdout(str::contains("€ -10.00"));
 
     Ok(())
 }

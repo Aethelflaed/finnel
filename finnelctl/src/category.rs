@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use std::cell::OnceCell;
 
 use finnel::{
-    account::QueryAccount,
     category::{
         change::{ChangeCategory, ResolvedChangeCategory},
         NewCategory, QueryCategory,
@@ -15,9 +14,10 @@ use crate::cli::category::*;
 use crate::config::Config;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{builder::Builder as TableBuilder, settings::Panel};
+use tabled::builder::Builder as TableBuilder;
 
 struct CommandContext<'a> {
+    #[allow(dead_code)]
     config: &'a Config,
     conn: &'a mut Database,
 }
@@ -132,23 +132,16 @@ impl CommandContext<'_> {
                     println!("Children:\n{}", builder.build());
                 }
 
-                if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
-                    self.show_category_records(&ids, &account)?;
-                } else {
-                    for account in QueryAccount::default().run(self.conn)? {
-                        self.show_category_records(&ids, &account)?;
-                    }
-                }
+                self.show_category_records(&ids)?;
             }
         }
 
         Ok(())
     }
 
-    fn show_category_records(&mut self, ids: &Vec<i64>, account: &Account) -> Result<()> {
+    fn show_category_records(&mut self, ids: &Vec<i64>) -> Result<()> {
         println!();
         let query = QueryRecord {
-            account_id: Some(account.id),
             category_ids: Some(ids),
             ..Default::default()
         }
@@ -164,15 +157,9 @@ impl CommandContext<'_> {
         let count = builder.count_records() - 1;
 
         if count > 0 {
-            println!(
-                "{}",
-                builder.build().with(Panel::header(format!(
-                    "{} associated records for account {}",
-                    count, account.name
-                )))
-            );
+            println!("{}", builder.build());
         } else {
-            println!("No associated records for account {}", account.name);
+            println!("No associated records");
         }
         Ok(())
     }

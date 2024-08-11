@@ -89,26 +89,15 @@ fn show_records() -> Result<()> {
 
     cmd!(env, merchant show Chariot -A Bank)
         .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("No associated records for account Bank"));
-
-    cmd!(env, merchant show Chariot -A Cash)
-        .success()
-        .stdout(str::contains("No associated records for account Cash"))
-        .stdout(str::contains("No associated records for account Bank").not());
+        .stdout(str::contains("No associated records"));
 
     cmd!(env, record create -A Cash 5 beer --merchant Chariot).success();
-
-    cmd!(env, merchant show Chariot -A Cash)
-        .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("€ -5.00"));
+    cmd!(env, record create -A Bank 10 beer --merchant Chariot).success();
 
     cmd!(env, merchant show Chariot)
         .success()
-        .stdout(str::contains("No associated records for account Cash").not())
-        .stdout(str::contains("No associated records for account Bank"))
-        .stdout(str::contains("€ -5.00"));
+        .stdout(str::contains("€ -5.00"))
+        .stdout(str::contains("€ -10.00"));
 
     Ok(())
 }

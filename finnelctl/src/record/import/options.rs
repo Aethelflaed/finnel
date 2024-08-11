@@ -5,7 +5,7 @@ use crate::cli::record::Import as ImportOptions;
 use crate::config::Config;
 
 use anyhow::Result;
-use chrono::{Utc, NaiveDate};
+use chrono::{NaiveDate, Utc};
 
 #[derive(Clone, Debug)]
 pub struct Options<'a> {
@@ -34,15 +34,13 @@ impl<'a> Options<'a> {
     pub fn try_from(cli: &ImportOptions, config: &'a Config) -> Result<Self> {
         let profile_info = cli.profile.parse::<Information>()?;
 
-        let from = cli
-            .from
-            .or_else(|| {
-                let from = profile_info.last_imported(config).ok().flatten();
-                if let Some(date) = from {
-                    log::info!("Starting import from last imported date: {}", date);
-                }
-                from
-            });
+        let from = cli.from.or_else(|| {
+            let from = profile_info.last_imported(config).ok().flatten();
+            if let Some(date) = from {
+                log::info!("Starting import from last imported date: {}", date);
+            }
+            from
+        });
 
         Ok(Self {
             config,

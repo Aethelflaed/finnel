@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use std::cell::OnceCell;
 
 use finnel::{
-    account::QueryAccount,
     merchant::{
         change::{ChangeMerchant, ResolvedChangeMerchant},
         NewMerchant, QueryMerchant,
@@ -15,9 +14,10 @@ use crate::cli::merchant::*;
 use crate::config::Config;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
-use tabled::{builder::Builder as TableBuilder, settings::Panel};
+use tabled::builder::Builder as TableBuilder;
 
 struct CommandContext<'a> {
+    #[allow(dead_code)]
     config: &'a Config,
     conn: &'a mut Database,
 }
@@ -121,23 +121,16 @@ impl CommandContext<'_> {
                     println!("  Replaced by: {} | {}", replaced_by.id, replaced_by.name);
                 }
 
-                if let Ok(Some(account)) = self.config.account_or_default(self.conn) {
-                    self.show_merchant_records(&merchant, &account)?;
-                } else {
-                    for account in QueryAccount::default().run(self.conn)? {
-                        self.show_merchant_records(&merchant, &account)?;
-                    }
-                }
+                self.show_merchant_records(&merchant)?;
             }
         }
 
         Ok(())
     }
 
-    fn show_merchant_records(&mut self, merchant: &Merchant, account: &Account) -> Result<()> {
+    fn show_merchant_records(&mut self, merchant: &Merchant) -> Result<()> {
         println!();
         let query = QueryRecord {
-            account_id: Some(account.id),
             merchant_id: Some(Some(merchant.id)),
             ..Default::default()
         }
@@ -152,15 +145,9 @@ impl CommandContext<'_> {
         let count = builder.count_records() - 1;
 
         if count > 0 {
-            println!(
-                "{}",
-                builder.build().with(Panel::header(format!(
-                    "{} associated records for account {}",
-                    count, account.name
-                )))
-            );
+            println!("{}", builder.build());
         } else {
-            println!("No associated records for account {}", account.name);
+            println!("No associated records");
         }
 
         Ok(())
