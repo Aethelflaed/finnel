@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use finnel::prelude::*;
+use finnel::{prelude::*, record::QueryRecord};
 
 use crate::cli::calendar::*;
 use crate::config::Config;
@@ -10,6 +10,7 @@ use chrono::{prelude::*, Days, Months};
 use tabled::{builder::Builder as TableBuilder, settings::Panel};
 
 struct CommandContext<'a> {
+    #[allow(dead_code)]
     config: &'a Config,
     conn: &'a mut Database,
 }
@@ -20,10 +21,35 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
 
     match &command {
         Command::Show(args) => cmd.show(args),
+        Command::Today(args) => cmd.today(args),
     }
 }
 
 impl CommandContext<'_> {
+    fn today(&mut self, _args: &Today) -> Result<()> {
+        let today = Utc::now().date_naive();
+        let tomorrow = today + Days::new(1);
+
+        let query = QueryRecord {
+            from: Some(today),
+            to: Some(tomorrow),
+            ..QueryRecord::default()
+        }
+        .with_category()
+        .with_parent()
+        .with_merchant();
+
+        let mut builder = TableBuilder::new();
+        table_push_row!(builder, query.type_marker());
+        for result in query.run(self.conn)? {
+            table_push_row!(builder, result);
+        }
+
+        println!("{}", builder.build());
+
+        Ok(())
+    }
+
     fn show(&mut self, _args: &Show) -> Result<()> {
         let date = Utc::now();
         let month = Month::try_from(u8::try_from(date.month())?)?;
