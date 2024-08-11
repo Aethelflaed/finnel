@@ -101,7 +101,7 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
-                let query = query.with_category().with_merchant().with_parent();
+                let query = query.with_category().with_parent().with_merchant();
 
                 let mut builder = TableBuilder::new();
                 table_push_row!(builder, query.type_marker());

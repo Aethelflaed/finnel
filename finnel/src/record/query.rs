@@ -1,5 +1,7 @@
+use std::marker::PhantomData;
+
 use crate::prelude::*;
-use crate::schema::{categories, merchants, records};
+use crate::schema::{accounts, categories, merchants, records};
 
 use chrono::NaiveDate;
 
@@ -44,18 +46,21 @@ pub struct QueryRecord<'a> {
     pub order: Vec<(OrderField, OrderDirection)>,
 }
 
-pub struct QueryRecordWithCategory<'a>(QueryRecord<'a>);
-pub struct QueryRecordWithCategoryAndParent<'a>(QueryRecord<'a>);
-pub struct QueryRecordWithMerchant<'a>(QueryRecord<'a>);
-pub struct QueryRecordWithCategoryAndMerchant<'a>(QueryRecord<'a>);
-pub struct QueryRecordWithCategoryAndParentAndMerchant<'a>(QueryRecord<'a>);
-
-pub type RecordWithCategory<'a> = (Record, Option<Category>);
-pub type RecordWithCategoryAndParent<'a> = (Record, Option<Category>, Option<Category>);
-pub type RecordWithMerchant<'a> = (Record, Option<Merchant>);
-pub type RecordWithCategoryAndMerchant<'a> = (Record, Option<Category>, Option<Merchant>);
-pub type RecordWithCategoryAndParentAndMerchant<'a> =
-    (Record, Option<Category>, Option<Category>, Option<Merchant>);
+pub type RA = (Record, Account);
+pub type RAC = (Record, Account, Option<Category>);
+pub type RACM = (Record, Account, Option<Category>, Option<Merchant>);
+pub type RACC = (Record, Account, Option<Category>, Option<Category>);
+pub type RACCM = (
+    Record,
+    Account,
+    Option<Category>,
+    Option<Category>,
+    Option<Merchant>,
+);
+pub type RC = (Record, Option<Category>);
+pub type RCC = (Record, Option<Category>, Option<Category>);
+pub type RCCM = (Record, Option<Category>, Option<Category>, Option<Merchant>);
+pub type RCM = (Record, Option<Category>, Option<Merchant>);
 
 type QueryType<'a> =
     IntoBoxed<'a, Filter<records::table, Eq<records::account_id, SqlLiteral<BigInt>>>, Sqlite>;
@@ -150,163 +155,279 @@ impl<'a> QueryRecord<'a> {
             };
         }
 
-        #[cfg(debug_assertions)]
-        log::debug!("{:?}", diesel::debug_query::<Sqlite, _>(&query));
-
         Ok(query)
     }
 
+    fn load<Q, T>(&self, conn: &mut Conn, query: Q) -> Result<Vec<T>>
+    where
+        Q: RunQueryDsl<SqliteConnection>
+            + diesel::query_dsl::LoadQuery<'a, SqliteConnection, T>
+            + diesel::query_builder::QueryFragment<Sqlite>,
+    {
+        #[cfg(debug_assertions)]
+        log::debug!("{:?}", diesel::debug_query::<Sqlite, _>(&query));
+
+        Ok(query.load::<T>(conn)?)
+    }
+
     pub fn run(&self, conn: &mut Conn) -> Result<Vec<Record>> {
-        Ok(self
-            .build()?
-            .left_join(categories::table)
-            .left_join(merchants::table)
-            .select(Record::as_select())
-            .load::<Record>(conn)?)
+        Ok(self.load::<_, Record>(conn, self.build()?.select(Record::as_select()))?)
     }
 
-    pub fn type_marker(&self) -> std::marker::PhantomData<Record> {
+    pub fn type_marker(&self) -> PhantomData<Record> {
         Default::default()
     }
 
-    pub fn with_category(self) -> QueryRecordWithCategory<'a> {
-        QueryRecordWithCategory(self)
+    pub fn with_account(self) -> BuiltQueryRecord<'a, RA> {
+        BuiltQueryRecord::<RA>::build(self)
     }
 
-    pub fn with_merchant(self) -> QueryRecordWithMerchant<'a> {
-        QueryRecordWithMerchant(self)
+    pub fn with_category(self) -> BuiltQueryRecord<'a, RC> {
+        BuiltQueryRecord::<RC>::build(self)
     }
 }
 
-impl<'a> QueryRecordWithCategory<'a> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategory>> {
-        Ok(self
-            .0
-            .build()?
-            .left_join(
-                CATEGORIES.on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
-            )
-            .select((
-                Record::as_select(),
-                CATEGORIES.fields(categories::all_columns.nullable()),
-            ))
-            .load::<RecordWithCategory>(conn)?)
+pub struct BuiltQueryRecord<'a, T>(QueryRecord<'a>, PhantomData<T>);
+
+impl<'a, T> BuiltQueryRecord<'a, T> {
+    pub fn build(query: QueryRecord<'a>) -> Self {
+        BuiltQueryRecord(query, Default::default())
     }
 
-    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategory> {
-        Default::default()
+    pub fn load<Q>(&self, conn: &mut Conn, query: Q) -> Result<Vec<T>>
+    where
+        Q: RunQueryDsl<SqliteConnection>
+            + diesel::query_dsl::LoadQuery<'a, SqliteConnection, T>
+            + diesel::query_builder::QueryFragment<Sqlite>,
+    {
+        self.0.load::<_, T>(conn, query)
     }
 
-    pub fn with_merchant(self) -> QueryRecordWithCategoryAndMerchant<'a> {
-        QueryRecordWithCategoryAndMerchant(self.0)
-    }
-
-    pub fn with_parent(self) -> QueryRecordWithCategoryAndParent<'a> {
-        QueryRecordWithCategoryAndParent(self.0)
+    pub fn type_marker(&self) -> PhantomData<T> {
+        self.1
     }
 }
 
-impl<'a> QueryRecordWithMerchant<'a> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithMerchant>> {
-        Ok(self
-            .0
-            .build()?
-            .left_join(merchants::table)
-            .select((Record::as_select(), Option::<Merchant>::as_select()))
-            .load::<RecordWithMerchant>(conn)?)
+impl<'a> BuiltQueryRecord<'a, RA> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RA>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .inner_join(accounts::table)
+                .select((Record::as_select(), Account::as_select())),
+        )
     }
 
-    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithMerchant> {
-        Default::default()
-    }
-
-    pub fn with_category(self) -> QueryRecordWithCategoryAndMerchant<'a> {
-        QueryRecordWithCategoryAndMerchant(self.0)
+    pub fn with_category(self) -> BuiltQueryRecord<'a, RAC> {
+        BuiltQueryRecord::<RAC>::build(self.0)
     }
 }
 
-impl<'a> QueryRecordWithCategoryAndMerchant<'a> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndMerchant>> {
-        Ok(self
-            .0
-            .build()?
-            .left_join(
-                CATEGORIES.on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
-            )
-            .left_join(merchants::table)
-            .select((
-                Record::as_select(),
-                CATEGORIES.fields(categories::all_columns.nullable()),
-                Option::<Merchant>::as_select(),
-            ))
-            .load::<RecordWithCategoryAndMerchant>(conn)?)
+impl<'a> BuiltQueryRecord<'a, RAC> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RAC>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .inner_join(accounts::table)
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+                )
+                .select((
+                    Record::as_select(),
+                    Account::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                )),
+        )
     }
 
-    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndMerchant> {
-        Default::default()
+    pub fn with_merchant(self) -> BuiltQueryRecord<'a, RACM> {
+        BuiltQueryRecord::<RACM>::build(self.0)
     }
 
-    pub fn with_parent(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
-        QueryRecordWithCategoryAndParentAndMerchant(self.0)
-    }
-}
-
-impl<'a> QueryRecordWithCategoryAndParent<'a> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndParent>> {
-        Ok(self
-            .0
-            .build()?
-            .left_join(
-                CATEGORIES
-                    .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
-                    .left_join(
-                        CAT_PARENTS.on(CATEGORIES
-                            .field(categories::parent_id)
-                            .eq(CAT_PARENTS.field(categories::id).nullable())),
-                    ),
-            )
-            .select((
-                Record::as_select(),
-                CATEGORIES.fields(categories::all_columns.nullable()),
-                CAT_PARENTS.fields(categories::all_columns.nullable()),
-            ))
-            .load::<RecordWithCategoryAndParent>(conn)?)
-    }
-
-    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndParent> {
-        Default::default()
-    }
-
-    pub fn with_merchant(self) -> QueryRecordWithCategoryAndParentAndMerchant<'a> {
-        QueryRecordWithCategoryAndParentAndMerchant(self.0)
+    pub fn with_parent(self) -> BuiltQueryRecord<'a, RACC> {
+        BuiltQueryRecord::<RACC>::build(self.0)
     }
 }
 
-impl<'a> QueryRecordWithCategoryAndParentAndMerchant<'a> {
-    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RecordWithCategoryAndParentAndMerchant>> {
-        Ok(self
-            .0
-            .build()?
-            .left_join(
-                CATEGORIES
-                    .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
-                    .left_join(
-                        CAT_PARENTS.on(CATEGORIES
-                            .field(categories::parent_id)
-                            .eq(CAT_PARENTS.field(categories::id).nullable())),
-                    ),
-            )
-            .left_join(merchants::table)
-            .select((
-                Record::as_select(),
-                CATEGORIES.fields(categories::all_columns.nullable()),
-                CAT_PARENTS.fields(categories::all_columns.nullable()),
-                Option::<Merchant>::as_select(),
-            ))
-            .load::<RecordWithCategoryAndParentAndMerchant>(conn)?)
+impl<'a> BuiltQueryRecord<'a, RACM> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RACM>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .inner_join(accounts::table)
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+                )
+                .left_join(merchants::table)
+                .select((
+                    Record::as_select(),
+                    Account::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    Option::<Merchant>::as_select(),
+                )),
+        )
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RACC> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RACC>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .inner_join(accounts::table)
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                        .left_join(
+                            CAT_PARENTS.on(CATEGORIES
+                                .field(categories::parent_id)
+                                .eq(CAT_PARENTS.field(categories::id).nullable())),
+                        ),
+                )
+                .select((
+                    Record::as_select(),
+                    Account::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    CAT_PARENTS.fields(categories::all_columns.nullable()),
+                )),
+        )
     }
 
-    pub fn type_marker(&self) -> std::marker::PhantomData<RecordWithCategoryAndParentAndMerchant> {
-        Default::default()
+    pub fn with_merchant(self) -> BuiltQueryRecord<'a, RACCM> {
+        BuiltQueryRecord::<RACCM>::build(self.0)
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RACCM> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RACCM>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .inner_join(accounts::table)
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                        .left_join(
+                            CAT_PARENTS.on(CATEGORIES
+                                .field(categories::parent_id)
+                                .eq(CAT_PARENTS.field(categories::id).nullable())),
+                        ),
+                )
+                .left_join(merchants::table)
+                .select((
+                    Record::as_select(),
+                    Account::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    CAT_PARENTS.fields(categories::all_columns.nullable()),
+                    Option::<Merchant>::as_select(),
+                )),
+        )
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RC> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RC>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+                )
+                .select((
+                    Record::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                )),
+        )
+    }
+
+    pub fn with_parent(self) -> BuiltQueryRecord<'a, RCC> {
+        BuiltQueryRecord::<RCC>::build(self.0)
+    }
+
+    pub fn with_merchant(self) -> BuiltQueryRecord<'a, RCM> {
+        BuiltQueryRecord::<RCM>::build(self.0)
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RCC> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RCC>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                        .left_join(
+                            CAT_PARENTS.on(CATEGORIES
+                                .field(categories::parent_id)
+                                .eq(CAT_PARENTS.field(categories::id).nullable())),
+                        ),
+                )
+                .select((
+                    Record::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    CAT_PARENTS.fields(categories::all_columns.nullable()),
+                )),
+        )
+    }
+
+    pub fn with_merchant(self) -> BuiltQueryRecord<'a, RCCM> {
+        BuiltQueryRecord::<RCCM>::build(self.0)
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RCCM> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RCCM>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable()))
+                        .left_join(
+                            CAT_PARENTS.on(CATEGORIES
+                                .field(categories::parent_id)
+                                .eq(CAT_PARENTS.field(categories::id).nullable())),
+                        ),
+                )
+                .left_join(merchants::table)
+                .select((
+                    Record::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    CAT_PARENTS.fields(categories::all_columns.nullable()),
+                    Option::<Merchant>::as_select(),
+                )),
+        )
+    }
+}
+
+impl<'a> BuiltQueryRecord<'a, RCM> {
+    pub fn run(&self, conn: &mut Conn) -> Result<Vec<RCM>> {
+        self.load(
+            conn,
+            self.0
+                .build()?
+                .left_join(
+                    CATEGORIES
+                        .on(records::category_id.eq(CATEGORIES.field(categories::id).nullable())),
+                )
+                .left_join(merchants::table)
+                .select((
+                    Record::as_select(),
+                    CATEGORIES.fields(categories::all_columns.nullable()),
+                    Option::<Merchant>::as_select(),
+                )),
+        )
     }
 }

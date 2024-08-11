@@ -10,7 +10,7 @@ use finnel::{
     record::QueryRecord,
 };
 
-use crate::cli::merchant::*;
+use crate::cli::{merchant::*, record::Sort};
 use crate::config::Config;
 use crate::utils::DeferrableResolvedUpdateArgs;
 
@@ -132,8 +132,10 @@ impl CommandContext<'_> {
         println!();
         let query = QueryRecord {
             merchant_id: Some(Some(merchant.id)),
+            order: vec![Sort::try_from("date.desc")?.into()],
             ..Default::default()
         }
+        .with_account()
         .with_category();
 
         let mut builder = TableBuilder::new();

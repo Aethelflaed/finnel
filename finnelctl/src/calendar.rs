@@ -35,6 +35,7 @@ impl CommandContext<'_> {
             to: Some(tomorrow),
             ..QueryRecord::default()
         }
+        .with_account()
         .with_category()
         .with_parent()
         .with_merchant();

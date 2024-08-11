@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use finnel::{
     prelude::*,
     record::query::{
-        RecordWithCategory, RecordWithCategoryAndMerchant, RecordWithCategoryAndParentAndMerchant,
+        RC, RCM, RCCM, RA, RAC, RACM, RACCM,
     },
 };
 
@@ -58,7 +58,7 @@ impl RowDisplay for PhantomData<Record> {
     }
 }
 
-impl RowDisplay for RecordWithCategory<'_> {
+impl RowDisplay for RC {
     fn to_row(&self) -> Vec<String> {
         let mut vec = self.0.to_row();
         vec.extend([self.1.to_row_element()]);
@@ -66,7 +66,7 @@ impl RowDisplay for RecordWithCategory<'_> {
     }
 }
 
-impl RowDisplay for PhantomData<RecordWithCategory<'_>> {
+impl RowDisplay for PhantomData<RC> {
     fn to_row(&self) -> Vec<String> {
         let mut vec = PhantomData::<Record>.to_row();
         vec.extend(["category"].map(str::to_owned));
@@ -74,7 +74,7 @@ impl RowDisplay for PhantomData<RecordWithCategory<'_>> {
     }
 }
 
-impl RowDisplay for RecordWithCategoryAndMerchant<'_> {
+impl RowDisplay for RCM {
     fn to_row(&self) -> Vec<String> {
         let mut vec = self.0.to_row();
         vec.extend([self.1.to_row_element(), self.2.to_row_element()]);
@@ -82,7 +82,7 @@ impl RowDisplay for RecordWithCategoryAndMerchant<'_> {
     }
 }
 
-impl RowDisplay for PhantomData<RecordWithCategoryAndMerchant<'_>> {
+impl RowDisplay for PhantomData<RCM> {
     fn to_row(&self) -> Vec<String> {
         let mut vec = PhantomData::<Record>.to_row();
         vec.extend(["category", "merchant"].map(str::to_owned));
@@ -90,7 +90,7 @@ impl RowDisplay for PhantomData<RecordWithCategoryAndMerchant<'_>> {
     }
 }
 
-impl RowDisplay for RecordWithCategoryAndParentAndMerchant<'_> {
+impl RowDisplay for RCCM {
     fn to_row(&self) -> Vec<String> {
         let mut vec = self.0.to_row();
         vec.extend([
@@ -101,9 +101,81 @@ impl RowDisplay for RecordWithCategoryAndParentAndMerchant<'_> {
     }
 }
 
-impl RowDisplay for PhantomData<RecordWithCategoryAndParentAndMerchant<'_>> {
+impl RowDisplay for PhantomData<RCCM> {
     fn to_row(&self) -> Vec<String> {
         let mut vec = PhantomData::<Record>.to_row();
+        vec.extend(["categories", "merchant"].map(str::to_owned));
+        vec
+    }
+}
+
+impl RowDisplay for RA {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec![self.1.name.to_row_element()];
+        vec.extend(self.0.to_row());
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RA> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec!["account".to_owned()];
+        vec.extend(PhantomData::<Record>.to_row());
+        vec
+    }
+}
+
+impl RowDisplay for RAC {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec![self.1.name.to_row_element()];
+        vec.extend(self.0.to_row());
+        vec.extend([self.2.to_row_element()]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RAC> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec!["account".to_owned()];
+        vec.extend(PhantomData::<Record>.to_row());
+        vec.extend(["category"].map(str::to_owned));
+        vec
+    }
+}
+
+impl RowDisplay for RACM {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec![self.1.name.to_row_element()];
+        vec.extend(self.0.to_row());
+        vec.extend([self.2.to_row_element(), self.3.to_row_element()]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RACM> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec!["account".to_owned()];
+        vec.extend(PhantomData::<Record>.to_row());
+        vec.extend(["category", "merchant"].map(str::to_owned));
+        vec
+    }
+}
+
+impl RowDisplay for RACCM {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = vec![self.1.name.to_row_element()];
+        vec.extend(self.0.to_row());
+        vec.extend([
+            (self.2.as_ref(), self.3.as_ref()).to_row_element(),
+            self.4.to_row_element(),
+        ]);
+        vec
+    }
+}
+
+impl RowDisplay for PhantomData<RACCM> {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = PhantomData::<RA>.to_row();
         vec.extend(["categories", "merchant"].map(str::to_owned));
         vec
     }

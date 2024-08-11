@@ -137,6 +137,12 @@ use finnel::record::query::{OrderDirection, OrderField};
 #[derive(Debug, Clone, Copy, derive_more::Into)]
 pub struct Sort(OrderField, OrderDirection);
 
+impl Sort {
+    pub fn try_from(value: &str) -> Result<Self> {
+        Self::from_str(value, true).map_err(|e| anyhow::anyhow!("Cannot construct sort with {}", e))
+    }
+}
+
 impl ValueEnum for Sort {
     fn value_variants<'a>() -> &'a [Self] {
         &[
