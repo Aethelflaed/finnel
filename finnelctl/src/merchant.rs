@@ -42,7 +42,10 @@ impl CommandContext<'_> {
 
         let query = QueryMerchant {
             name: name.as_deref(),
+            default_category_id: args.default_category(self.conn)?.map(|c| c.map(|c| c.id)),
+            replaced_by_id: args.replace_by(self.conn)?.map(|m| m.map(|m| m.id)),
             count: count.map(|c| c as i64),
+            ..QueryMerchant::default()
         };
 
         match &args.action {

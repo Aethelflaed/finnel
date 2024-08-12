@@ -21,6 +21,7 @@ diesel::alias! {
 pub struct QueryCategory<'a> {
     pub name: Option<&'a str>,
     pub parent_id: Option<Option<i64>>,
+    pub replaced_by_id: Option<Option<i64>>,
     pub count: Option<i64>,
 }
 
@@ -50,6 +51,9 @@ impl<'a> QueryCategory<'a> {
         }
         if let Some(parent_id) = self.parent_id {
             query = query.filter(CATEGORIES_ALIAS.field(categories::parent_id).is(parent_id));
+        }
+        if let Some(replaced_by_id) = self.replaced_by_id {
+            query = query.filter(CATEGORIES_ALIAS.field(categories::replaced_by_id).is(replaced_by_id));
         }
         if let Some(count) = self.count {
             query = query.limit(count);

@@ -20,6 +20,8 @@ diesel::alias! {
 #[derive(Default)]
 pub struct QueryMerchant<'a> {
     pub name: Option<&'a str>,
+    pub default_category_id: Option<Option<i64>>,
+    pub replaced_by_id: Option<Option<i64>>,
     pub count: Option<i64>,
 }
 
@@ -46,6 +48,12 @@ impl<'a> QueryMerchant<'a> {
 
         if let Some(name) = self.name {
             query = query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
+        }
+        if let Some(default_category_id) = self.default_category_id {
+            query = query.filter(MERCHANTS_ALIAS.field(merchants::default_category_id).is(default_category_id));
+        }
+        if let Some(replaced_by_id) = self.replaced_by_id {
+            query = query.filter(MERCHANTS_ALIAS.field(merchants::replaced_by_id).is(replaced_by_id));
         }
         if let Some(count) = self.count {
             query = query.limit(count);

@@ -42,8 +42,10 @@ impl CommandContext<'_> {
 
         let query = QueryCategory {
             name: name.as_deref(),
+            parent_id: args.parent(self.conn)?.map(|c| c.map(|c| c.id)),
+            replaced_by_id: args.replace_by(self.conn)?.map(|c| c.map(|c| c.id)),
             count: count.map(|c| c as i64),
-            ..Default::default()
+            ..QueryCategory::default()
         };
 
         match &args.action {

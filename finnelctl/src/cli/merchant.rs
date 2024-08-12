@@ -27,6 +27,26 @@ pub struct List {
     #[arg(long, help_heading = "Filter merchants")]
     name: Option<String>,
 
+    #[allow(private_interfaces)]
+    #[command(flatten, next_help_heading = "Filter by default category")]
+    category: CategoryArgs,
+
+    /// Show only merchants without a default category
+    #[arg(
+        long,
+        group = "category_args",
+        help_heading = "Filter by default category"
+    )]
+    no_default_category: bool,
+
+    #[allow(private_interfaces)]
+    #[command(flatten, next_help_heading = "Filter by replacer")]
+    replace_by: ReplaceByArgs,
+
+    /// Show only merchants without a replacer
+    #[arg(long, group = "replace_by_args", help_heading = "Filter by replacer")]
+    no_replace_by: bool,
+
     /// Maximum number of merchants to show
     #[arg(short = 'c', long, help_heading = "Filter records")]
     pub count: Option<usize>,
@@ -43,6 +63,14 @@ impl List {
             }
             n
         })
+    }
+
+    pub fn default_category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
+        self.category.resolve(conn, None, self.no_default_category)
+    }
+
+    pub fn replace_by(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
+        self.replace_by.resolve(conn, None, self.no_replace_by)
     }
 }
 
