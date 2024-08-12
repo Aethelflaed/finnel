@@ -164,7 +164,8 @@ impl<'a> Importer<'a> {
             .last()
             .ok_or(anyhow::anyhow!("No last record?"))?;
 
-        self.options.set_last_imported(record.operation_date)?;
+        self.options
+            .set_last_imported(Some(record.operation_date))?;
 
         Ok(Some(record))
     }

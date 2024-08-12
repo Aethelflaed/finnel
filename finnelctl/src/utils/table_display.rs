@@ -2,9 +2,7 @@ use std::marker::PhantomData;
 
 use finnel::{
     prelude::*,
-    record::query::{
-        RC, RCM, RCCM, RA, RAC, RACM, RACCM,
-    },
+    record::query::{RA, RAC, RACCM, RACM, RC, RCCM, RCM},
 };
 
 use chrono::NaiveDate;

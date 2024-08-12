@@ -35,6 +35,8 @@ impl FromStr for Information {
         match name.to_lowercase().as_str() {
             "logseq" => Ok(Information::Logseq),
             "boursobank" => Ok(Information::Boursobank),
+            #[cfg(test)]
+            "test" => Ok(Information::Test),
             _ => anyhow::bail!("Unknown profile '{}'", name),
         }
     }
