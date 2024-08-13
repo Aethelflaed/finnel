@@ -9,6 +9,7 @@ pub mod result;
 pub mod account;
 pub mod category;
 pub mod merchant;
+pub mod monthly_stats;
 pub mod record;
 
 pub mod schema;
@@ -33,6 +34,7 @@ pub mod prelude {
         account::Account,
         category::Category,
         merchant::Merchant,
+        monthly_stats::MonthlyStats,
         record::{Direction, Mode, PaymentMethod, Record},
     };
 

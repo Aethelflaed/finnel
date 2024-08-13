@@ -36,6 +36,30 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
 
+    monthly_stats (year, month) {
+        year -> Integer,
+        month -> Integer,
+        amount -> BigInt,
+        currency -> Text,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
+    monthly_stats_category (id) {
+        id -> BigInt,
+        year -> Integer,
+        month -> Integer,
+        amount -> BigInt,
+        currency -> Text,
+        category_id -> BigInt,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
     records (id) {
         id -> BigInt,
         account_id -> BigInt,
@@ -52,8 +76,16 @@ diesel::table! {
 }
 
 diesel::joinable!(merchants -> categories (default_category_id));
+diesel::joinable!(monthly_stats_category -> categories (category_id));
 diesel::joinable!(records -> accounts (account_id));
 diesel::joinable!(records -> categories (category_id));
 diesel::joinable!(records -> merchants (merchant_id));
 
-diesel::allow_tables_to_appear_in_same_query!(accounts, categories, merchants, records,);
+diesel::allow_tables_to_appear_in_same_query!(
+    accounts,
+    categories,
+    merchants,
+    monthly_stats,
+    monthly_stats_category,
+    records,
+);
