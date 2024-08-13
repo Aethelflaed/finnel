@@ -13,8 +13,8 @@ use diesel::{
 };
 
 diesel::alias! {
-    pub(super) const MERCHANTS_ALIAS: Alias<MerchantAlias> = merchants as merchants_alias;
-    pub(super) const REPLACERS: Alias<Replacers> = merchants as replacers;
+    const MERCHANTS_ALIAS: Alias<MerchantAlias> = merchants as merchants_alias;
+    const REPLACERS: Alias<Replacers> = merchants as replacers;
 }
 
 #[derive(Default)]
@@ -50,10 +50,18 @@ impl<'a> QueryMerchant<'a> {
             query = query.filter(MERCHANTS_ALIAS.field(merchants::name).like(name));
         }
         if let Some(default_category_id) = self.default_category_id {
-            query = query.filter(MERCHANTS_ALIAS.field(merchants::default_category_id).is(default_category_id));
+            query = query.filter(
+                MERCHANTS_ALIAS
+                    .field(merchants::default_category_id)
+                    .is(default_category_id),
+            );
         }
         if let Some(replaced_by_id) = self.replaced_by_id {
-            query = query.filter(MERCHANTS_ALIAS.field(merchants::replaced_by_id).is(replaced_by_id));
+            query = query.filter(
+                MERCHANTS_ALIAS
+                    .field(merchants::replaced_by_id)
+                    .is(replaced_by_id),
+            );
         }
         if let Some(count) = self.count {
             query = query.limit(count);

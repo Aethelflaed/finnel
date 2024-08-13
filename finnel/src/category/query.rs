@@ -12,9 +12,9 @@ use diesel::{
 };
 
 diesel::alias! {
-    pub(super) const CATEGORIES_ALIAS: Alias<CategoryAlias> = categories as categories_alias;
-    pub(super) const PARENTS: Alias<Parents> = categories as parents;
-    pub(super) const REPLACERS: Alias<Replacers> = categories as replacers;
+    const CATEGORIES_ALIAS: Alias<CategoryAlias> = categories as categories_alias;
+    const PARENTS: Alias<Parents> = categories as parents;
+    const REPLACERS: Alias<Replacers> = categories as replacers;
 }
 
 #[derive(Default)]
@@ -53,7 +53,11 @@ impl<'a> QueryCategory<'a> {
             query = query.filter(CATEGORIES_ALIAS.field(categories::parent_id).is(parent_id));
         }
         if let Some(replaced_by_id) = self.replaced_by_id {
-            query = query.filter(CATEGORIES_ALIAS.field(categories::replaced_by_id).is(replaced_by_id));
+            query = query.filter(
+                CATEGORIES_ALIAS
+                    .field(categories::replaced_by_id)
+                    .is(replaced_by_id),
+            );
         }
         if let Some(count) = self.count {
             query = query.limit(count);

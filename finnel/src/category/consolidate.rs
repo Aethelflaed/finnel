@@ -1,6 +1,6 @@
-use super::{query, ChangeCategory};
+use super::ChangeCategory;
 use crate::prelude::*;
-use crate::schema::categories;
+use crate::schema::{self, categories};
 
 pub fn consolidate(conn: &mut Conn) -> Result<()> {
     consolidate_replace_by(conn)?;
@@ -10,20 +10,21 @@ pub fn consolidate(conn: &mut Conn) -> Result<()> {
 }
 
 pub fn consolidate_replace_by(conn: &mut Conn) -> Result<()> {
-    let query = query::CATEGORIES_ALIAS
+    let (categories, replacers) = diesel::alias!(
+        schema::categories as categories,
+        schema::categories as replacers
+    );
+
+    let query = categories
         .inner_join(
-            query::REPLACERS.on(query::CATEGORIES_ALIAS
+            replacers.on(categories
                 .field(categories::replaced_by_id)
-                .eq(query::REPLACERS.field(categories::id).nullable())),
+                .eq(replacers.field(categories::id).nullable())),
         )
-        .filter(
-            query::REPLACERS
-                .field(categories::replaced_by_id)
-                .is_not_null(),
-        )
+        .filter(replacers.field(categories::replaced_by_id).is_not_null())
         .select((
-            query::CATEGORIES_ALIAS.fields(categories::all_columns),
-            query::REPLACERS.fields(categories::all_columns),
+            categories.fields(categories::all_columns),
+            replacers.fields(categories::all_columns),
         ));
 
     for (category, replacer) in query.load::<(Category, Category)>(conn)? {
@@ -40,20 +41,21 @@ pub fn consolidate_replace_by(conn: &mut Conn) -> Result<()> {
 }
 
 pub fn consolidate_parent(conn: &mut Conn) -> Result<()> {
-    let query = query::CATEGORIES_ALIAS
+    let (categories, parents) = diesel::alias!(
+        schema::categories as categories,
+        schema::categories as parents
+    );
+
+    let query = categories
         .inner_join(
-            query::PARENTS.on(query::CATEGORIES_ALIAS
+            parents.on(categories
                 .field(categories::parent_id)
-                .eq(query::PARENTS.field(categories::id).nullable())),
+                .eq(parents.field(categories::id).nullable())),
         )
-        .filter(
-            query::PARENTS
-                .field(categories::replaced_by_id)
-                .is_not_null(),
-        )
+        .filter(parents.field(categories::replaced_by_id).is_not_null())
         .select((
-            query::CATEGORIES_ALIAS.fields(categories::all_columns),
-            query::PARENTS.fields(categories::all_columns),
+            categories.fields(categories::all_columns),
+            parents.fields(categories::all_columns),
         ));
 
     for (category, parent) in query.load::<(Category, Category)>(conn)? {
