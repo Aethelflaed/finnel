@@ -171,7 +171,7 @@ impl<'a> QueryRecord<'a> {
     }
 
     pub fn run(&self, conn: &mut Conn) -> Result<Vec<Record>> {
-        Ok(self.load::<_, Record>(conn, self.build()?.select(Record::as_select()))?)
+        self.load::<_, Record>(conn, self.build()?.select(Record::as_select()))
     }
 
     pub fn type_marker(&self) -> PhantomData<Record> {

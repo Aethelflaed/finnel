@@ -1,6 +1,7 @@
 use oxydized_money::CurrencyError;
 
 use diesel::{
+    prelude::*,
     backend::Backend,
     deserialize::{self, FromSql, FromSqlRow},
     expression::AsExpression,
@@ -8,6 +9,16 @@ use diesel::{
     sql_types::{BigInt, Text},
     sqlite::Sqlite,
 };
+
+define_sql_function! {
+    /// Like sum, but returns 0 instead of NULL
+    ///
+    /// Additionally, the type constraint makes sum (and total) return an integer instead of a
+    /// double
+    #[aggregate]
+    #[sql_name = "TOTAL"]
+    fn total(x: BigInt) -> BigInt;
+}
 
 #[derive(Copy, Clone, Debug, derive_more::From, derive_more::Into, FromSqlRow, AsExpression)]
 #[diesel(sql_type = BigInt)]

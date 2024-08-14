@@ -24,6 +24,8 @@ pub enum Error {
     ConnectionError(#[from] diesel::result::ConnectionError),
     #[error("Diesel error. {0}")]
     DieselError(diesel::result::Error),
+    #[error("Invalid month {0}/{1}")]
+    InvalidMonth(i32, i32),
 }
 
 impl Error {

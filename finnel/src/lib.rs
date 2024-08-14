@@ -8,15 +8,17 @@ pub mod result;
 
 pub mod account;
 pub mod category;
+pub mod date;
 pub mod merchant;
-pub mod monthly_stats;
 pub mod record;
+pub mod stats;
 
 pub mod schema;
 use diesel::prelude::*;
 
 pub mod essentials {
     pub use crate::{
+        db,
         resolved::{Resolvable, Resolved},
         result::{Error, OptionalExtension, Result},
     };
@@ -33,9 +35,10 @@ pub mod prelude {
     pub use crate::{
         account::Account,
         category::Category,
+        date,
         merchant::Merchant,
-        monthly_stats::MonthlyStats,
         record::{Direction, Mode, PaymentMethod, Record},
+        stats,
     };
 
     pub use super::Database;

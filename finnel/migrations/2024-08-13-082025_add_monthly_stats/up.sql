@@ -7,7 +7,7 @@ CREATE TABLE monthly_stats (
   CONSTRAINT monthly_stats_year_month PRIMARY KEY (year ASC, month ASC)
 );
 
-CREATE TABLE monthly_stats_category (
+CREATE TABLE monthly_category_stats (
   id INTEGER NOT NULL PRIMARY KEY,
   year INTEGER NOT NULL,
   month INTEGER NOT NULL,
