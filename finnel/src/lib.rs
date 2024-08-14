@@ -22,7 +22,7 @@ pub mod essentials {
         resolved::{Resolvable, Resolved},
         result::{Error, OptionalExtension, Result},
     };
-    pub use oxydized_money::{Amount, Currency, Decimal};
+    pub use oxydized_money::{Amount, AmountResult, Currency, Decimal};
     pub type Conn = diesel::sqlite::SqliteConnection;
 }
 pub use essentials::*;

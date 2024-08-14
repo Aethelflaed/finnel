@@ -1,10 +1,10 @@
 use oxydized_money::CurrencyError;
 
 use diesel::{
-    prelude::*,
     backend::Backend,
     deserialize::{self, FromSql, FromSqlRow},
     expression::AsExpression,
+    prelude::*,
     serialize::{self, IsNull, Output, ToSql},
     sql_types::{BigInt, Text},
     sqlite::Sqlite,
