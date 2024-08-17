@@ -45,7 +45,18 @@ impl FromSql<BigInt, Sqlite> for Decimal {
     }
 }
 
-#[derive(Copy, Clone, Debug, derive_more::From, derive_more::Into, FromSqlRow, AsExpression)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    derive_more::From,
+    derive_more::Into,
+    FromSqlRow,
+    AsExpression,
+)]
 #[diesel(sql_type = Text)]
 pub struct Currency(pub oxydized_money::Currency);
 

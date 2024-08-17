@@ -42,14 +42,14 @@ diesel::table! {
         month -> Integer,
         amount -> BigInt,
         currency -> Text,
-        category_id -> BigInt,
+        category_id -> Nullable<BigInt>,
     }
 }
 
 diesel::table! {
     use diesel::sql_types::*;
 
-    monthly_stats (year, month) {
+    monthly_stats (year, month, currency) {
         year -> Integer,
         month -> Integer,
         amount -> BigInt,

@@ -11,10 +11,15 @@ derive_more = "0.99.17"
 oxydized-money = "0.3.0"
 semver = "1.0.23"
 thiserror = "1.0.61"
-diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
 log = "0.4.22"
 
+[dependencies.diesel_migrations]
+#path = "../../diesel/diesel_migrations"
+version = "2.2.0"
+features = ["sqlite"]
+
 [dependencies.diesel]
+#path = "../../diesel/diesel"
 version = "2.2.1"
 default-features = false
 features = [

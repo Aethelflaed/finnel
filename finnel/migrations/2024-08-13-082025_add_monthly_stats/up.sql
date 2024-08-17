@@ -4,7 +4,7 @@ CREATE TABLE monthly_stats (
   month INTEGER NOT NULL,
   amount BIGINT NOT NULL,
   currency TEXT NOT NULL,
-  CONSTRAINT monthly_stats_year_month PRIMARY KEY (year ASC, month ASC)
+  CONSTRAINT monthly_stats_year_month PRIMARY KEY (year ASC, month ASC, currency ASC)
 );
 
 CREATE TABLE monthly_category_stats (
@@ -13,6 +13,6 @@ CREATE TABLE monthly_category_stats (
   month INTEGER NOT NULL,
   amount BIGINT NOT NULL,
   currency TEXT NOT NULL,
-  category_id BIGINT REFERENCES categories(id) NOT NULL,
-  FOREIGN KEY (year, month) REFERENCES monthly_stats(year, month)
+  category_id BIGINT REFERENCES categories(id),
+  FOREIGN KEY (year, month, currency) REFERENCES monthly_stats(year, month, currency)
 );
