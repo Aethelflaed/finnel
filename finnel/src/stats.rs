@@ -240,9 +240,19 @@ mod tests {
             ])
             .execute(conn)?;
 
-        assert_eq!(3i64, monthly_category_stats::table.select(count_star()).first(conn)?);
+        assert_eq!(
+            3i64,
+            monthly_category_stats::table
+                .select(count_star())
+                .first(conn)?
+        );
         stats.rebuild(conn)?;
-        assert_eq!(2i64, monthly_category_stats::table.select(count_star()).first(conn)?);
+        assert_eq!(
+            2i64,
+            monthly_category_stats::table
+                .select(count_star())
+                .first(conn)?
+        );
 
         Ok(())
     }
@@ -271,11 +281,14 @@ mod tests {
         }
 
         stats.rebuild(conn)?;
-        let category_stats = monthly_category_stats::table.select(MonthlyCategoryStats::as_select())
+        let category_stats = monthly_category_stats::table
+            .select(MonthlyCategoryStats::as_select())
             .load::<MonthlyCategoryStats>(conn)?;
         assert_eq!(3, category_stats.len());
 
-        assert!(category_stats.iter().all(|c| c.category_id != Some(cat3.id)));
+        assert!(category_stats
+            .iter()
+            .all(|c| c.category_id != Some(cat3.id)));
         assert!(category_stats.iter().any(|c| c.category_id.is_none()));
 
         Ok(())

@@ -75,11 +75,31 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    use diesel::sql_types::*;
+
+    reports (id) {
+        id -> BigInt,
+        name -> Text,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
+    reports_categories (report_id, category_id) {
+        report_id -> BigInt,
+        category_id -> BigInt,
+    }
+}
+
 diesel::joinable!(merchants -> categories (default_category_id));
 diesel::joinable!(monthly_category_stats -> categories (category_id));
 diesel::joinable!(records -> accounts (account_id));
 diesel::joinable!(records -> categories (category_id));
 diesel::joinable!(records -> merchants (merchant_id));
+diesel::joinable!(reports_categories -> categories (category_id));
+diesel::joinable!(reports_categories -> reports (report_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     accounts,
@@ -88,4 +108,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     monthly_category_stats,
     monthly_stats,
     records,
+    reports,
+    reports_categories,
 );

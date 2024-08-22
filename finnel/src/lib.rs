@@ -11,6 +11,7 @@ pub mod category;
 pub mod date;
 pub mod merchant;
 pub mod record;
+pub mod report;
 pub mod stats;
 
 pub mod schema;
