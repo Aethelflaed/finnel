@@ -315,3 +315,9 @@ impl Identifier {
         }
     }
 }
+
+impl From<String> for Identifier {
+    fn from(value: String) -> Self {
+        Self { name_or_id: value }
+    }
+}

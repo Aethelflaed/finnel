@@ -8,6 +8,7 @@ pub mod category;
 pub mod import;
 pub mod merchant;
 pub mod record;
+pub mod report;
 
 /// Finnel control
 #[derive(Default, Clone, Debug, Parser)]
@@ -76,6 +77,9 @@ pub enum Commands {
     /// Display the calendar
     #[command(subcommand)]
     Calendar(calendar::Command),
+    /// Configure reports
+    #[command(subcommand)]
+    Report(report::Command),
     /// Import records
     Import(import::Command),
     /// Consolidate the database

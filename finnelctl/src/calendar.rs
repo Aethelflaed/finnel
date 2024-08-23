@@ -86,12 +86,12 @@ impl CommandContext<'_> {
                         if index <= offset || index > days {
                             Ok(None)
                         } else {
-                            let date =
-                                NaiveDate::from_ymd_opt(today.year(), today.month(), index - offset)
-                                    .ok_or(anyhow::anyhow!(
-                                        "Cannot compute day {}",
-                                        index - offset
-                                    ))?;
+                            let date = NaiveDate::from_ymd_opt(
+                                today.year(),
+                                today.month(),
+                                index - offset,
+                            )
+                            .ok_or(anyhow::anyhow!("Cannot compute day {}", index - offset))?;
                             Ok(Some(CalendarDay::new(
                                 date,
                                 CategoriesStats::from_date_range_and_currency(

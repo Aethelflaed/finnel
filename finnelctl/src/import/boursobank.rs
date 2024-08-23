@@ -218,7 +218,8 @@ mod tests {
                 }
                 .save(conn)?;
 
-                let internal_transfer = test::category(conn, "Virements reçus de comptes à comptes")?;
+                let internal_transfer =
+                    test::category(conn, "Virements reçus de comptes à comptes")?;
                 let withdrawal = test::category(conn, "Retraits cash")?;
 
                 let options = Options {

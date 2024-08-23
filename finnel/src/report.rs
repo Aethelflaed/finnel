@@ -40,11 +40,18 @@ impl Report {
             .and_then(|(id, name)| Self::load(conn, id, name))
     }
 
+    pub fn all(conn: &mut Conn) -> Result<Vec<(i64, String)>> {
+        Ok(reports::table
+            .select((reports::id, reports::name))
+            .load(conn)?)
+    }
+
     pub fn add<'a, T>(&mut self, conn: &mut Conn, iter: T) -> Result<()>
     where
         T: IntoIterator<Item = &'a Category>,
     {
-        let values = iter.into_iter()
+        let values = iter
+            .into_iter()
             .map(|c| {
                 (
                     reports_categories::report_id.eq(self.id),
@@ -62,12 +69,22 @@ impl Report {
 
     pub fn remove<'a, T>(&mut self, conn: &mut Conn, iter: T) -> Result<()>
     where
-        T: IntoIterator<Item = &'a Category>
+        T: IntoIterator<Item = &'a Category>,
     {
         let values = iter.into_iter().map(|c| c.id);
         diesel::delete(reports_categories::table)
             .filter(reports_categories::report_id.eq(self.id))
             .filter(reports_categories::category_id.eq_any(values))
+            .execute(conn)?;
+        Ok(())
+    }
+
+    pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
+        diesel::delete(reports_categories::table)
+            .filter(reports_categories::report_id.eq(self.id))
+            .execute(conn)?;
+        diesel::delete(reports::table)
+            .filter(reports::id.eq(self.id))
             .execute(conn)?;
         Ok(())
     }
@@ -88,7 +105,8 @@ impl Report {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::prelude::{*, Result, assert_eq};
+    use crate::test::prelude::{assert_eq, Result, *};
+    use diesel::dsl::count_star;
 
     #[test]
     fn test() -> Result<()> {
@@ -112,6 +130,11 @@ mod tests {
         assert_eq!(cat2.id, report.categories[0].id);
 
         assert_eq!(report.id, Report::find_by_name(conn, "foo")?.id);
+
+        report.delete(conn)?;
+
+        assert_eq!(0i64, reports::table.select(count_star()).first(conn)?);
+        assert_eq!(0i64, reports_categories::table.select(count_star()).first(conn)?);
 
         Ok(())
     }
