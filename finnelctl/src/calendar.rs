@@ -52,15 +52,13 @@ impl CommandContext<'_> {
     }
 
     fn show(&mut self, _args: &Show) -> Result<()> {
-        let date = Utc::now();
-        let month = Month::try_from(u8::try_from(date.month())?)?;
-        let start_of_month = NaiveDate::from_ymd_opt(date.year(), date.month(), 1)
+        let today = Utc::now().date_naive();
+        let tomorrow = today + Days::new(1);
+
+        let month = Month::try_from(u8::try_from(today.month())?)?;
+        let start_of_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)
             .ok_or(anyhow::anyhow!("Cannot compute start of month"))?;
-        let end_of_month = start_of_month
-            .checked_add_months(Months::new(1))
-            .ok_or(anyhow::anyhow!("Cannot add 1 month"))?
-            .checked_sub_days(Days::new(1))
-            .ok_or(anyhow::anyhow!("Cannot sub 1 day"))?;
+        let end_of_month = start_of_month + Months::new(1) - Days::new(1);
 
         println!("{}", start_of_month);
         println!("{}", end_of_month);
@@ -89,18 +87,19 @@ impl CommandContext<'_> {
                             Ok(None)
                         } else {
                             let date =
-                                NaiveDate::from_ymd_opt(date.year(), date.month(), index - offset)
+                                NaiveDate::from_ymd_opt(today.year(), today.month(), index - offset)
                                     .ok_or(anyhow::anyhow!(
                                         "Cannot compute day {}",
                                         index - offset
                                     ))?;
-                            Ok(Some(CalendarDay {
+                            Ok(Some(CalendarDay::new(
                                 date,
-                                stats: CategoriesStats::from_date_range(
+                                CategoriesStats::from_date_range_and_currency(
                                     self.conn,
                                     date..(date + Days::new(1)),
+                                    Currency::EUR,
                                 )?,
-                            }))
+                            )))
                         }
                     })
                     .collect::<Result<Vec<Option<CalendarDay>>>>()
@@ -115,7 +114,33 @@ impl CommandContext<'_> {
 
         println!();
 
-        println!("{}", builder.build().with(Panel::header(month.name())));
+        let stats = CategoriesStats::from_date_range_and_currency(
+            self.conn,
+            start_of_month..tomorrow,
+            Currency::EUR,
+        )?;
+        let debit_amount = stats
+            .iter()
+            .filter(|stats| stats.direction.is_debit())
+            .fold(Decimal::ZERO, |acc, e| acc + e.amount);
+        let credit_amount = stats
+            .iter()
+            .filter(|stats| stats.direction.is_credit())
+            .fold(Decimal::ZERO, |acc, e| acc + e.amount);
+
+        let debit_amount = Amount(debit_amount, Currency::EUR);
+        let credit_amount = Amount(credit_amount, Currency::EUR);
+
+        println!(
+            "{}",
+            builder
+                .build()
+                .with(Panel::header(month.name()))
+                .with(Panel::footer(format!(
+                    "Debit: {}\nCredit: {}",
+                    debit_amount, credit_amount
+                )))
+        );
 
         Ok(())
     }
@@ -123,16 +148,33 @@ impl CommandContext<'_> {
 
 struct CalendarDay {
     date: NaiveDate,
-    stats: CategoriesStats,
+    debit_amount: Decimal,
+    credit_amount: Decimal,
+}
+
+impl CalendarDay {
+    pub fn new(date: NaiveDate, stats: CategoriesStats) -> Self {
+        CalendarDay {
+            date,
+            debit_amount: stats
+                .iter()
+                .filter(|stats| stats.direction.is_debit())
+                .fold(Decimal::ZERO, |acc, e| acc + e.amount),
+            credit_amount: stats
+                .iter()
+                .filter(|stats| stats.direction.is_credit())
+                .fold(Decimal::ZERO, |acc, e| acc + e.amount),
+        }
+    }
 }
 
 impl std::fmt::Display for CalendarDay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Ok(Some(total)) = self.stats.total() {
-            write!(f, "{}\n{}", self.date, total)
-        } else {
-            write!(f, "{}", self.date)
-        }
+        writeln!(f, "{}", self.date.day())?;
+        writeln!(f, "{}", Amount(self.debit_amount, Currency::EUR))?;
+        writeln!(f, "{}", Amount(self.credit_amount, Currency::EUR))?;
+
+        Ok(())
     }
 }
 
