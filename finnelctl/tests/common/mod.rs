@@ -63,8 +63,10 @@ macro_rules! raw_cmd {
 impl Env {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            conf_dir: TempDir::new()?,
-            data_dir: TempDir::new()?,
+            conf_dir: TempDir::new()?
+                .into_persistent_if(std::env::var_os("TEST_PERSIST_FILES").is_some()),
+            data_dir: TempDir::new()?
+                .into_persistent_if(std::env::var_os("TEST_PERSIST_FILES").is_some()),
         })
     }
 

@@ -47,7 +47,8 @@ pub mod with {
     where
         F: FnOnce(&assert_fs::TempDir) -> R,
     {
-        let temp = assert_fs::TempDir::new().unwrap();
+        let temp = assert_fs::TempDir::new().unwrap()
+            .into_persistent_if(std::env::var_os("TEST_PERSIST_FILES").is_some());
         let result = function(&temp);
 
         // The descrutor would silence any issue, so we call close() explicitly
