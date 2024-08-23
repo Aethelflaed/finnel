@@ -21,7 +21,7 @@ impl Logseq {
         let from = options.from.map(|d| d.format(FORMAT).to_string());
         let to = options.to.map(|d| d.format(FORMAT).to_string());
 
-        for result in options.file.read_dir()? {
+        for result in options.file()?.read_dir()? {
             let entry = result?;
             if entry.file_type()?.is_file() {
                 if let Some(ref from) = from {

@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use finnel::prelude::*;
+
 use super::{Information, Profile};
 use crate::cli::import::*;
 use crate::config::Config;
@@ -10,12 +12,13 @@ use chrono::{Days, NaiveDate, Utc};
 #[derive(Clone, Debug)]
 pub struct Options<'a> {
     pub config: &'a Config,
-    pub file: PathBuf,
+    pub file: Option<PathBuf>,
     pub profile_info: Information,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub print: bool,
     pub pretend: bool,
+    pub action: Option<ConfigurationAction>,
 }
 
 impl<'a> Options<'a> {
@@ -28,6 +31,7 @@ impl<'a> Options<'a> {
             to: Default::default(),
             print: false,
             pretend: false,
+            action: None,
         }
     }
 
@@ -70,11 +74,53 @@ impl<'a> Options<'a> {
             to: cli.to.or_else(|| Some(today)),
             print: cli.print,
             pretend: cli.pretend,
+            action: cli.configuration_action.clone(),
         })
+    }
+
+    pub fn has_configuration_action(&self) -> bool {
+        self.action.is_some()
+    }
+
+    pub fn configure(&self, conn: &mut Conn) -> Result<()> {
+        let Some(action) = &self.action else {
+            anyhow::bail!("Cannot configure without action set");
+        };
+        log::debug!("Configuring profile {:?} with {:?}", self.profile_info, action);
+
+        use ConfigurationAction::*;
+        use ConfigurationKey::*;
+
+        match action {
+            Get { key } => match key {
+                DefaultAccount => {
+                    if let Some(account) = self.default_account(conn)? {
+                        println!("{}", account.name);
+                    }
+                }
+            },
+            Set { key, value } => match key {
+                DefaultAccount => {
+                    self.set_default_account(Some(&Account::find_by_name(conn, value.as_str())?))?;
+                }
+            },
+            Reset { key } => match key {
+                DefaultAccount => {
+                    self.set_default_account(None)?;
+                }
+            },
+        }
+        Ok(())
     }
 
     pub fn new_profile(&self) -> Result<Box<dyn Profile>> {
         self.profile_info.new_profile(self)
+    }
+
+    pub fn file(&self) -> Result<&PathBuf> {
+        self.file
+            .as_ref()
+            .ok_or(anyhow::anyhow!("File not provided"))
     }
 
     pub fn last_imported(&self) -> Result<Option<NaiveDate>> {
@@ -95,6 +141,19 @@ impl<'a> Options<'a> {
         }
 
         self.profile_info.set_last_imported(self.config, date)
+    }
+
+    pub fn default_account(&self, conn: &mut Conn) -> Result<Option<Account>> {
+        if let Some(account) = self.profile_info.default_account(self.config)? {
+            Ok(Account::find_by_name(conn, &account).optional()?)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn set_default_account(&self, account: Option<&Account>) -> Result<()> {
+        self.profile_info
+            .set_default_account(self.config, account.map(|a| a.name.as_str()))
     }
 }
 
@@ -233,6 +292,29 @@ mod tests {
             // Setting a previous date is silently ignored
             options.set_last_imported(date)?;
             assert_eq!(next_day, options.last_imported()?);
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn default_account() -> Result<()> {
+        with_config(|config| {
+            let conn = &mut config.database()?;
+            let account = &test::account(conn, "Cash")?;
+
+            let options = Options::new(config);
+
+            assert!(options.default_account(conn)?.is_none());
+
+            options.set_default_account(Some(account))?;
+            assert_eq!(
+                "Cash",
+                options.default_account(conn)?.unwrap().name.as_str()
+            );
+
+            options.set_default_account(None)?;
+            assert!(options.default_account(conn)?.is_none());
 
             Ok(())
         })

@@ -64,8 +64,8 @@ impl Information {
     }
 
     pub fn last_imported(&self, config: &Config) -> Result<Option<NaiveDate>> {
-        Ok(config
-            .get(format!("{}/last_imported", self.name()?).as_str())?
+        Ok(self
+            .get(config, "last_imported")?
             .map(|value| value.parse())
             .transpose()?)
     }
@@ -82,13 +82,34 @@ impl Information {
                 }
             }
 
-            config.set(
-                format!("{}/last_imported", self.name()?).as_str(),
-                date.to_string().as_str(),
-            )
+            self.set(config, "last_imported", date.to_string().as_str())
         } else {
-            config.reset(format!("{}/last_imported", self.name()?).as_str())
+            self.reset(config, "last_imported")
         }
+    }
+
+    pub fn default_account(&self, config: &Config) -> Result<Option<String>> {
+        self.get(config, "default_account")
+    }
+
+    pub fn set_default_account(&self, config: &Config, account: Option<&str>) -> Result<()> {
+        if let Some(account) = account {
+            self.set(config, "default_account", account)
+        } else {
+            self.reset(config, "default_account")
+        }
+    }
+
+    fn get(&self, config: &Config, key: &str) -> Result<Option<String>> {
+        config.get(format!("{}/{}", self.name()?, key).as_str())
+    }
+
+    fn set(&self, config: &Config, key: &str, value: &str) -> Result<()> {
+        config.set(format!("{}/{}", self.name()?, key).as_str(), value)
+    }
+
+    fn reset(&self, config: &Config, key: &str) -> Result<()> {
+        config.reset(format!("{}/{}", self.name()?, key).as_str())
     }
 }
 
@@ -125,6 +146,21 @@ mod tests {
             profile.set_last_imported(config, None)?;
             assert!(profile.last_imported(config)?.is_none());
 
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn default_account() -> Result<()> {
+        with_config(|config| {
+            let profile = Information::default();
+            assert!(profile.default_account(config)?.is_none());
+
+            profile.set_default_account(config, Some("foo"))?;
+            assert_eq!(Some("foo".to_owned()), profile.default_account(config)?);
+
+            profile.set_default_account(config, None)?;
+            assert!(profile.default_account(config)?.is_none());
             Ok(())
         })
     }

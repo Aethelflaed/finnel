@@ -58,10 +58,18 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
     let conn = &mut config.database()?;
 
     let options = Options::try_from(command, config)?;
+
+    if options.has_configuration_action() {
+        options.configure(conn)?;
+        return Ok(());
+    }
+
     let account = if let Some(account) = config.account_or_default(conn)? {
         account
     } else {
-        anyhow::bail!("Account not provided")
+        options
+            .default_account(conn)?
+            .ok_or(anyhow::anyhow!("Account not provided"))?
     };
 
     conn.transaction(|conn| {
