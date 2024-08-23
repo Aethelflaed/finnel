@@ -5,7 +5,7 @@ use crate::cli::record::Import as ImportOptions;
 use crate::config::Config;
 
 use anyhow::Result;
-use chrono::{NaiveDate, Utc, Days};
+use chrono::{Days, NaiveDate, Utc};
 
 #[derive(Clone, Debug)]
 pub struct Options<'a> {
@@ -33,23 +33,41 @@ impl<'a> Options<'a> {
 
     pub fn try_from(cli: &ImportOptions, config: &'a Config) -> Result<Self> {
         let profile_info = cli.profile.parse::<Information>()?;
+        let today = Utc::now().date_naive();
 
-        let from = cli.from.or_else(|| {
-            let from = profile_info.last_imported(config).ok().flatten();
+        let from = if let Some(from) = cli.from {
+            if from > today {
+                log::warn!(
+                    "--from cannot be in the future, changing  to today {}",
+                    today
+                );
+                Some(today)
+            } else {
+                Some(from)
+            }
+        } else {
+            let from = profile_info.last_imported(config)?;
             if let Some(date) = from {
-                log::info!("Starting import from last imported date: {}", date);
-                Some(date + Days::new(1))
+                if date < today {
+                    // Add one day or we might re-import the same day
+                    let date = date + Days::new(1);
+                    log::info!("Starting import from last imported date + 1 day: {}", date);
+                    Some(date)
+                } else {
+                    log::info!("Starting import from today {}", today);
+                    Some(today)
+                }
             } else {
                 None
             }
-        });
+        };
 
         Ok(Self {
             config,
             file: cli.file.clone(),
             profile_info,
             from,
-            to: cli.to.or_else(|| Some(Utc::now().date_naive())),
+            to: cli.to.or_else(|| Some(today)),
             print: cli.print,
             pretend: cli.pretend,
         })
@@ -141,6 +159,52 @@ mod tests {
 
             Ok(())
         })
+    }
+
+    #[test]
+    fn use_today_if_last_imported_is_in_the_future() -> Result<()> {
+        with_config_args(&["record", "import", "-P", "Test", "FILE"], |config| {
+            let today = Utc::now().date_naive();
+
+            {
+                let options = Options::new(config);
+                options.set_last_imported(Some(today + Days::new(3)))?;
+            }
+
+            let Some(Commands::Record(Command::Import(import))) = config.command() else {
+                panic!("Unexpected CLI parse")
+            };
+            let options = Options::try_from(import, config)?;
+
+            assert_eq!(today, options.from.unwrap());
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn use_today_if_from_is_in_the_future() -> Result<()> {
+        let date = Utc::now().date_naive() + Days::new(3);
+        with_config_args(
+            &[
+                "record",
+                "import",
+                "-P",
+                "Test",
+                "FILE",
+                "--from",
+                date.to_string().as_str(),
+            ],
+            |config| {
+                let Some(Commands::Record(Command::Import(import))) = config.command() else {
+                    panic!("Unexpected CLI parse")
+                };
+
+                let options = Options::try_from(import, config)?;
+                assert_eq!(Utc::now().date_naive(), options.from.unwrap());
+
+                Ok(())
+            },
+        )
     }
 
     #[test]

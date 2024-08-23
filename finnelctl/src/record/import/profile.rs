@@ -74,7 +74,11 @@ impl Information {
         if let Some(date) = date {
             if let Some(previous_date) = self.last_imported(config).ok().flatten() {
                 if previous_date > date {
-                    anyhow::bail!("Cannot set last_imported to ");
+                    anyhow::bail!(
+                        "Cannot set last_imported. Given {} is before current {}",
+                        date,
+                        previous_date
+                    );
                 }
             }
 
