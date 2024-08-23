@@ -13,7 +13,7 @@ impl Boursobank {
     pub fn new(options: &Options) -> Result<Self> {
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b';')
-            .from_path(&options.file()?)?;
+            .from_path(options.file()?)?;
 
         {
             let headers = reader.headers()?;

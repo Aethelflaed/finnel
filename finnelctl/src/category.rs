@@ -45,7 +45,6 @@ impl CommandContext<'_> {
             parent_id: args.parent(self.conn)?.map(|c| c.map(|c| c.id)),
             replaced_by_id: args.replace_by(self.conn)?.map(|c| c.map(|c| c.id)),
             count: count.map(|c| c as i64),
-            ..QueryCategory::default()
         };
 
         match &args.action {

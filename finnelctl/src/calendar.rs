@@ -82,7 +82,7 @@ impl CommandContext<'_> {
         let number_of_weeks = days / 7 + u32::from(days % 7 != 0);
         let days_of_month = (0..number_of_weeks)
             .map(|week| {
-                Ok((0..7)
+                (0..7)
                     .map(|day_of_week| {
                         let index = week * 7 + day_of_week;
                         if index <= offset || index > days {
@@ -103,7 +103,7 @@ impl CommandContext<'_> {
                             }))
                         }
                     })
-                    .collect::<Result<Vec<Option<CalendarDay>>>>()?)
+                    .collect::<Result<Vec<Option<CalendarDay>>>>()
             })
             .collect::<Result<Vec<_>>>()?;
 

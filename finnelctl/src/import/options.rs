@@ -71,7 +71,7 @@ impl<'a> Options<'a> {
             file: cli.file.clone(),
             profile_info,
             from,
-            to: cli.to.or_else(|| Some(today)),
+            to: cli.to.or(Some(today)),
             print: cli.print,
             pretend: cli.pretend,
             action: cli.configuration_action.clone(),
@@ -86,7 +86,11 @@ impl<'a> Options<'a> {
         let Some(action) = &self.action else {
             anyhow::bail!("Cannot configure without action set");
         };
-        log::debug!("Configuring profile {:?} with {:?}", self.profile_info, action);
+        log::debug!(
+            "Configuring profile {:?} with {:?}",
+            self.profile_info,
+            action
+        );
 
         use ConfigurationAction::*;
         use ConfigurationKey::*;
@@ -128,7 +132,7 @@ impl<'a> Options<'a> {
             Ok(account)
         } else {
             self.default_account(conn)?
-            .ok_or(anyhow::anyhow!("Account not provided"))
+                .ok_or(anyhow::anyhow!("Account not provided"))
         }
     }
 
