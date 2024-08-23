@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use finnel::{prelude::*, record::QueryRecord};
+use finnel::{prelude::*, record::QueryRecord, stats::CategoriesStats};
 
 use crate::cli::calendar::*;
 use crate::config::Config;
@@ -88,16 +88,22 @@ impl CommandContext<'_> {
                         if index <= offset || index > days {
                             Ok(None)
                         } else {
-                            Ok(Some(
+                            let date =
                                 NaiveDate::from_ymd_opt(date.year(), date.month(), index - offset)
                                     .ok_or(anyhow::anyhow!(
                                         "Cannot compute day {}",
                                         index - offset
-                                    ))?,
-                            ))
+                                    ))?;
+                            Ok(Some(CalendarDay {
+                                date,
+                                stats: CategoriesStats::from_date_range(
+                                    self.conn,
+                                    date..(date + Days::new(1)),
+                                )?,
+                            }))
                         }
                     })
-                    .collect::<Result<Vec<Option<NaiveDate>>>>()?)
+                    .collect::<Result<Vec<Option<CalendarDay>>>>()?)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -112,5 +118,26 @@ impl CommandContext<'_> {
         println!("{}", builder.build().with(Panel::header(month.name())));
 
         Ok(())
+    }
+}
+
+struct CalendarDay {
+    date: NaiveDate,
+    stats: CategoriesStats,
+}
+
+impl std::fmt::Display for CalendarDay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Ok(Some(total)) = self.stats.total() {
+            write!(f, "{}\n{}", self.date, total)
+        } else {
+            write!(f, "{}", self.date)
+        }
+    }
+}
+
+impl crate::utils::table_display::RowElementDisplay for Option<CalendarDay> {
+    fn to_row_element(&self) -> String {
+        self.as_ref().map(|d| d.to_string()).unwrap_or_default()
     }
 }

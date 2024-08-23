@@ -1,10 +1,19 @@
-use crate::common::prelude::*;
+#[macro_use]
+mod common;
+use common::prelude::*;
+
+pub fn setup(env: &crate::Env) -> Result<()> {
+    cmd!(env, account create Cash).success();
+    cmd!(env, account default -A Cash).success();
+
+    Ok(())
+}
 
 #[test]
 fn empty() -> Result<()> {
     let env = Env::new()?;
 
-    cmd!(env, record import)
+    cmd!(env, import)
         .failure()
         .stderr(str::contains("Usage:"))
         .stderr(str::contains("\n  --profile <PROFILE>"))
@@ -17,7 +26,7 @@ fn empty() -> Result<()> {
 fn account_required() -> Result<()> {
     let env = Env::new()?;
 
-    cmd!(env, record import foo --profile unknown)
+    cmd!(env, import foo --profile logseq)
         .failure()
         .stderr(str::contains("Account not provided"));
 
@@ -27,9 +36,9 @@ fn account_required() -> Result<()> {
 #[test]
 fn unknown_profile() -> Result<()> {
     let env = Env::new()?;
-    crate::setup(&env)?;
+    setup(&env)?;
 
-    cmd!(env, record import foo --profile unknown)
+    cmd!(env, import foo --profile unknown)
         .failure()
         .stderr(str::contains("Unknown profile 'unknown'"));
 
@@ -39,12 +48,12 @@ fn unknown_profile() -> Result<()> {
 #[test]
 fn pretend() -> Result<()> {
     let env = Env::new()?;
-    crate::setup(&env)?;
+    setup(&env)?;
 
     let csv = "boursobank/curated.csv";
     env.copy_fixtures(&[csv])?;
 
-    raw_cmd!(env, record import -P Boursobank --pretend)
+    raw_cmd!(env, import -P Boursobank --pretend)
         .arg(env.data_dir.child(csv).as_os_str())
         .assert()
         .failure()
@@ -58,12 +67,12 @@ fn pretend() -> Result<()> {
 #[test]
 fn print() -> Result<()> {
     let env = Env::new()?;
-    crate::setup(&env)?;
+    setup(&env)?;
 
     let csv = "boursobank/curated.csv";
     env.copy_fixtures(&[csv])?;
 
-    raw_cmd!(env, record import -P Boursobank --print)
+    raw_cmd!(env, import -P Boursobank --print)
         .arg(env.data_dir.child(csv).as_os_str())
         .assert()
         .success()

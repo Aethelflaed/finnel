@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 pub mod account;
 pub mod calendar;
 pub mod category;
+pub mod import;
 pub mod merchant;
 pub mod record;
 
@@ -75,6 +76,8 @@ pub enum Commands {
     /// Display the calendar
     #[command(subcommand)]
     Calendar(calendar::Command),
+    /// Import records
+    Import(import::Command),
     /// Consolidate the database
     Consolidate {},
     /// Reset the database

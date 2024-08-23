@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use crate::cli::record::Import as ImportOptions;
+use crate::cli::import::*;
 use crate::config::Config;
 
 use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*, record::NewRecord};
@@ -54,13 +54,15 @@ fn parse_decimal(number: &str) -> Result<Decimal> {
     )?)
 }
 
-pub fn run(
-    conn: &mut Conn,
-    account: &Account,
-    config: &Config,
-    options: &ImportOptions,
-) -> Result<()> {
-    let options = Options::try_from(options, config)?;
+pub fn run(config: &Config, command: &Command) -> Result<()> {
+    let conn = &mut config.database()?;
+
+    let options = Options::try_from(command, config)?;
+    let account = if let Some(account) = config.account_or_default(conn)? {
+        account
+    } else {
+        anyhow::bail!("Account not provided")
+    };
 
     conn.transaction(|conn| {
         let Importer {
@@ -69,7 +71,7 @@ pub fn run(
             options,
             ..
         } = {
-            let mut importer = Importer::new(conn, account, options);
+            let mut importer = Importer::new(conn, &account, options);
             importer.run().map(|_| importer)
         }?;
 

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::{Information, Profile};
-use crate::cli::record::Import as ImportOptions;
+use crate::cli::import::*;
 use crate::config::Config;
 
 use anyhow::Result;
@@ -31,7 +31,7 @@ impl<'a> Options<'a> {
         }
     }
 
-    pub fn try_from(cli: &ImportOptions, config: &'a Config) -> Result<Self> {
+    pub fn try_from(cli: &Command, config: &'a Config) -> Result<Self> {
         let profile_info = cli.profile.parse::<Information>()?;
         let today = Utc::now().date_naive();
 
@@ -101,14 +101,13 @@ impl<'a> Options<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{record::Command, Commands};
+    use crate::cli::Commands;
     use crate::test::prelude::{assert_eq, *};
 
     #[test]
     fn construction() -> Result<()> {
         with_config_args(
             &[
-                "record",
                 "import",
                 "-P",
                 "BoursoBank",
@@ -119,11 +118,11 @@ mod tests {
                 "2024-07-31",
             ],
             |config| {
-                let Some(Commands::Record(Command::Import(import))) = config.command() else {
+                let Some(Commands::Import(command)) = config.command() else {
                     panic!("Unexpected CLI parse")
                 };
 
-                let options = Options::try_from(import, config)?;
+                let options = Options::try_from(command, config)?;
 
                 // Check that CLI information is correctly read
                 assert_eq!(Information::Boursobank, options.profile_info);
@@ -137,7 +136,7 @@ mod tests {
 
     #[test]
     fn use_last_imported_if_from_is_absent() -> Result<()> {
-        with_config_args(&["record", "import", "-P", "Test", "FILE"], |config| {
+        with_config_args(&["import", "-P", "Test", "FILE"], |config| {
             let date = NaiveDate::from_ymd_opt(2024, 8, 1);
 
             {
@@ -146,10 +145,10 @@ mod tests {
                 options.set_last_imported(date)?;
             }
 
-            let Some(Commands::Record(Command::Import(import))) = config.command() else {
+            let Some(Commands::Import(command)) = config.command() else {
                 panic!("Unexpected CLI parse")
             };
-            let options = Options::try_from(import, config)?;
+            let options = Options::try_from(command, config)?;
 
             assert_eq!(date.unwrap() + Days::new(1), options.from.unwrap());
 
@@ -163,7 +162,7 @@ mod tests {
 
     #[test]
     fn use_today_if_last_imported_is_in_the_future() -> Result<()> {
-        with_config_args(&["record", "import", "-P", "Test", "FILE"], |config| {
+        with_config_args(&["import", "-P", "Test", "FILE"], |config| {
             let today = Utc::now().date_naive();
 
             {
@@ -171,10 +170,10 @@ mod tests {
                 options.set_last_imported(Some(today + Days::new(3)))?;
             }
 
-            let Some(Commands::Record(Command::Import(import))) = config.command() else {
+            let Some(Commands::Import(command)) = config.command() else {
                 panic!("Unexpected CLI parse")
             };
-            let options = Options::try_from(import, config)?;
+            let options = Options::try_from(command, config)?;
 
             assert_eq!(today, options.from.unwrap());
             Ok(())
@@ -186,7 +185,6 @@ mod tests {
         let date = Utc::now().date_naive() + Days::new(3);
         with_config_args(
             &[
-                "record",
                 "import",
                 "-P",
                 "Test",
@@ -195,11 +193,11 @@ mod tests {
                 date.to_string().as_str(),
             ],
             |config| {
-                let Some(Commands::Record(Command::Import(import))) = config.command() else {
+                let Some(Commands::Import(command)) = config.command() else {
                     panic!("Unexpected CLI parse")
                 };
 
-                let options = Options::try_from(import, config)?;
+                let options = Options::try_from(command, config)?;
                 assert_eq!(Utc::now().date_naive(), options.from.unwrap());
 
                 Ok(())

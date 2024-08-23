@@ -8,6 +8,7 @@ mod calendar;
 mod category;
 mod cli;
 mod config;
+mod import;
 mod merchant;
 mod record;
 
@@ -30,6 +31,7 @@ fn main() -> Result<()> {
             Commands::Category(cmd) => category::run(&config, cmd)?,
             Commands::Merchant(cmd) => merchant::run(&config, cmd)?,
             Commands::Calendar(cmd) => calendar::run(&config, cmd)?,
+            Commands::Import(cmd) => import::run(&config, cmd)?,
             Commands::Consolidate { .. } => {
                 let conn = &mut config.database()?;
 

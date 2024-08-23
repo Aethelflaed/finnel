@@ -148,7 +148,7 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::record::import::tests::with_default_importer;
+    use crate::import::tests::with_default_importer;
     use crate::test::prelude::{assert_eq, Result, *};
     use finnel::{category::NewCategory, merchant::NewMerchant};
 

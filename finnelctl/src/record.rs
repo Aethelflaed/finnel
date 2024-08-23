@@ -15,10 +15,8 @@ use finnel::{
 
 use tabled::builder::Builder as TableBuilder;
 
-mod import;
-
 struct CommandContext<'a> {
-    config: &'a Config,
+    _config: &'a Config,
     conn: &'a mut Database,
     account: Option<Account>,
 }
@@ -28,7 +26,7 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
     let mut cmd = CommandContext {
         account: config.account_or_default(conn)?,
         conn,
-        config,
+        _config: config,
     };
 
     match &command {
@@ -36,7 +34,6 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
         Command::Show(args) => cmd.show(args),
         Command::Create(args) => cmd.create(args),
         Command::Update(args) => cmd.update(args),
-        Command::Import(args) => cmd.import(args),
     }
 }
 
@@ -190,13 +187,6 @@ impl CommandContext<'_> {
             .optional_empty_changeset()?;
 
         Ok(())
-    }
-
-    fn import(&mut self, args: &Import) -> Result<()> {
-        let Some(account) = self.account.as_ref() else {
-            anyhow::bail!("Account not provided")
-        };
-        import::run(self.conn, account, self.config, args)
     }
 }
 
