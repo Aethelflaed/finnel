@@ -73,8 +73,7 @@ impl Profile for Boursobank {
                 record.details = record.details[21..record.details.len() - 8].to_string();
                 record.mode = Mode::Atm(payment_method);
 
-                // We don't need either the category or the merchant from Boursobank
-                record.category_name = String::new();
+                // We don't need the merchant from Boursobank
                 record.merchant_name = String::new();
             } else if record.details.starts_with("VIR ") | record.details.starts_with("PRLV ") {
                 // VIR|PRLV INST ...
@@ -91,8 +90,6 @@ impl Profile for Boursobank {
                     _ => {}
                 }
 
-                // We don't need the category from Boursobank
-                record.category_name = String::new();
                 // If the merchant is empty, use the details
                 if record.merchant_name.is_empty() {
                     record.merchant_name = record.details.clone();
@@ -207,6 +204,23 @@ mod tests {
                 }
                 .save(conn)?;
 
+                let transfer = test::category(conn, "Virement")?;
+                let _virements_recus = NewCategory {
+                    name: "Virements reçus",
+                    replaced_by: Some(&transfer),
+                    ..Default::default()
+                }
+                .save(conn)?;
+                let _remboursements = NewCategory {
+                    name: "Remboursements frais de santé",
+                    replaced_by: Some(&transfer),
+                    ..Default::default()
+                }
+                .save(conn)?;
+
+                let internal_transfer = test::category(conn, "Virements reçus de comptes à comptes")?;
+                let withdrawal = test::category(conn, "Retraits cash")?;
+
                 let options = Options {
                     file: Some(dir.child(csv).path().to_path_buf()),
                     ..Options::new(importer.options.config)
@@ -247,7 +261,7 @@ mod tests {
                 assert_eq!(parse_date("20/06/2024")?, record.operation_date);
 
                 let record = &importer.records[2];
-                assert_eq!(None, record.category_id);
+                assert_eq!(Some(transfer.id), record.category_id);
                 assert!(record.merchant_id.is_some());
                 assert_eq!("TRANSFERWISE", record.details);
                 assert_eq!(Mode::Transfer, record.mode);
@@ -255,7 +269,7 @@ mod tests {
                 assert_eq!(Decimal::new(123456, 2), record.amount);
 
                 let record = &importer.records[3];
-                assert_eq!(None, record.category_id);
+                assert_eq!(Some(transfer.id), record.category_id);
                 assert_eq!(
                     Some("cpam moselle"),
                     record.fetch_merchant(conn)?.map(|m| m.name).as_deref()
@@ -265,7 +279,7 @@ mod tests {
                 assert_eq!(Decimal::new(5454, 2), record.amount);
 
                 let record = &importer.records[4];
-                assert_eq!(None, record.category_id);
+                assert_eq!(Some(internal_transfer.id), record.category_id);
                 assert!(record.merchant_id.is_some());
                 assert_eq!(
                     Some("livret a"),
@@ -277,7 +291,7 @@ mod tests {
                 assert_eq!(parse_date("28/06/2024")?, record.operation_date);
 
                 let record = &importer.records[5];
-                assert_eq!(None, record.category_id);
+                assert_eq!(Some(withdrawal.id), record.category_id);
                 assert_eq!(None, record.merchant_id);
                 assert_eq!("STRASBOURG", record.details);
                 assert_eq!(
