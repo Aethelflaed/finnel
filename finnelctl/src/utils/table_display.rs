@@ -72,6 +72,14 @@ impl RowDisplay for PhantomData<RC> {
     }
 }
 
+impl RowDisplay for (Record, Option<&Category>, Option<&Merchant>) {
+    fn to_row(&self) -> Vec<String> {
+        let mut vec = self.0.to_row();
+        vec.extend([self.1.to_row_element(), self.2.to_row_element()]);
+        vec
+    }
+}
+
 impl RowDisplay for RCM {
     fn to_row(&self) -> Vec<String> {
         let mut vec = self.0.to_row();
@@ -191,7 +199,25 @@ impl RowElementDisplay for (Amount, Direction) {
     }
 }
 
+impl RowElementDisplay for Category {
+    fn to_row_element(&self) -> String {
+        self.name.clone()
+    }
+}
+
+impl RowElementDisplay for Merchant {
+    fn to_row_element(&self) -> String {
+        self.name.clone()
+    }
+}
+
 impl RowElementDisplay for Option<Category> {
+    fn to_row_element(&self) -> String {
+        self.as_ref().map(|c| c.name.clone()).to_row_element()
+    }
+}
+
+impl RowElementDisplay for Option<&Category> {
     fn to_row_element(&self) -> String {
         self.as_ref().map(|c| c.name.clone()).to_row_element()
     }
@@ -226,6 +252,12 @@ impl RowElementDisplay for (Option<&Category>, Option<&Category>) {
 }
 
 impl RowElementDisplay for Option<Merchant> {
+    fn to_row_element(&self) -> String {
+        self.as_ref().map(|c| c.name.clone()).to_row_element()
+    }
+}
+
+impl RowElementDisplay for Option<&Merchant> {
     fn to_row_element(&self) -> String {
         self.as_ref().map(|c| c.name.clone()).to_row_element()
     }

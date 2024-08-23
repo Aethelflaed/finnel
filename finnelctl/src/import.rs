@@ -66,14 +66,25 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
 
     conn.transaction(|conn| {
         let Importer {
-            conn,
             records,
             options,
+            categories,
+            merchants,
             ..
         } = {
             let mut importer = Importer::new(conn, options)?;
             importer.run().map(|_| importer)
         }?;
+
+        let categories_by_id = categories
+            .values()
+            .map(|category| (category.id, category))
+            .collect::<HashMap<i64, &Category>>();
+
+        let merchants_by_id = merchants
+            .values()
+            .map(|(merchant, _)| (merchant.id, merchant))
+            .collect::<HashMap<i64, &Merchant>>();
 
         if options.print {
             let mut builder = TableBuilder::new();
@@ -83,8 +94,8 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
             );
 
             for record in records {
-                let category = record.fetch_category(conn)?;
-                let merchant = record.fetch_merchant(conn)?;
+                let category = record.category_id.as_ref().map(|id| categories_by_id[id]);
+                let merchant = record.merchant_id.as_ref().map(|id| merchants_by_id[id]);
 
                 table_push_row!(builder, (record, category, merchant));
             }
