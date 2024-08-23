@@ -1,16 +1,14 @@
 use crate::{
     date,
     essentials::*,
+    record::Direction,
     schema::{monthly_category_stats, monthly_stats},
 };
 
 use diesel::prelude::*;
 
 mod categories;
-mod merchants;
-
 pub use categories::{CategoriesStats, CategoryStats};
-pub use merchants::{MerchantStats, MerchantsStats};
 
 #[derive(Debug, Queryable, Selectable)]
 #[diesel(table_name = monthly_stats)]
@@ -20,7 +18,9 @@ pub struct MonthlyStats {
     pub year: i32,
     pub month: i32,
     #[diesel(deserialize_as = db::Decimal)]
-    pub amount: Decimal,
+    pub debit_amount: Decimal,
+    #[diesel(deserialize_as = db::Decimal)]
+    pub credit_amount: Decimal,
     #[diesel(deserialize_as = db::Currency, serialize_as = db::Currency)]
     pub currency: Currency,
 }
@@ -36,6 +36,7 @@ impl diesel::associations::HasTable for MonthlyStats {
 
 // derive(Identifiable) does not honors `serialize_as` and would generate a type that's not
 // an expression, so we need to derive it manually
+// cf https://github.com/diesel-rs/diesel/pull/4168
 impl Identifiable for &MonthlyStats {
     type Id = (i32, i32, db::Currency);
 
@@ -45,8 +46,12 @@ impl Identifiable for &MonthlyStats {
 }
 
 impl MonthlyStats {
-    pub fn amount(&self) -> Amount {
-        Amount(self.amount, self.currency)
+    pub fn debit_amount(&self) -> Amount {
+        Amount(self.debit_amount, self.currency)
+    }
+
+    pub fn credit_amount(&self) -> Amount {
+        Amount(self.credit_amount, self.currency)
     }
 
     pub fn find_or_create(
@@ -80,7 +85,8 @@ impl MonthlyStats {
             .values((
                 monthly_stats::year.eq(year),
                 monthly_stats::month.eq(month),
-                monthly_stats::amount.eq(db::Decimal::from(Decimal::ZERO)),
+                monthly_stats::debit_amount.eq(db::Decimal::from(Decimal::ZERO)),
+                monthly_stats::credit_amount.eq(db::Decimal::from(Decimal::ZERO)),
                 monthly_stats::currency.eq(db::Currency::from(currency)),
             ))
             .returning(MonthlyStats::as_select())
@@ -94,41 +100,48 @@ impl MonthlyStats {
     pub fn rebuild(&mut self, conn: &mut Conn) -> Result<()> {
         self.delete_category_stats(conn)?;
 
-        let stats = CategoriesStats::from_date_range(
+        self.debit_amount = Decimal::new(0, 0);
+        self.credit_amount = Decimal::new(0, 0);
+
+        let stats = CategoriesStats::from_date_range_and_currency(
             conn,
             date::Month::calendar(self.year, self.month).as_date_range()?,
+            self.currency,
         )?;
 
-        if let Some(total) = stats.total()? {
-            if self.currency != total.1 {
-                // XXX We can change the API to query specific currency when/if the needs
-                // arise
-                return Err(oxydized_money::CurrencyError::Mismatch(self.currency, total.1).into());
-            }
-            self.amount = total.0;
+        let monthly_category_stats = stats
+            .0
+            .into_iter()
+            .map(|category_stats| {
+                if category_stats.direction.is_debit() {
+                    self.debit_amount += category_stats.amount;
+                } else {
+                    self.credit_amount += category_stats.amount;
+                }
 
-            let monthly_category_stats = stats
-                .stats
-                .into_iter()
-                .map(|category_stats| MonthlyCategoryStats {
+                MonthlyCategoryStats {
                     id: -1,
                     year: self.year,
                     month: self.month,
                     amount: category_stats.amount,
                     currency: category_stats.currency,
                     category_id: category_stats.category_id,
-                })
-                .collect::<Vec<MonthlyCategoryStats>>();
+                    direction: category_stats.direction,
+                }
+            })
+            .collect::<Vec<MonthlyCategoryStats>>();
 
+        if !monthly_category_stats.is_empty() {
             diesel::insert_into(monthly_category_stats::table)
                 .values(monthly_category_stats)
                 .execute(conn)?;
-        } else {
-            self.amount = Decimal::new(0, 0);
         }
 
         diesel::update(&*self)
-            .set(monthly_stats::amount.eq(db::Decimal::from(self.amount)))
+            .set((
+                monthly_stats::debit_amount.eq(db::Decimal::from(self.debit_amount)),
+                monthly_stats::credit_amount.eq(db::Decimal::from(self.credit_amount)),
+            ))
             .execute(conn)?;
 
         Ok(())
@@ -157,6 +170,7 @@ pub struct MonthlyCategoryStats {
     #[diesel(deserialize_as = db::Currency, serialize_as = db::Currency)]
     pub currency: Currency,
     pub category_id: Option<i64>,
+    pub direction: Direction,
 }
 
 impl MonthlyCategoryStats {
@@ -180,7 +194,7 @@ mod tests {
         assert_eq!(0i64, monthly_stats::table.select(count_star()).first(conn)?);
 
         let stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
-        assert_eq!(Decimal::ZERO, stats.amount);
+        assert_eq!(Decimal::ZERO, stats.debit_amount);
 
         MonthlyStats::find_or_create(conn, 2024, 08, Currency::EUR)?;
 
@@ -201,7 +215,7 @@ mod tests {
         .save(conn)?;
 
         let stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
-        assert_eq!(Decimal::new(314, 2), stats.amount);
+        assert_eq!(Decimal::new(314, 2), stats.debit_amount);
 
         Ok(())
     }
@@ -220,6 +234,7 @@ mod tests {
                     amount: Decimal::ZERO,
                     currency: Currency::EUR,
                     category_id: None,
+                    direction: Direction::Debit,
                 },
                 MonthlyCategoryStats {
                     id: 0,
@@ -228,6 +243,7 @@ mod tests {
                     amount: Decimal::ZERO,
                     currency: Currency::USD,
                     category_id: None,
+                    direction: Direction::Debit,
                 },
                 MonthlyCategoryStats {
                     id: 0,
@@ -236,6 +252,7 @@ mod tests {
                     amount: Decimal::ZERO,
                     currency: Currency::EUR,
                     category_id: None,
+                    direction: Direction::Debit,
                 },
             ])
             .execute(conn)?;
@@ -275,16 +292,29 @@ mod tests {
                 amount: Decimal::new(314, 2),
                 operation_date: date,
                 category: category.copied(),
+                direction: Direction::Debit,
+                ..NewRecord::new(account)
+            }
+            .save(conn)?;
+
+            NewRecord {
+                amount: Decimal::new(420, 2),
+                operation_date: date,
+                category: category.copied(),
+                direction: Direction::Credit,
                 ..NewRecord::new(account)
             }
             .save(conn)?;
         }
 
         stats.rebuild(conn)?;
+        assert_eq!(Decimal::new(1680, 2), stats.credit_amount);
+        assert_eq!(Decimal::new(1256, 2), stats.debit_amount);
+
         let category_stats = monthly_category_stats::table
             .select(MonthlyCategoryStats::as_select())
             .load::<MonthlyCategoryStats>(conn)?;
-        assert_eq!(3, category_stats.len());
+        assert_eq!(6, category_stats.len());
 
         assert!(category_stats
             .iter()

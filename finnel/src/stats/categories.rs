@@ -1,41 +1,28 @@
-use crate::{essentials::*, schema::records};
+use crate::{essentials::*, record::Direction, schema::records};
 
 use std::ops::Range;
 
 use chrono::NaiveDate;
 use diesel::prelude::*;
 
-#[derive(Debug)]
-pub struct CategoriesStats {
-    pub stats: Vec<CategoryStats>,
-    pub total: Option<AmountResult>,
-}
+#[derive(derive_more::From, derive_more::Deref)]
+pub struct CategoriesStats(pub Vec<CategoryStats>);
 
 impl CategoriesStats {
-    pub fn from_date_range(conn: &mut Conn, range: Range<NaiveDate>) -> Result<Self> {
+    pub fn from_date_range_and_currency(
+        conn: &mut Conn,
+        range: Range<NaiveDate>,
+        currency: Currency,
+    ) -> Result<Self> {
         let stats = records::table
             .filter(records::operation_date.ge(range.start))
             .filter(records::operation_date.lt(range.end))
-            .group_by((records::currency, records::category_id))
+            .filter(records::currency.eq(db::Currency::from(currency)))
+            .group_by((records::currency, records::direction, records::category_id))
             .select(CategoryStats::as_select())
             .load::<CategoryStats>(conn)?;
 
         Ok(stats.into())
-    }
-
-    pub fn total(&self) -> Result<Option<Amount>> {
-        Ok(self.total.map(|t| t.into_inner()).transpose()?)
-    }
-}
-
-impl From<Vec<CategoryStats>> for CategoriesStats {
-    fn from(vec: Vec<CategoryStats>) -> Self {
-        let total = vec
-            .iter()
-            .map(|e| AmountResult::from(e.amount()))
-            .reduce(|acc, e| acc + e);
-
-        Self { stats: vec, total }
     }
 }
 
@@ -44,6 +31,8 @@ impl From<Vec<CategoryStats>> for CategoriesStats {
 pub struct CategoryStats {
     #[diesel(select_expression = records::category_id)]
     pub category_id: Option<i64>,
+    #[diesel(select_expression = records::direction)]
+    pub direction: Direction,
     #[diesel(
         select_expression = db::total(records::amount),
         deserialize_as = db::Decimal
@@ -51,7 +40,7 @@ pub struct CategoryStats {
     pub amount: Decimal,
     #[diesel(
         select_expression = records::currency,
-        deserialize_as = crate::db::Currency
+        deserialize_as = db::Currency
     )]
     pub currency: Currency,
 }
@@ -70,7 +59,7 @@ mod tests {
     use crate::test::prelude::{assert_eq, Result, *};
 
     #[test]
-    fn from_date_range() -> Result<()> {
+    fn from_date_range_and_currency() -> Result<()> {
         let conn = &mut test::db()?;
         let cat1 = &test::category(conn, "cat1")?;
         let cat2 = &test::category(conn, "cat2")?;
@@ -100,28 +89,26 @@ mod tests {
             .save(conn)?;
         }
 
-        let stats = CategoriesStats::from_date_range(conn, start..end)?;
+        let stats = CategoriesStats::from_date_range_and_currency(conn, start..end, Currency::EUR)?;
 
         assert_eq!(
-            Some(Amount(Decimal::new(942, 2), Currency::EUR)),
-            stats.total()?
+            Decimal::new(942, 2),
+            stats.iter().fold(Decimal::ZERO, |acc, e| acc + e.amount)
         );
 
         let cat1_stats = stats
-            .stats
             .iter()
             .find(|e| e.category_id == Some(cat1.id))
             .unwrap();
         assert_eq!(Decimal::new(314, 2), cat1_stats.amount);
 
         let cat2_stats = stats
-            .stats
             .iter()
             .find(|e| e.category_id == Some(cat2.id))
             .unwrap();
         assert_eq!(Decimal::new(628, 2), cat2_stats.amount);
 
-        let cat3_stats = stats.stats.iter().find(|e| e.category_id == Some(cat3.id));
+        let cat3_stats = stats.iter().find(|e| e.category_id == Some(cat3.id));
         assert!(cat3_stats.is_none());
 
         Ok(())
@@ -142,17 +129,13 @@ mod tests {
         }
         .save(conn)?;
 
-        let stats = CategoriesStats::from_date_range(conn, start..end)?;
+        let stats = CategoriesStats::from_date_range_and_currency(conn, start..end, Currency::EUR)?;
         assert_eq!(
-            Some(Amount(Decimal::new(420, 2), Currency::EUR)),
-            stats.total()?
+            Decimal::new(420, 2),
+            stats.iter().fold(Decimal::ZERO, |acc, e| acc + e.amount)
         );
 
-        let nocat_stats = stats
-            .stats
-            .iter()
-            .find(|e| e.category_id.is_none())
-            .unwrap();
+        let nocat_stats = stats.iter().find(|e| e.category_id.is_none()).unwrap();
         assert_eq!(Decimal::new(420, 2), nocat_stats.amount);
 
         Ok(())
@@ -182,27 +165,25 @@ mod tests {
         }
         .save(conn)?;
         NewRecord {
-            amount: Decimal::new(420, 2),
+            amount: Decimal::new(210, 2),
             operation_date: start,
             ..NewRecord::new(dollar)
         }
         .save(conn)?;
 
-        let stats = CategoriesStats::from_date_range(conn, start..end)?;
-        assert!(stats.total.unwrap().is_mismatch());
+        let stats = CategoriesStats::from_date_range_and_currency(conn, start..end, Currency::EUR)?;
+        assert!(stats.iter().all(|e| e.currency == Currency::EUR));
+        assert_eq!(
+            Decimal::new(420, 2),
+            stats.iter().fold(Decimal::ZERO, |acc, e| acc + e.amount)
+        );
 
-        let eur_stats = stats
-            .stats
-            .iter()
-            .find(|e| e.currency == Currency::EUR)
-            .unwrap();
-        assert_eq!(Decimal::new(420, 2), eur_stats.amount);
-        let usd_stats = stats
-            .stats
-            .iter()
-            .find(|e| e.currency == Currency::USD)
-            .unwrap();
-        assert_eq!(Decimal::new(420, 2), usd_stats.amount);
+        let stats = CategoriesStats::from_date_range_and_currency(conn, start..end, Currency::USD)?;
+        assert!(stats.iter().all(|e| e.currency == Currency::USD));
+        assert_eq!(
+            Decimal::new(210, 2),
+            stats.iter().fold(Decimal::ZERO, |acc, e| acc + e.amount)
+        );
 
         Ok(())
     }

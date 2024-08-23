@@ -43,6 +43,7 @@ diesel::table! {
         amount -> BigInt,
         currency -> Text,
         category_id -> Nullable<BigInt>,
+        direction -> Text,
     }
 }
 
@@ -52,7 +53,8 @@ diesel::table! {
     monthly_stats (year, month, currency) {
         year -> Integer,
         month -> Integer,
-        amount -> BigInt,
+        debit_amount -> BigInt,
+        credit_amount -> BigInt,
         currency -> Text,
     }
 }
