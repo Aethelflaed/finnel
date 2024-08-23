@@ -123,6 +123,15 @@ impl<'a> Options<'a> {
             .ok_or(anyhow::anyhow!("File not provided"))
     }
 
+    pub fn account(&self, conn: &mut Conn) -> Result<Account> {
+        if let Some(account) = self.config.account_or_default(conn)? {
+            Ok(account)
+        } else {
+            self.default_account(conn)?
+            .ok_or(anyhow::anyhow!("Account not provided"))
+        }
+    }
+
     pub fn last_imported(&self) -> Result<Option<NaiveDate>> {
         self.profile_info.last_imported(self.config)
     }

@@ -67,7 +67,7 @@ impl Config {
         self.cli.account.as_deref()
     }
 
-    pub fn account_or_default(&self, conn: &mut Database) -> Result<Option<Account>> {
+    pub fn account_or_default(&self, conn: &mut Conn) -> Result<Option<Account>> {
         if let Some(name) = self.account_name() {
             match Account::find_by_name(conn, name) {
                 Ok(account) => Ok(Some(account)),
@@ -79,7 +79,7 @@ impl Config {
         }
     }
 
-    pub fn default_account(&self, conn: &mut Database) -> Result<Option<Account>> {
+    pub fn default_account(&self, conn: &mut Conn) -> Result<Option<Account>> {
         if let Some(account_name) = self.get("default_account")? {
             match Account::find_by_name(conn, &account_name) {
                 Ok(entity) => Ok(Some(entity)),

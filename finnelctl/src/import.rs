@@ -29,7 +29,7 @@ pub struct Importer<'a> {
     categories: HashMap<String, Category>,
     merchants: HashMap<String, MerchantWithDefaultCategory>,
     conn: &'a mut Conn,
-    account: &'a Account,
+    account: Account,
 }
 
 #[derive(Default, Clone)]
@@ -64,14 +64,6 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
         return Ok(());
     }
 
-    let account = if let Some(account) = config.account_or_default(conn)? {
-        account
-    } else {
-        options
-            .default_account(conn)?
-            .ok_or(anyhow::anyhow!("Account not provided"))?
-    };
-
     conn.transaction(|conn| {
         let Importer {
             conn,
@@ -79,7 +71,7 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
             options,
             ..
         } = {
-            let mut importer = Importer::new(conn, &account, options);
+            let mut importer = Importer::new(conn, options)?;
             importer.run().map(|_| importer)
         }?;
 
@@ -108,15 +100,15 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
 }
 
 impl<'a> Importer<'a> {
-    fn new(conn: &'a mut Conn, account: &'a Account, options: Options<'a>) -> Self {
-        Importer {
+    fn new(conn: &'a mut Conn, options: Options<'a>) -> Result<Self> {
+        Ok(Importer {
+            account: options.account(conn)?,
             options,
             records: Default::default(),
             categories: Default::default(),
             merchants: Default::default(),
             conn,
-            account,
-        }
+        })
     }
 
     fn run(&mut self) -> Result<()> {
@@ -164,7 +156,7 @@ impl<'a> Importer<'a> {
                 details: import.details.as_str(),
                 category,
                 merchant,
-                ..NewRecord::new(self.account)
+                ..NewRecord::new(&self.account)
             }
             .save(self.conn)?,
         );
@@ -252,16 +244,16 @@ mod tests {
         F: FnOnce(&mut Importer) -> Result<R>,
     {
         let conn = &mut options.config.database()?;
-        let account = &test::account(conn, "Importer")?;
+        options.set_default_account(Some(&test::account(conn, "Importer")?))?;
 
-        function(&mut Importer::new(conn, account, options))
+        function(&mut Importer::new(conn, options)?)
     }
 
     #[test]
     fn add_record() -> Result<()> {
         with_default_importer(|importer| {
             let conn = &mut importer.options.config.database()?;
-            let account_id = importer.account.id;
+            let account_id = importer.options.account(conn)?.id;
 
             let date = chrono::Utc::now().date_naive();
             let mut record_to_import = RecordToImport {
