@@ -39,6 +39,7 @@ pub mod prelude {
         date,
         merchant::Merchant,
         record::{Direction, Mode, PaymentMethod, Record},
+        report::Report,
         stats,
     };
 

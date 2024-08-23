@@ -13,6 +13,15 @@ pub struct Report {
 }
 
 impl Report {
+    pub fn create(conn: &mut Conn, name: &str) -> Result<Self> {
+        diesel::insert_into(reports::table)
+            .values(reports::name.eq(name))
+            .returning((reports::id, reports::name))
+            .get_result(conn)
+            .map_err(|e| Error::from_diesel_error(e, "Report", None))
+            .and_then(|(id, name)| Self::load(conn, id, name))
+    }
+
     pub fn find(conn: &mut Conn, id: i64) -> Result<Self> {
         reports::table
             .find(id)
@@ -31,6 +40,38 @@ impl Report {
             .and_then(|(id, name)| Self::load(conn, id, name))
     }
 
+    pub fn add<'a, T>(&mut self, conn: &mut Conn, iter: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a Category>,
+    {
+        let values = iter.into_iter()
+            .map(|c| {
+                (
+                    reports_categories::report_id.eq(self.id),
+                    reports_categories::category_id.eq(c.id),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        diesel::insert_into(reports_categories::table)
+            .values(values)
+            .execute(conn)?;
+
+        Ok(())
+    }
+
+    pub fn remove<'a, T>(&mut self, conn: &mut Conn, iter: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a Category>
+    {
+        let values = iter.into_iter().map(|c| c.id);
+        diesel::delete(reports_categories::table)
+            .filter(reports_categories::report_id.eq(self.id))
+            .filter(reports_categories::category_id.eq_any(values))
+            .execute(conn)?;
+        Ok(())
+    }
+
     fn load(conn: &mut Conn, id: i64, name: String) -> Result<Self> {
         Ok(Report {
             id,
@@ -41,5 +82,37 @@ impl Report {
                 .select(Category::as_select())
                 .load::<Category>(conn)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::prelude::{*, Result, assert_eq};
+
+    #[test]
+    fn test() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut report = Report::create(conn, "foo")?;
+
+        let cat1 = &test::category(conn, "cat1")?;
+        let cat2 = &test::category(conn, "cat2")?;
+        let cat3 = &test::category(conn, "cat3")?;
+
+        report.add(conn, [cat1, cat2])?;
+        assert!(report.add(conn, [cat1]).is_err());
+
+        report.remove(conn, [cat3])?;
+        report.remove(conn, [cat1])?;
+
+        report.reload(conn)?;
+
+        assert_eq!(1, report.categories.len());
+        assert_eq!(cat2.id, report.categories[0].id);
+
+        assert_eq!(report.id, Report::find_by_name(conn, "foo")?.id);
+
+        Ok(())
     }
 }
