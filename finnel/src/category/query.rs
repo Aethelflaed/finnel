@@ -159,8 +159,8 @@ mod tests {
     #[test]
     fn query() -> Result<()> {
         let conn = &mut test::db()?;
-        let category1 = &mut test::category(conn, "Foo")?;
-        let category1_1 = &mut test::category(conn, "Bar")?;
+        let category1 = &mut test::category!(conn, "Foo");
+        let category1_1 = &mut test::category!(conn, "Bar");
 
         ChangeCategory {
             parent: Some(Some(category1)),

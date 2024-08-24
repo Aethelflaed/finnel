@@ -163,9 +163,9 @@ mod tests {
     #[test]
     fn query() -> Result<()> {
         let conn = &mut test::db()?;
-        let merchant1 = &mut test::merchant(conn, "Foo")?;
-        let merchant1_1 = &mut test::merchant(conn, "Bar")?;
-        let category = &test::category(conn, "Bar")?;
+        let merchant1 = &mut test::merchant!(conn, "Foo");
+        let merchant1_1 = &mut test::merchant!(conn, "Bar");
+        let category = &test::category!(conn, "Bar");
 
         ChangeMerchant {
             default_category: Some(Some(category)),

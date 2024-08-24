@@ -34,18 +34,71 @@ pub fn db() -> Result<Conn> {
     Ok(db.into())
 }
 
-pub fn account(conn: &mut Conn, name: &str) -> Result<Account> {
-    Ok(crate::account::NewAccount::new(name).save(conn)?)
+macro_rules! setter {
+    ($object:ident) => {};
+    ($object:ident, $field:ident: $value:expr) => {
+        $object.$field = $value;
+    };
+    ($object:ident, $field:ident: $value:expr, $($tail:tt)*) => {
+        $object.$field = $value;
+        setter!($object, $($tail)*);
+    };
+}
+pub(crate) use setter;
+
+macro_rules! account {
+    ($conn:ident, $name:expr) => {
+        crate::account::NewAccount::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = crate::account::NewAccount::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn category(conn: &mut Conn, name: &str) -> Result<Category> {
-    Ok(crate::category::NewCategory::new(name).save(conn)?)
+macro_rules! category {
+    ($conn:ident, $name:expr) => {
+        crate::category::NewCategory::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = crate::category::NewCategory::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn merchant(conn: &mut Conn, name: &str) -> Result<Merchant> {
-    Ok(crate::merchant::NewMerchant::new(name).save(conn)?)
+macro_rules! merchant {
+    ($conn:ident, $name:expr) => {
+        crate::merchant::NewMerchant::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = crate::merchant::NewMerchant::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {
-    Ok(crate::record::NewRecord::new(account).save(conn)?)
+macro_rules! record {
+    ($conn:ident, $account:expr) => {
+        crate::record::NewRecord::new($account).save($conn)?
+    };
+    ($conn:ident, $account:expr, $($tail:tt)*) => {
+        {
+            let mut object = crate::record::NewRecord::new($account);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
+
+pub(crate) use account;
+pub(crate) use category;
+pub(crate) use merchant;
+pub(crate) use record;

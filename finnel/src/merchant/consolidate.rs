@@ -100,7 +100,7 @@ mod tests {
     fn consolidate_default_category() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let bar = test::category(conn, "bar")?;
+        let bar = test::category!(conn, "bar");
         let mut chariot = NewMerchant {
             name: "Chariot",
             default_category: Some(&bar),
@@ -108,7 +108,7 @@ mod tests {
         }
         .save(conn)?;
 
-        let capital_bar = test::category(conn, "Bar")?;
+        let capital_bar = test::category!(conn, "Bar");
         crate::category::ChangeCategory {
             replaced_by: Some(Some(&capital_bar)),
             ..Default::default()

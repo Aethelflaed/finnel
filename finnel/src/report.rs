@@ -114,9 +114,10 @@ mod tests {
 
         let mut report = Report::create(conn, "foo")?;
 
-        let cat1 = &test::category(conn, "cat1")?;
-        let cat2 = &test::category(conn, "cat2")?;
-        let cat3 = &test::category(conn, "cat3")?;
+        let real_cat1 = &test::category!(conn, "real cat1");
+        let cat1 = &test::category!(conn, "cat1", replaced_by: Some(&real_cat1));
+        let cat2 = &test::category!(conn, "cat2");
+        let cat3 = &test::category!(conn, "cat3");
 
         report.add(conn, [cat1, cat2])?;
         assert!(report.add(conn, [cat1]).is_err());

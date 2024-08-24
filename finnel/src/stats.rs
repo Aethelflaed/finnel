@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn create() -> Result<()> {
         let conn = &mut test::db()?;
-        let account = &test::account(conn, "Cash")?;
+        let account = &test::account!(conn, "Cash");
         NewRecord {
             amount: Decimal::new(314, 2),
             operation_date: NaiveDate::from_ymd_opt(2024, 08, 01).unwrap(),
@@ -280,11 +280,11 @@ mod tests {
         let mut stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
 
         let date = NaiveDate::from_ymd_opt(2024, 08, 01).unwrap();
-        let account = &test::account(conn, "account")?;
+        let account = &test::account!(conn, "account");
 
-        let cat1 = &test::category(conn, "cat1")?;
-        let cat2 = &test::category(conn, "cat2")?;
-        let cat3 = &test::category(conn, "cat3")?;
+        let cat1 = &test::category!(conn, "cat1");
+        let cat2 = &test::category!(conn, "cat2");
+        let cat3 = &test::category!(conn, "cat3");
 
         let categories = [Some(&cat1), Some(&cat1), Some(&cat2), None];
         for category in categories {

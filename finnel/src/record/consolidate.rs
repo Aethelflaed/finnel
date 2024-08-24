@@ -58,9 +58,9 @@ mod tests {
     #[test]
     fn consolidate_categories() -> Result<()> {
         let conn = &mut test::db()?;
-        let account = test::account(conn, "Cash")?;
+        let account = test::account!(conn, "Cash");
 
-        let bar = test::category(conn, "Bar")?;
+        let bar = test::category!(conn, "Bar");
         let public_house = NewCategory {
             name: "Public House",
             replaced_by: Some(&bar),
@@ -86,9 +86,9 @@ mod tests {
     #[test]
     fn consolidate_merchants() -> Result<()> {
         let conn = &mut test::db()?;
-        let account = test::account(conn, "Cash")?;
+        let account = test::account!(conn, "Cash");
 
-        let chariot = test::merchant(conn, "Chariot")?;
+        let chariot = test::merchant!(conn, "Chariot");
         let le_chariot = NewMerchant {
             name: "Le chariot",
             replaced_by: Some(&chariot),

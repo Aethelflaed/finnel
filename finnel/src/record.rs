@@ -109,17 +109,17 @@ mod tests {
     #[test]
     fn update() -> Result<()> {
         let db = &mut test::db()?;
-        let account = test::account(db, "Cash")?;
-        let mut record = test::record(db, &account)?;
+        let account = test::account!(db, "Cash");
+        let mut record = test::record!(db, &account);
 
-        let category = test::category(db, "Foo")?;
+        let category = test::category!(db, "Foo");
         diesel::update(&record)
             .set(records::category_id.eq(category.id))
             .execute(db)?;
         //record.set_category(Some(&category));
         //record.save(db)?;
 
-        let merchant = test::merchant(db, "Bar")?;
+        let merchant = test::merchant!(db, "Bar");
         diesel::update(&record)
             .set(records::merchant_id.eq(merchant.id))
             .execute(db)?;
@@ -136,9 +136,9 @@ mod tests {
     #[test]
     fn clear_merchant_id() -> Result<()> {
         let db = &mut test::db()?;
-        let account = test::account(db, "Cash")?;
-        let merchant_1 = test::merchant(db, "Foo")?;
-        let merchant_2 = test::merchant(db, "Bar")?;
+        let account = test::account!(db, "Cash");
+        let merchant_1 = test::merchant!(db, "Foo");
+        let merchant_2 = test::merchant!(db, "Bar");
 
         let mut record_1 = NewRecord {
             merchant: Some(&merchant_1),
@@ -162,9 +162,9 @@ mod tests {
     #[test]
     fn clear_category_id() -> Result<()> {
         let db = &mut test::db()?;
-        let account = test::account(db, "Cash")?;
-        let category_1 = test::category(db, "Foo")?;
-        let category_2 = test::category(db, "Bar")?;
+        let account = test::account!(db, "Cash");
+        let category_1 = test::category!(db, "Foo");
+        let category_2 = test::category!(db, "Bar");
 
         let mut record_1 = NewRecord {
             category: Some(&category_1),
@@ -188,11 +188,11 @@ mod tests {
     #[test]
     fn delete_by_account_id() -> Result<()> {
         let db = &mut test::db()?;
-        let account_1 = test::account(db, "Cash")?;
-        let account_2 = test::account(db, "Account")?;
+        let account_1 = test::account!(db, "Cash");
+        let account_2 = test::account!(db, "Account");
 
-        let mut record_1 = test::record(db, &account_1)?;
-        let mut record_2 = test::record(db, &account_2)?;
+        let mut record_1 = test::record!(db, &account_1);
+        let mut record_2 = test::record!(db, &account_2);
 
         super::delete_by_account_id(db, account_1.id)?;
         assert!(record_1.reload(db).is_err());

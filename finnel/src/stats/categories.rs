@@ -61,12 +61,12 @@ mod tests {
     #[test]
     fn from_date_range_and_currency() -> Result<()> {
         let conn = &mut test::db()?;
-        let cat1 = &test::category(conn, "cat1")?;
-        let cat2 = &test::category(conn, "cat2")?;
-        let cat3 = &test::category(conn, "cat3")?;
+        let cat1 = &test::category!(conn, "cat1");
+        let cat2 = &test::category!(conn, "cat2");
+        let cat3 = &test::category!(conn, "cat3");
 
-        let acc1 = &test::account(conn, "acc1")?;
-        let acc2 = &test::account(conn, "acc2")?;
+        let acc1 = &test::account!(conn, "acc1");
+        let acc2 = &test::account!(conn, "acc2");
 
         let before = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
         let start = NaiveDate::from_ymd_opt(2024, 2, 1).unwrap();
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn without_category() -> Result<()> {
         let conn = &mut test::db()?;
-        let account = &test::account(conn, "account")?;
+        let account = &test::account!(conn, "account");
 
         let start = NaiveDate::from_ymd_opt(2024, 2, 1).unwrap();
         let end = NaiveDate::from_ymd_opt(2024, 3, 1).unwrap();

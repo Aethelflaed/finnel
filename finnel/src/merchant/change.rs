@@ -113,8 +113,8 @@ mod tests {
     #[test]
     fn update_loop() -> Result<()> {
         let conn = &mut test::db()?;
-        let merchant1 = &mut test::merchant(conn, "Foo")?;
-        let merchant1_1 = &mut test::merchant(conn, "Bar")?;
+        let merchant1 = &mut test::merchant!(conn, "Foo");
+        let merchant1_1 = &mut test::merchant!(conn, "Bar");
 
         ChangeMerchant {
             replaced_by: Some(Some(merchant1)),

@@ -81,7 +81,7 @@ mod tests {
     fn consolidate_replace_by() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let transfer = test::category(conn, "transfer")?;
+        let transfer = test::category!(conn, "transfer");
         let virement = NewCategory {
             name: "virement",
             replaced_by: Some(&transfer),
@@ -107,7 +107,7 @@ mod tests {
     fn consolidate_parent() -> Result<()> {
         let conn = &mut test::db()?;
 
-        let mut alcool = test::category(conn, "alcool")?;
+        let mut alcool = test::category!(conn, "alcool");
         let mut bar = NewCategory {
             name: "bar",
             parent: Some(&alcool),
@@ -115,7 +115,7 @@ mod tests {
         }
         .save(conn)?;
 
-        let alcohol = test::category(conn, "alcohol")?;
+        let alcohol = test::category!(conn, "alcohol");
         ChangeCategory {
             replaced_by: Some(Some(&alcohol)),
             ..ChangeCategory::default()
