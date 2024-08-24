@@ -255,7 +255,7 @@ mod tests {
         F: FnOnce(&mut Importer) -> Result<R>,
     {
         let conn = &mut options.config.database()?;
-        let _account = test::account(conn, "Importer")?;
+        let _account = test::account!(conn, "Importer");
 
         options.profile_info.set_configuration(
             options.config,
@@ -290,9 +290,9 @@ mod tests {
             assert!(record.merchant_id.is_none());
             assert_eq!(account_id, record.account_id);
 
-            let restaurant = test::category(conn, "restaurant")?;
-            let bar = test::category(conn, "bar")?;
-            let mut chariot = test::merchant(conn, "chariot")?;
+            let restaurant = test::category!(conn, "restaurant");
+            let bar = test::category!(conn, "bar");
+            let mut chariot = test::merchant!(conn, "chariot");
             finnel::merchant::ChangeMerchant {
                 default_category: Some(Some(&bar)),
                 ..Default::default()
@@ -367,8 +367,8 @@ mod tests {
             assert!(importer.add_category("hotel").is_ok());
             assert!(importer.get_category("hotel").is_some());
 
-            let mut bars = test::category(conn, "bars")?;
-            let bar = test::category(conn, "bar")?;
+            let mut bars = test::category!(conn, "bars");
+            let bar = test::category!(conn, "bar");
             finnel::category::ChangeCategory {
                 replaced_by: Some(Some(&bar)),
                 ..Default::default()
@@ -401,9 +401,9 @@ mod tests {
             assert!(importer.get_merchant("mc").is_some());
             assert!(importer.get_merchant("mc").unwrap().1.is_none());
 
-            let bar = test::category(conn, "bar")?;
-            let mut le_chariot = test::merchant(conn, "le chariot")?;
-            let mut chariot = test::merchant(conn, "chariot")?;
+            let bar = test::category!(conn, "bar");
+            let mut le_chariot = test::merchant!(conn, "le chariot");
+            let mut chariot = test::merchant!(conn, "chariot");
             finnel::merchant::ChangeMerchant {
                 replaced_by: Some(Some(&chariot)),
                 default_category: Some(Some(&bar)),

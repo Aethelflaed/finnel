@@ -174,7 +174,7 @@ mod tests {
             with_default_importer(|importer| {
                 let conn = &mut importer.options.config.database()?;
 
-                let bar = test::category(conn, "Bar")?;
+                let bar = test::category!(conn, "Bar");
                 let chariot = NewMerchant {
                     name: "chariot",
                     default_category: Some(&bar),
@@ -188,7 +188,7 @@ mod tests {
                 }
                 .save(conn)?;
 
-                let insurances = test::category(conn, "Insurances")?;
+                let insurances = test::category!(conn, "Insurances");
                 let _assus = NewCategory {
                     name: "Assurance habitation et RC",
                     replaced_by: Some(&insurances),
@@ -196,7 +196,7 @@ mod tests {
                 }
                 .save(conn)?;
 
-                let music = test::category(conn, "Music")?;
+                let music = test::category!(conn, "Music");
                 let spotify = NewMerchant {
                     name: "Spotify",
                     default_category: Some(&music),
@@ -204,7 +204,7 @@ mod tests {
                 }
                 .save(conn)?;
 
-                let transfer = test::category(conn, "Virement")?;
+                let transfer = test::category!(conn, "Virement");
                 let _virements_recus = NewCategory {
                     name: "Virements reçus",
                     replaced_by: Some(&transfer),
@@ -219,8 +219,8 @@ mod tests {
                 .save(conn)?;
 
                 let internal_transfer =
-                    test::category(conn, "Virements reçus de comptes à comptes")?;
-                let withdrawal = test::category(conn, "Retraits cash")?;
+                    test::category!(conn, "Virements reçus de comptes à comptes");
+                let withdrawal = test::category!(conn, "Retraits cash");
 
                 let options = Options {
                     file: Some(dir.child(csv).path().display().to_string()),

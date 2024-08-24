@@ -327,7 +327,7 @@ mod tests {
     fn default_account() -> Result<()> {
         with_config(|config| {
             let conn = &mut config.database()?;
-            let account = &test::account(conn, "Cash")?;
+            let account = &test::account!(conn, "Cash");
 
             let options = Options::new(config);
 

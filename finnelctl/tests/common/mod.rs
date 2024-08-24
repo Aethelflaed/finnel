@@ -1,3 +1,5 @@
+#![allow(unused_macros, unused_imports)]
+
 use anyhow::Result;
 use assert_cmd::Command;
 use assert_fs::TempDir;
@@ -6,7 +8,6 @@ pub mod prelude {
     pub use super::Env;
     pub use anyhow::Result;
     pub use assert_fs::prelude::*;
-    #[allow(unused_imports)]
     pub use predicates::prelude::*;
     pub use predicates::str;
 }
@@ -16,14 +17,12 @@ pub struct Env {
     pub data_dir: TempDir,
 }
 
-#[allow(unused_macros)]
 macro_rules! cmd {
     ($env:ident, $($tail:tt)*) => {
         raw_cmd!($env, $($tail)*).assert()
     };
 }
 
-#[allow(unused_macros)]
 macro_rules! raw_cmd {
     ($env:ident, $($tail:tt)*) => {
         raw_cmd!(@args $env.command()?, $($tail)* )

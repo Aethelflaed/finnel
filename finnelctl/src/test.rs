@@ -1,3 +1,5 @@
+#![allow(unused_macros, unused_imports)]
+
 use anyhow::Result;
 use finnel::prelude::*;
 
@@ -21,21 +23,74 @@ pub fn conn_file(path: &std::path::Path) -> Result<Conn> {
     Ok(conn.into())
 }
 
-pub fn account(conn: &mut Conn, name: &str) -> Result<Account> {
-    Ok(finnel::account::NewAccount::new(name).save(conn)?)
+macro_rules! setter {
+    ($object:ident) => {};
+    ($object:ident, $field:ident: $value:expr) => {
+        $object.$field = $value;
+    };
+    ($object:ident, $field:ident: $value:expr, $($tail:tt)*) => {
+        $object.$field = $value;
+        setter!($object, $($tail)*);
+    };
+}
+pub(crate) use setter;
+
+macro_rules! account {
+    ($conn:ident, $name:expr) => {
+        finnel::account::NewAccount::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = finnel::account::NewAccount::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn category(conn: &mut Conn, name: &str) -> Result<Category> {
-    Ok(finnel::category::NewCategory::new(name).save(conn)?)
+macro_rules! category {
+    ($conn:ident, $name:expr) => {
+        finnel::category::NewCategory::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = finnel::category::NewCategory::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn merchant(conn: &mut Conn, name: &str) -> Result<Merchant> {
-    Ok(finnel::merchant::NewMerchant::new(name).save(conn)?)
+macro_rules! merchant {
+    ($conn:ident, $name:expr) => {
+        finnel::merchant::NewMerchant::new($name).save($conn)?
+    };
+    ($conn:ident, $name:expr, $($tail:tt)*) => {
+        {
+            let mut object = finnel::merchant::NewMerchant::new($name);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
 
-pub fn record(conn: &mut Conn, account: &Account) -> Result<Record> {
-    Ok(finnel::record::NewRecord::new(account).save(conn)?)
+macro_rules! record {
+    ($conn:ident, $account:expr) => {
+        finnel::record::NewRecord::new($account).save($conn)?
+    };
+    ($conn:ident, $account:expr, $($tail:tt)*) => {
+        {
+            let mut object = finnel::record::NewRecord::new($account);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
 }
+
+pub(crate) use account;
+pub(crate) use category;
+pub(crate) use merchant;
+pub(crate) use record;
 
 pub mod with {
     use super::Result;
