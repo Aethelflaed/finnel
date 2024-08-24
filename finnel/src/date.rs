@@ -51,20 +51,20 @@ mod tests {
         let month = Month::calendar(2024, 2);
         let range = month.as_date_range()?;
 
-        assert_eq!(NaiveDate::from_ymd_opt(2024, 02, 01), Some(range.start));
-        assert_eq!(NaiveDate::from_ymd_opt(2024, 03, 01), Some(range.end));
+        assert_eq!(NaiveDate::from_ymd_opt(2024, 2, 1), Some(range.start));
+        assert_eq!(NaiveDate::from_ymd_opt(2024, 3, 1), Some(range.end));
 
         Ok(())
     }
 
     #[test]
     fn month_until() -> Result<()> {
-        let date = NaiveDate::from_ymd_opt(2024, 02, 29).unwrap();
+        let date = NaiveDate::from_ymd_opt(2024, 2, 29).unwrap();
         let month = Month::until(date);
         let range = month.as_date_range()?;
 
-        assert_eq!(NaiveDate::from_ymd_opt(2024, 02, 01), Some(range.start));
-        assert_eq!(NaiveDate::from_ymd_opt(2024, 03, 01), Some(range.end));
+        assert_eq!(NaiveDate::from_ymd_opt(2024, 2, 1), Some(range.start));
+        assert_eq!(NaiveDate::from_ymd_opt(2024, 3, 1), Some(range.end));
 
         Ok(())
     }

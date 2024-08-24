@@ -193,10 +193,10 @@ mod tests {
 
         assert_eq!(0i64, monthly_stats::table.select(count_star()).first(conn)?);
 
-        let stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
+        let stats = MonthlyStats::create(conn, 2024, 8, Currency::EUR)?;
         assert_eq!(Decimal::ZERO, stats.debit_amount);
 
-        MonthlyStats::find_or_create(conn, 2024, 08, Currency::EUR)?;
+        MonthlyStats::find_or_create(conn, 2024, 8, Currency::EUR)?;
 
         assert_eq!(1i64, monthly_stats::table.select(count_star()).first(conn)?);
 
@@ -209,12 +209,12 @@ mod tests {
         let account = &test::account!(conn, "Cash");
         NewRecord {
             amount: Decimal::new(314, 2),
-            operation_date: NaiveDate::from_ymd_opt(2024, 08, 01).unwrap(),
+            operation_date: NaiveDate::from_ymd_opt(2024, 8, 1).unwrap(),
             ..NewRecord::new(account)
         }
         .save(conn)?;
 
-        let stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
+        let stats = MonthlyStats::create(conn, 2024, 8, Currency::EUR)?;
         assert_eq!(Decimal::new(314, 2), stats.debit_amount);
 
         Ok(())
@@ -223,14 +223,14 @@ mod tests {
     #[test]
     fn rebuild_deletes_existing_category_stats() -> Result<()> {
         let conn = &mut test::db()?;
-        let mut stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
+        let mut stats = MonthlyStats::create(conn, 2024, 8, Currency::EUR)?;
 
         diesel::insert_into(monthly_category_stats::table)
             .values([
                 MonthlyCategoryStats {
                     id: 0,
                     year: 2024,
-                    month: 08,
+                    month: 8,
                     amount: Decimal::ZERO,
                     currency: Currency::EUR,
                     category_id: None,
@@ -239,7 +239,7 @@ mod tests {
                 MonthlyCategoryStats {
                     id: 0,
                     year: 2024,
-                    month: 08,
+                    month: 8,
                     amount: Decimal::ZERO,
                     currency: Currency::USD,
                     category_id: None,
@@ -248,7 +248,7 @@ mod tests {
                 MonthlyCategoryStats {
                     id: 0,
                     year: 2024,
-                    month: 07,
+                    month: 7,
                     amount: Decimal::ZERO,
                     currency: Currency::EUR,
                     category_id: None,
@@ -277,9 +277,9 @@ mod tests {
     #[test]
     fn rebuild() -> Result<()> {
         let conn = &mut test::db()?;
-        let mut stats = MonthlyStats::create(conn, 2024, 08, Currency::EUR)?;
+        let mut stats = MonthlyStats::create(conn, 2024, 8, Currency::EUR)?;
 
-        let date = NaiveDate::from_ymd_opt(2024, 08, 01).unwrap();
+        let date = NaiveDate::from_ymd_opt(2024, 8, 1).unwrap();
         let account = &test::account!(conn, "account");
 
         let cat1 = &test::category!(conn, "cat1");
