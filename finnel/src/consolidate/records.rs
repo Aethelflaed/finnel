@@ -1,4 +1,4 @@
-use super::ChangeRecord;
+use crate::record::ChangeRecord;
 use crate::prelude::*;
 use crate::schema::{categories, merchants, records};
 

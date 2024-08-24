@@ -11,9 +11,6 @@ pub use change::ChangeCategory;
 mod query;
 pub use query::QueryCategory;
 
-mod consolidate;
-pub use consolidate::consolidate;
-
 #[derive(Debug, Clone, Queryable, Selectable, Identifiable)]
 #[diesel(table_name = categories)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

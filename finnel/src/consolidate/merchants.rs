@@ -1,4 +1,4 @@
-use super::ChangeMerchant;
+use crate::merchant::ChangeMerchant;
 use crate::prelude::*;
 use crate::schema::{self, categories, merchants};
 

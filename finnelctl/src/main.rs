@@ -36,10 +36,7 @@ fn main() -> Result<()> {
             Commands::Import(cmd) => import::run(&config, cmd)?,
             Commands::Consolidate { .. } => {
                 let conn = &mut config.database()?;
-
-                finnel::merchant::consolidate(conn)?;
-                finnel::category::consolidate(conn)?;
-                finnel::record::consolidate(conn)?;
+                finnel::consolidate::consolidate(conn)?;
             }
             Commands::Reset { confirm } => {
                 if *confirm && utils::confirm()? {

@@ -1,4 +1,4 @@
-use super::ChangeCategory;
+use crate::category::ChangeCategory;
 use crate::prelude::*;
 use crate::schema::{self, categories};
 

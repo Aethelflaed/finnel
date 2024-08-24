@@ -21,9 +21,6 @@ pub use new::NewRecord;
 pub mod query;
 pub use query::QueryRecord;
 
-mod consolidate;
-pub use consolidate::consolidate;
-
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = records)]
 #[diesel(belongs_to(Account, foreign_key = account_id))]
