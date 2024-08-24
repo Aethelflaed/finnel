@@ -53,12 +53,12 @@ impl Report {
         let values = iter
             .into_iter()
             .map(|c| {
-                (
+                Ok((
                     reports_categories::report_id.eq(self.id),
-                    reports_categories::category_id.eq(c.id),
-                )
+                    reports_categories::category_id.eq(c.as_resolved(conn)?.map(|c| c.id)),
+                ))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
         diesel::insert_into(reports_categories::table)
             .values(values)
@@ -71,7 +71,10 @@ impl Report {
     where
         T: IntoIterator<Item = &'a Category>,
     {
-        let values = iter.into_iter().map(|c| c.id);
+        let values = iter
+            .into_iter()
+            .map(|c| Ok(c.as_resolved(conn)?.map(|c| c.id)))
+            .collect::<Result<Vec<_>>>()?;
         diesel::delete(reports_categories::table)
             .filter(reports_categories::report_id.eq(self.id))
             .filter(reports_categories::category_id.eq_any(values))
@@ -119,8 +122,15 @@ mod tests {
         let cat2 = &test::category!(conn, "cat2");
         let cat3 = &test::category!(conn, "cat3");
 
-        report.add(conn, [cat1, cat2])?;
+        report.add(conn, [cat2, cat1])?;
         assert!(report.add(conn, [cat1]).is_err());
+
+        let mut report = Report::find_by_name(conn, "foo")?;
+
+        assert_eq!(2, report.categories.len());
+        let mut ids = report.categories.iter().map(|c| c.id).collect::<Vec<_>>();
+        ids.sort();
+        assert_eq!(vec![real_cat1.id, cat2.id], ids);
 
         report.remove(conn, [cat3])?;
         report.remove(conn, [cat1])?;
@@ -135,7 +145,10 @@ mod tests {
         report.delete(conn)?;
 
         assert_eq!(0i64, reports::table.select(count_star()).first(conn)?);
-        assert_eq!(0i64, reports_categories::table.select(count_star()).first(conn)?);
+        assert_eq!(
+            0i64,
+            reports_categories::table.select(count_star()).first(conn)?
+        );
 
         Ok(())
     }
