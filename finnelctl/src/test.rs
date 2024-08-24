@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use anyhow::Result;
 use finnel::prelude::*;
 
@@ -64,7 +62,7 @@ pub mod with {
     {
         with_temp_dir(|temp| {
             temp_env::with_var("FINNEL_CONFIG", Some(temp.path().as_os_str()), || {
-                function(&temp)
+                function(temp)
             })
         })
     }
@@ -75,7 +73,7 @@ pub mod with {
     {
         with_temp_dir(|temp| {
             temp_env::with_var("FINNEL_DATA", Some(temp.path().as_os_str()), || {
-                function(&temp)
+                function(temp)
             })
         })
     }
@@ -84,7 +82,7 @@ pub mod with {
     where
         F: FnOnce(&assert_fs::TempDir, &assert_fs::TempDir) -> R,
     {
-        with_config_dir(|config| with_data_dir(|data| function(&config, &data)))
+        with_config_dir(|config| with_data_dir(|data| function(config, data)))
     }
 
     pub fn with_config<F, R>(function: F) -> Result<R>

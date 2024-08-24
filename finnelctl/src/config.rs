@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn parse() -> Result<()> {
         with_dirs(|confd, datad| {
-            let mut config = Config::try_parse_from(&["arg0"])?;
+            let mut config = Config::try_parse_from(["arg0"])?;
 
             assert_eq!(config.dir, confd.path());
             assert_eq!(config.data_dir, datad.path());
@@ -212,12 +212,12 @@ mod tests {
                 datad.child("foo").path().display()
             ))?;
 
-            assert!(Config::try_parse_from(&["arg0"]).is_err());
+            assert!(Config::try_parse_from(["arg0"]).is_err());
             let _ = create_dir(datad.child("foo").path());
-            config = Config::try_parse_from(&["arg0"])?;
+            config = Config::try_parse_from(["arg0"])?;
             assert_eq!(config.data_dir, datad.child("foo").path());
 
-            config = Config::try_parse_from(&[
+            config = Config::try_parse_from([
                 "arg0",
                 "--config",
                 datad.child("bar").path().to_str().unwrap(),
@@ -225,7 +225,7 @@ mod tests {
             assert_eq!(config.dir, datad.child("bar").path());
 
             let _ = create_dir(datad.child("bar").path());
-            config = Config::try_parse_from(&[
+            config = Config::try_parse_from([
                 "arg0",
                 "-D",
                 datad.child("bar").path().to_str().unwrap(),

@@ -1,6 +1,8 @@
+use std::borrow::Borrow;
 use std::str::FromStr;
 
 use super::{Boursobank, Importer, Logseq, Options};
+use crate::cli::import::ConfigurationKey;
 use crate::config::Config;
 
 use anyhow::Result;
@@ -88,15 +90,22 @@ impl Information {
         }
     }
 
-    pub fn default_account(&self, config: &Config) -> Result<Option<String>> {
-        self.get(config, "default_account")
+    pub fn configuration<T>(&self, config: &Config, key: T) -> Result<Option<String>>
+    where
+        T: Borrow<ConfigurationKey>,
+    {
+        self.get(config, key.borrow().as_str())
     }
 
-    pub fn set_default_account(&self, config: &Config, account: Option<&str>) -> Result<()> {
-        if let Some(account) = account {
-            self.set(config, "default_account", account)
+    pub fn set_configuration<T, U>(&self, config: &Config, key: T, value: Option<U>) -> Result<()>
+    where
+        T: Borrow<ConfigurationKey>,
+        U: AsRef<str>,
+    {
+        if let Some(value) = value {
+            self.set(config, key.borrow().as_str(), value.as_ref())
         } else {
-            self.reset(config, "default_account")
+            self.reset(config, key.borrow().as_str())
         }
     }
 
@@ -151,16 +160,18 @@ mod tests {
     }
 
     #[test]
-    fn default_account() -> Result<()> {
+    fn configuration() -> Result<()> {
         with_config(|config| {
             let profile = Information::default();
-            assert!(profile.default_account(config)?.is_none());
+            let key = ConfigurationKey::DefaultAccount;
 
-            profile.set_default_account(config, Some("foo"))?;
-            assert_eq!(Some("foo".to_owned()), profile.default_account(config)?);
+            assert!(profile.configuration(config, key)?.is_none());
 
-            profile.set_default_account(config, None)?;
-            assert!(profile.default_account(config)?.is_none());
+            profile.set_configuration(config, key, Some("foo"))?;
+            assert_eq!(Some("foo".to_owned()), profile.configuration(config, key)?);
+
+            profile.set_configuration(config, key, None::<&str>)?;
+            assert!(profile.configuration(config, key)?.is_none());
             Ok(())
         })
     }

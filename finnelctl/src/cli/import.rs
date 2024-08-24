@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use chrono::NaiveDate;
 use clap::{Args, Subcommand, ValueEnum};
 
@@ -10,7 +8,7 @@ pub struct Command {
 
     /// File to import
     #[arg(help_heading = "Import")]
-    pub file: Option<PathBuf>,
+    pub file: Option<String>,
 
     /// Import profile to use
     #[arg(short = 'P', long, help_heading = "Import")]
@@ -51,4 +49,15 @@ pub enum ConfigurationAction {
 #[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum ConfigurationKey {
     DefaultAccount,
+    DefaultFile,
+}
+
+impl ConfigurationKey {
+    pub fn as_str(&self) -> &str {
+        use ConfigurationKey::*;
+        match self {
+            DefaultAccount => "default_account",
+            DefaultFile => "default_file",
+        }
+    }
 }

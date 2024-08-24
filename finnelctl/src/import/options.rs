@@ -12,7 +12,7 @@ use chrono::{Days, NaiveDate, Utc};
 #[derive(Clone, Debug)]
 pub struct Options<'a> {
     pub config: &'a Config,
-    pub file: Option<PathBuf>,
+    pub file: Option<String>,
     pub profile_info: Information,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
@@ -102,17 +102,27 @@ impl<'a> Options<'a> {
                         println!("{}", account.name);
                     }
                 }
+                _ => {
+                    if let Some(value) = self.profile_info.configuration(self.config, key)? {
+                        println!("{}", value);
+                    }
+                }
             },
             Set { key, value } => match key {
                 DefaultAccount => {
-                    self.set_default_account(Some(&Account::find_by_name(conn, value.as_str())?))?;
+                    let account = Account::find_by_name(conn, value.as_str())?;
+                    self.profile_info
+                        .set_configuration(self.config, key, Some(account.name))?;
+                }
+                _ => {
+                    self.profile_info
+                        .set_configuration(self.config, key, Some(value))?;
                 }
             },
-            Reset { key } => match key {
-                DefaultAccount => {
-                    self.set_default_account(None)?;
-                }
-            },
+            Reset { key } => {
+                self.profile_info
+                    .set_configuration(self.config, key, None::<&str>)?;
+            }
         }
         Ok(())
     }
@@ -121,10 +131,15 @@ impl<'a> Options<'a> {
         self.profile_info.new_profile(self)
     }
 
-    pub fn file(&self) -> Result<&PathBuf> {
-        self.file
-            .as_ref()
-            .ok_or(anyhow::anyhow!("File not provided"))
+    pub fn file(&self) -> Result<PathBuf> {
+        if let Some(file) = self.file.clone() {
+            Ok(PathBuf::from(file))
+        } else {
+            self.profile_info
+                .configuration(self.config, ConfigurationKey::DefaultFile)?
+                .map(PathBuf::from)
+                .ok_or(anyhow::anyhow!("File not provided"))
+        }
     }
 
     pub fn account(&self, conn: &mut Conn) -> Result<Account> {
@@ -157,16 +172,14 @@ impl<'a> Options<'a> {
     }
 
     pub fn default_account(&self, conn: &mut Conn) -> Result<Option<Account>> {
-        if let Some(account) = self.profile_info.default_account(self.config)? {
+        if let Some(account) = self
+            .profile_info
+            .configuration(self.config, ConfigurationKey::DefaultAccount)?
+        {
             Ok(Account::find_by_name(conn, &account).optional()?)
         } else {
             Ok(None)
         }
-    }
-
-    pub fn set_default_account(&self, account: Option<&Account>) -> Result<()> {
-        self.profile_info
-            .set_default_account(self.config, account.map(|a| a.name.as_str()))
     }
 }
 
@@ -320,13 +333,21 @@ mod tests {
 
             assert!(options.default_account(conn)?.is_none());
 
-            options.set_default_account(Some(account))?;
+            options.profile_info.set_configuration(
+                options.config,
+                ConfigurationKey::DefaultAccount,
+                Some(&account.name),
+            )?;
             assert_eq!(
                 "Cash",
                 options.default_account(conn)?.unwrap().name.as_str()
             );
 
-            options.set_default_account(None)?;
+            options.profile_info.set_configuration(
+                options.config,
+                ConfigurationKey::DefaultAccount,
+                None::<&str>,
+            )?;
             assert!(options.default_account(conn)?.is_none());
 
             Ok(())

@@ -255,7 +255,13 @@ mod tests {
         F: FnOnce(&mut Importer) -> Result<R>,
     {
         let conn = &mut options.config.database()?;
-        options.set_default_account(Some(&test::account(conn, "Importer")?))?;
+        let _account = test::account(conn, "Importer")?;
+
+        options.profile_info.set_configuration(
+            options.config,
+            ConfigurationKey::DefaultAccount,
+            Some("Importer"),
+        )?;
 
         function(&mut Importer::new(conn, options)?)
     }

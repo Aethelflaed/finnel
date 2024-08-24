@@ -156,7 +156,7 @@ mod tests {
         with_fixtures(&[csv], |dir| {
             with_config(|config| {
                 let options = Options {
-                    file: Some(dir.child(csv).path().to_path_buf()),
+                    file: Some(dir.child(csv).path().display().to_string()),
                     ..Options::new(config)
                 };
                 let result = Boursobank::new(&options);
@@ -223,7 +223,7 @@ mod tests {
                 let withdrawal = test::category(conn, "Retraits cash")?;
 
                 let options = Options {
-                    file: Some(dir.child(csv).path().to_path_buf()),
+                    file: Some(dir.child(csv).path().display().to_string()),
                     ..Options::new(importer.options.config)
                 };
 

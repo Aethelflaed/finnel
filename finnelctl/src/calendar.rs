@@ -132,7 +132,8 @@ impl CommandContext<'_> {
                 .with(Panel::header(month.name()))
                 .with(Panel::footer(format!(
                     "Debit: {}\nCredit: {}",
-                    stats.debit_amount(), stats.credit_amount()
+                    stats.debit_amount(),
+                    stats.credit_amount()
                 )))
         );
 
@@ -156,7 +157,8 @@ impl CommandContext<'_> {
                         .map(|cats| cats.iter().any(|cat| Some(cat.id) == stats.category_id))
                         .unwrap_or(true)
             })
-            .collect::<Vec<_>>().into())
+            .collect::<Vec<_>>()
+            .into())
     }
 }
 
@@ -197,10 +199,7 @@ struct CalendarDay {
 
 impl CalendarDay {
     pub fn new(date: NaiveDate, stats: Stats) -> Self {
-        CalendarDay {
-            date,
-            stats,
-        }
+        CalendarDay { date, stats }
     }
 }
 
