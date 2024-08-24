@@ -5,6 +5,8 @@ use clap::{Args, Subcommand};
 use crate::cli::category::Identifier as CategoryIdentifier;
 use finnel::prelude::*;
 
+create_identifier! {Report}
+
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// List reports
@@ -57,20 +59,4 @@ pub struct Delete {
     /// Confirm deletion
     #[arg(long)]
     pub confirm: bool,
-}
-
-#[derive(Args, Clone, Debug)]
-pub struct Identifier {
-    /// Name or id of the report
-    pub name_or_id: String,
-}
-
-impl Identifier {
-    pub fn find(&self, conn: &mut Conn) -> Result<Report> {
-        if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
-            Ok(Report::find(conn, self.name_or_id.parse()?)?)
-        } else {
-            Ok(Report::find_by_name(conn, &self.name_or_id)?)
-        }
-    }
 }

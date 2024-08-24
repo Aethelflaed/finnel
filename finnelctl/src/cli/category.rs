@@ -4,6 +4,8 @@ use clap::{Args, Subcommand};
 
 use finnel::{category::NewCategory, prelude::*};
 
+create_identifier! {Category}
+
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// List categories
@@ -297,27 +299,5 @@ impl ReplaceByArgs {
         } else {
             Ok(None)
         }
-    }
-}
-
-#[derive(Args, Clone, Debug)]
-pub struct Identifier {
-    /// Name or id of the category
-    pub name_or_id: String,
-}
-
-impl Identifier {
-    pub fn find(&self, conn: &mut Conn) -> Result<Category> {
-        if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
-            Ok(Category::find(conn, self.name_or_id.parse()?)?)
-        } else {
-            Ok(Category::find_by_name(conn, &self.name_or_id)?)
-        }
-    }
-}
-
-impl From<String> for Identifier {
-    fn from(value: String) -> Self {
-        Self { name_or_id: value }
     }
 }

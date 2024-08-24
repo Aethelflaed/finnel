@@ -2,6 +2,32 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+macro_rules! create_identifier {
+    ($struct:ty) => {
+        #[derive(Args, Clone, Debug)]
+        pub struct Identifier {
+            /// Name or id
+            pub name_or_id: String,
+        }
+
+        impl Identifier {
+            pub fn find(&self, conn: &mut Conn) -> Result<$struct> {
+                if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
+                    Ok(<$struct>::find(conn, self.name_or_id.parse()?)?)
+                } else {
+                    Ok(<$struct>::find_by_name(conn, &self.name_or_id)?)
+                }
+            }
+        }
+
+        impl From<String> for Identifier {
+            fn from(value: String) -> Self {
+                Self { name_or_id: value }
+            }
+        }
+    };
+}
+
 pub mod account;
 pub mod calendar;
 pub mod category;
@@ -75,8 +101,7 @@ pub enum Commands {
     #[command(subcommand)]
     Merchant(merchant::Command),
     /// Display the calendar
-    #[command(subcommand)]
-    Calendar(calendar::Command),
+    Calendar(calendar::Arguments),
     /// Configure reports
     #[command(subcommand)]
     Report(report::Command),
