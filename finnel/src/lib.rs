@@ -8,6 +8,7 @@ pub mod result;
 
 pub mod account;
 pub mod category;
+pub mod consolidate;
 pub mod date;
 pub mod merchant;
 pub mod record;
@@ -36,6 +37,7 @@ pub mod prelude {
     pub use crate::{
         account::Account,
         category::Category,
+        consolidate::consolidate,
         date,
         merchant::Merchant,
         record::{Direction, Mode, PaymentMethod, Record},
