@@ -46,14 +46,14 @@ fn default_account() -> Result<()> {
         .success()
         .stdout(str::is_empty());
 
-    raw_cmd!(env, import -P Boursobank -vvv)
+    raw_cmd!(env, import -P Boursobank)
         .arg(env.data_dir.child(csv).as_os_str())
         .assert()
         .success();
 
     cmd!(env, account default --reset).success();
 
-    raw_cmd!(env, import -P Boursobank -vvv)
+    raw_cmd!(env, import -P Boursobank)
         .arg(env.data_dir.child(csv).as_os_str())
         .assert()
         .failure()
@@ -86,6 +86,49 @@ fn default_account() -> Result<()> {
         .assert()
         .failure()
         .stderr(str::contains("Account not provided"));
+
+    Ok(())
+}
+
+#[test]
+fn default_file() -> Result<()> {
+    let env = Env::new()?;
+    setup(&env)?;
+
+    let csv = "boursobank/curated.csv";
+    env.copy_fixtures(&[csv])?;
+
+    raw_cmd!(env, import -P BoursoBank get)
+        .arg("default-file")
+        .assert()
+        .success()
+        .stdout(str::is_empty());
+
+    cmd!(env, import -P Boursobank).failure()
+        .stderr(str::contains("File not provided"));
+
+    raw_cmd!(env, import -P BoursoBank set)
+        .arg("default-file")
+        .arg(env.data_dir.child(csv).as_os_str())
+        .assert()
+        .success();
+
+    cmd!(env, import -P Boursobank).success();
+
+    raw_cmd!(env, import -P BoursoBank get)
+        .arg("default-file")
+        .assert()
+        .success()
+        .stdout(str::contains(csv));
+
+    raw_cmd!(env, import -P BoursoBank reset)
+        .arg("default-file")
+        .assert()
+        .success();
+
+    cmd!(env, import -P Boursobank)
+        .failure()
+        .stderr(str::contains("File not provided"));
 
     Ok(())
 }
