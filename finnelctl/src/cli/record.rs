@@ -19,7 +19,7 @@ pub enum Command {
 #[derive(Args, Clone, Debug)]
 pub struct Show {
     #[command(subcommand)]
-    pub action: Option<Action>,
+    pub action: Option<ShowAction>,
 
     /// Id of the record to show
     id: u32,
@@ -31,14 +31,58 @@ impl Show {
     }
 }
 
+#[derive(Subcommand, Clone, Debug)]
+pub enum ShowAction {
+    /// Split the record
+    Split(Split),
+    #[command(flatten)]
+    Other(Action),
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct Split {
+    /// Amount of the record to split into a new record
+    #[arg(help_heading = "New record")]
+    pub amount: Decimal,
+
+    #[arg(long, help_heading = "New record")]
+    pub details: Option<String>,
+
+    #[allow(private_interfaces)]
+    #[command(flatten, next_help_heading = "Category")]
+    category: CategoryArgs,
+
+    /// Create category with given name and use it
+    #[arg(
+        long,
+        value_name = "NAME",
+        group = "category_args",
+        help_heading = "Category"
+    )]
+    create_category: Option<String>,
+
+    /// Assign no category to the new record
+    #[arg(long, group = "category_args", help_heading = "Category")]
+    no_category: bool,
+}
+
+impl Split {
+    pub fn category(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {
+        self.category
+            .resolve(conn, self.create_category.as_deref(), self.no_category)
+    }
+}
+
 #[derive(Args, Clone, Debug)]
 pub struct Create {
     /// Amount of the record
     ///
     /// Without currency symbol, the currency is inferred from the account
+    #[arg(help_heading = "Record")]
     pub amount: Decimal,
 
     /// Describe the record
+    #[arg(help_heading = "Record")]
     pub details: String,
 
     /// Transaction direction

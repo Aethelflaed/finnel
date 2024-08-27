@@ -9,7 +9,7 @@ use finnel::{
     prelude::*,
     record::{
         change::{ChangeRecord, ResolvedChangeRecord, ViolatingChangeRecord},
-        NewRecord, QueryRecord,
+        NewRecord, QueryRecord, SplitRecord,
     },
 };
 
@@ -116,8 +116,10 @@ impl CommandContext<'_> {
     fn show(&mut self, args: &Show) -> Result<()> {
         let mut record = Record::find(self.conn, args.id())?;
 
+        use ShowAction::*;
+
         match &args.action {
-            Some(Action::Update(args)) => {
+            Some(Other(Action::Update(args))) => {
                 let changes = ResolvedUpdateArgs::deferred(args);
 
                 changes
@@ -125,11 +127,19 @@ impl CommandContext<'_> {
                     .validate(self.conn, &record)?
                     .save(self.conn)?;
             }
-            Some(Action::Delete { confirm }) => {
+            Some(Other(Action::Delete { confirm })) => {
                 if !confirm || !crate::utils::confirm()? {
                     anyhow::bail!("operation requires confirmation");
                 }
                 record.delete(self.conn)?;
+            }
+            Some(Split(args)) => {
+                SplitRecord {
+                    amount: args.amount,
+                    details: args.details.as_deref(),
+                    category: args.category(self.conn)?.as_ref().map(|c| c.as_ref()),
+                }
+                .save(self.conn, &mut record)?;
             }
             None => {
                 let category = record.fetch_category(self.conn)?;

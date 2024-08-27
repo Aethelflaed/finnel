@@ -113,9 +113,9 @@ impl<'a> ValidatedNewRecord<'a> {
 #[diesel(table_name = records)]
 pub struct InsertableRecord<'a> {
     pub account_id: i64,
-    #[diesel(serialize_as = crate::db::Decimal)]
+    #[diesel(serialize_as = db::Decimal)]
     pub amount: Decimal,
-    #[diesel(serialize_as = crate::db::Currency)]
+    #[diesel(serialize_as = db::Currency)]
     pub currency: Currency,
     pub operation_date: NaiveDate,
     pub value_date: NaiveDate,
@@ -124,13 +124,4 @@ pub struct InsertableRecord<'a> {
     pub details: &'a str,
     pub category_id: Option<i64>,
     pub merchant_id: Option<i64>,
-}
-
-impl InsertableRecord<'_> {
-    pub fn save(self, conn: &mut Conn) -> Result<Record> {
-        Ok(diesel::insert_into(records::table)
-            .values(self)
-            .returning(Record::as_returning())
-            .get_result(conn)?)
-    }
 }

@@ -30,7 +30,7 @@ macro_rules! setter {
     };
     ($object:ident, $field:ident: $value:expr, $($tail:tt)*) => {
         $object.$field = $value;
-        setter!($object, $($tail)*);
+        test::setter!($object, $($tail)*);
     };
 }
 pub(crate) use setter;

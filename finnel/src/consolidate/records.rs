@@ -1,5 +1,5 @@
-use crate::record::ChangeRecord;
 use crate::prelude::*;
+use crate::record::ChangeRecord;
 use crate::schema::{categories, merchants, records};
 
 pub fn consolidate(conn: &mut Conn) -> Result<()> {

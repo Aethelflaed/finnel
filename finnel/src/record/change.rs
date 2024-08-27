@@ -21,7 +21,7 @@ impl<'a> ChangeRecord<'a> {
     }
 
     pub fn apply(self, conn: &mut Conn, record: &mut Record) -> Result<()> {
-        self.into_violating_change().save(conn, record)
+        self.into_violating_change().apply(conn, record)
     }
 
     pub fn into_resolved(self, conn: &mut Conn) -> Result<ResolvedChangeRecord<'a>> {

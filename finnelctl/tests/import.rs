@@ -104,7 +104,8 @@ fn default_file() -> Result<()> {
         .success()
         .stdout(str::is_empty());
 
-    cmd!(env, import -P Boursobank).failure()
+    cmd!(env, import -P Boursobank)
+        .failure()
         .stderr(str::contains("File not provided"));
 
     raw_cmd!(env, import -P BoursoBank set)
