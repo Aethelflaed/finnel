@@ -76,14 +76,20 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
             importer.run().map(|_| importer)
         }?;
 
-        let categories_by_id = categories
+        let mut categories_by_id = categories
             .values()
             .map(|category| (category.id, category))
             .collect::<HashMap<i64, &Category>>();
 
         let merchants_by_id = merchants
             .values()
-            .map(|(merchant, _)| (merchant.id, merchant))
+            .map(|(merchant, category)| {
+                if let Some(category) = category {
+                    categories_by_id.insert(category.id, category);
+                }
+
+                (merchant.id, merchant)
+            })
             .collect::<HashMap<i64, &Merchant>>();
 
         if options.print {
