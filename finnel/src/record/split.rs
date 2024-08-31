@@ -85,7 +85,7 @@ impl<'a> ResolvedSplitRecord<'a> {
             direction: record.direction,
             mode: record.mode,
             details: self.details.unwrap_or(record.details.as_str()),
-            category_id: category_id,
+            category_id,
             merchant_id: record.merchant_id,
         }
     }

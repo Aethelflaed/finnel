@@ -1,7 +1,7 @@
 use crate::common::prelude::*;
 
 pub fn setup(env: &crate::Env) -> Result<()> {
-    crate::setup(&env)?;
+    crate::setup(env)?;
 
     cmd!(env, category create beer --create_replace_by Beer).success();
     cmd!(env, category create food --create_replace_by Food).success();

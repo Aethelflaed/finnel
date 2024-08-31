@@ -95,17 +95,19 @@ impl CommandContext<'_> {
                 })?;
             }
             None => {
-                let query = query.with_category().with_parent().with_merchant();
-                let records = query.run(self.conn)?;
-
-                if !records.is_empty() {
-                    let mut builder = TableBuilder::new();
-                    table_push_row!(builder, query.type_marker());
-                    for result in query.run(self.conn)? {
-                        table_push_row!(builder, result);
-                    }
-
-                    println!("{}", builder.build());
+                if self.account.is_some() {
+                    table_display!(query
+                        .with_category()
+                        .with_parent()
+                        .with_merchant()
+                        .run(self.conn)?);
+                } else {
+                    table_display!(query
+                        .with_account()
+                        .with_category()
+                        .with_parent()
+                        .with_merchant()
+                        .run(self.conn)?);
                 }
             }
         }
@@ -139,7 +141,7 @@ impl CommandContext<'_> {
                     details: args.details.as_deref(),
                     category: args.category(self.conn)?.as_ref().map(|c| c.as_ref()),
                 }
-                .save(self.conn, &mut record)?;
+                .save(self.conn, &record)?;
             }
             None => {
                 let category = record.fetch_category(self.conn)?;

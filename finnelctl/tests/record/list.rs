@@ -40,16 +40,14 @@ fn all() -> Result<()> {
     let env = crate::Env::new()?;
     setup(&env)?;
 
-    let stdout = cmd!(env, record list)
-        .success()
-        .into_stdout();
+    let stdout = cmd!(env, record list).success().into_stdout();
 
     let mut start = 0;
     for pattern in ["Bread", "Beer"] {
         if let Some(index) = stdout[start..].find(pattern) {
             start += index;
         } else {
-            assert!(false, "Unable to find {} in {}", pattern, &stdout[start..]);
+            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
         }
     }
 
@@ -68,29 +66,33 @@ fn sort_by_date() -> Result<()> {
         if let Some(index) = stdout[start..].find(pattern) {
             start += index;
         } else {
-            assert!(false, "Unable to find {} in {}", pattern, &stdout[start..]);
+            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
         }
     }
 
-    let stdout = cmd!(env, record list --sort "date.desc").success().into_stdout();
+    let stdout = cmd!(env, record list --sort "date.desc")
+        .success()
+        .into_stdout();
 
     let mut start = 0;
     for pattern in ["Beer", "Bread"] {
         if let Some(index) = stdout[start..].find(pattern) {
             start += index;
         } else {
-            assert!(false, "Unable to find {} in {}", pattern, &stdout[start..]);
+            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
         }
     }
 
-    let stdout = cmd!(env, record list --sort "date.desc" "--operation-date").success().into_stdout();
+    let stdout = cmd!(env, record list --sort "date.desc" "--operation-date")
+        .success()
+        .into_stdout();
 
     let mut start = 0;
     for pattern in ["Bread", "Beer"] {
         if let Some(index) = stdout[start..].find(pattern) {
             start += index;
         } else {
-            assert!(false, "Unable to find {} in {}", pattern, &stdout[start..]);
+            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
         }
     }
 

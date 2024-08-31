@@ -23,6 +23,29 @@ macro_rules! table_push_row {
     }};
 }
 
+pub fn table_display<T>(rows: Vec<T>)
+where
+    T: RowDisplay,
+    PhantomData<T>: RowDisplay,
+{
+    if !rows.is_empty() {
+        let mut builder = tabled::builder::Builder::new();
+        table_push_row!(builder, PhantomData::<T>);
+        for result in rows {
+            table_push_row!(builder, result);
+        }
+
+        println!("{}", builder.build());
+    }
+}
+
+macro_rules! table_display {
+    ( $vec:expr ) => {{
+        use crate::utils::table_display::table_display;
+        table_display($vec);
+    }};
+}
+
 pub trait RowDisplay {
     fn to_row(&self) -> Vec<String>;
 }

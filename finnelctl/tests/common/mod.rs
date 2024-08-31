@@ -96,11 +96,11 @@ impl Env {
 }
 
 pub trait IntoStdout {
-    fn into_stdout(&self) -> String;
+    fn into_stdout(self) -> String;
 }
 
 impl IntoStdout for assert_cmd::assert::Assert {
-    fn into_stdout(&self) -> String {
+    fn into_stdout(self) -> String {
         String::from_utf8_lossy(self.get_output().stdout.as_slice()).to_string()
     }
 }
