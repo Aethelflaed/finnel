@@ -54,6 +54,9 @@ macro_rules! raw_cmd {
     (@arg -$arg:tt) => {
         concat!("-", stringify!($arg))
     };
+    (@arg $arg:literal) => {
+        $arg.to_string()
+    };
     (@arg $arg:tt) => {
         stringify!($arg)
     };
