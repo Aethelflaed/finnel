@@ -1,11 +1,11 @@
-#![allow(unused_macros, unused_imports)]
+#![allow(unused_macros, unused_imports, dead_code)]
 
 use anyhow::Result;
 use assert_cmd::Command;
 use assert_fs::TempDir;
 
 pub mod prelude {
-    pub use super::Env;
+    pub use super::{Env, IntoStdout};
     pub use anyhow::Result;
     pub use assert_fs::prelude::*;
     pub use predicates::prelude::*;
@@ -92,5 +92,15 @@ impl Env {
         self.data_dir.copy_from(fixtures_path, patterns)?;
 
         Ok(())
+    }
+}
+
+pub trait IntoStdout {
+    fn into_stdout(&self) -> String;
+}
+
+impl IntoStdout for assert_cmd::assert::Assert {
+    fn into_stdout(&self) -> String {
+        String::from_utf8_lossy(self.get_output().stdout.as_slice()).to_string()
     }
 }

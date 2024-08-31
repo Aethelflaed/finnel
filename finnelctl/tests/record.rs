@@ -4,6 +4,7 @@ use common::prelude::*;
 
 mod record {
     mod create;
+    mod list;
     mod split;
 }
 
@@ -19,19 +20,6 @@ fn empty() -> Result<()> {
     let env = Env::new()?;
 
     cmd!(env, account).failure().stderr(str::contains("Usage:"));
-
-    Ok(())
-}
-
-#[test]
-fn list() -> Result<()> {
-    let env = Env::new()?;
-    crate::setup(&env)?;
-
-    cmd!(env, record create 10 bread).success();
-    cmd!(env, record list --no_category)
-        .success()
-        .stdout(str::contains("bread"));
 
     Ok(())
 }

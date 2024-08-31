@@ -50,11 +50,8 @@ impl CommandContext<'_> {
         } = args;
         let details = args.details();
 
-        let Some(account) = self.account.as_ref() else {
-            anyhow::bail!("Account not provided")
-        };
         let query = QueryRecord {
-            account_id: Some(account.id),
+            account_id: self.account.as_ref().map(|a| a.id),
             from: args.from,
             to: args.to,
             operation_date: *operation_date,
@@ -99,14 +96,17 @@ impl CommandContext<'_> {
             }
             None => {
                 let query = query.with_category().with_parent().with_merchant();
+                let records = query.run(self.conn)?;
 
-                let mut builder = TableBuilder::new();
-                table_push_row!(builder, query.type_marker());
-                for result in query.run(self.conn)? {
-                    table_push_row!(builder, result);
+                if !records.is_empty() {
+                    let mut builder = TableBuilder::new();
+                    table_push_row!(builder, query.type_marker());
+                    for result in query.run(self.conn)? {
+                        table_push_row!(builder, result);
+                    }
+
+                    println!("{}", builder.build());
                 }
-
-                println!("{}", builder.build());
             }
         }
 
