@@ -26,6 +26,8 @@ pub enum Error {
     DieselError(diesel::result::Error),
     #[error("Invalid month {0}/{1}")]
     InvalidMonth(i32, i32),
+    #[error("Invalid week {0:?}/{1}")]
+    InvalidWeek(chrono::IsoWeek, chrono::Weekday),
 }
 
 impl Error {
