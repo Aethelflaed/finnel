@@ -232,7 +232,7 @@ impl core::fmt::Display for Sort {
 #[derive(Args, Clone, Debug)]
 pub struct List {
     #[command(subcommand)]
-    pub action: Option<Action>,
+    pub action: Option<ListAction>,
 
     /// Show only records from after this date
     #[arg(
@@ -330,6 +330,45 @@ impl List {
 
     pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
         self.merchant.resolve(conn, None, self.no_merchant)
+    }
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum ListAction {
+    #[command(flatten)]
+    Config(ConfigurationAction),
+    #[command(flatten)]
+    Other(Action),
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum ConfigurationAction {
+    /// Print the configuration value
+    Get {
+        key: ConfigurationKey,
+    },
+    /// Set the configuration value
+    Set {
+        key: ConfigurationKey,
+        value: String,
+    },
+    /// Remove the configuration value
+    Reset {
+        key: ConfigurationKey,
+    },
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum ConfigurationKey {
+    DefaultSort,
+}
+
+impl ConfigurationKey {
+    pub fn as_str(&self) -> &str {
+        use ConfigurationKey::*;
+        match self {
+            DefaultSort => "default_sort",
+        }
     }
 }
 

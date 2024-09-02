@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::cell::OnceCell;
+use std::borrow::Borrow;
 
 use crate::cli::record::*;
 use crate::config::Config;
@@ -16,7 +17,7 @@ use finnel::{
 use tabled::builder::Builder as TableBuilder;
 
 struct CommandContext<'a> {
-    _config: &'a Config,
+    config: &'a Config,
     conn: &'a mut Database,
     account: Option<Account>,
 }
@@ -26,7 +27,7 @@ pub fn run(config: &Config, command: &Command) -> Result<()> {
     let mut cmd = CommandContext {
         account: config.account_or_default(conn)?,
         conn,
-        _config: config,
+        config,
     };
 
     match &command {
@@ -50,6 +51,18 @@ impl CommandContext<'_> {
         } = args;
         let details = args.details();
 
+        let mut order = args.sort.clone()
+                .into_iter()
+                .map(|o| o.into())
+                .collect::<Vec<_>>();
+
+        if order.is_empty() {
+            if let Some(sort) = self.configuration(ConfigurationKey::DefaultSort)? {
+                let sort = Sort::try_from(&sort)?;
+                order.push(sort.into());
+            }
+        }
+
         let query = QueryRecord {
             account_id: self.account.as_ref().map(|a| a.id),
             from: args.from,
@@ -63,17 +76,14 @@ impl CommandContext<'_> {
             category_id: args.category(self.conn)?.map(|c| c.map(|c| c.id)),
             merchant_id: args.merchant(self.conn)?.map(|m| m.map(|m| m.id)),
             count: *count,
-            order: args
-                .sort
-                .clone()
-                .into_iter()
-                .map(|o| o.into())
-                .collect::<Vec<_>>(),
+            order,
             ..QueryRecord::default()
         };
 
+        use ListAction::*;
+
         match &args.action {
-            Some(Action::Update(args)) => {
+            Some(Other(Action::Update(args))) => {
                 let changes = ResolvedUpdateArgs::deferred(args);
 
                 for record in query.run(self.conn)? {
@@ -83,7 +93,7 @@ impl CommandContext<'_> {
                         .save(self.conn)?;
                 }
             }
-            Some(Action::Delete { confirm }) => {
+            Some(Other(Action::Delete { confirm })) => {
                 if !confirm || !crate::utils::confirm()? {
                     anyhow::bail!("operation requires confirmation");
                 }
@@ -94,6 +104,9 @@ impl CommandContext<'_> {
                     Result::<()>::Ok(())
                 })?;
             }
+            Some(Config(config)) => {
+                self.configure(config)?;
+            },
             None => {
                 if self.account.is_some() {
                     table_display!(query
@@ -109,6 +122,32 @@ impl CommandContext<'_> {
                         .with_merchant()
                         .run(self.conn)?);
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn configure(&mut self, config: &ConfigurationAction) -> Result<()> {
+        use ConfigurationAction::*;
+        use ConfigurationKey::*;
+
+        match config {
+            Get { key } => {
+                if let Some(value) = self.configuration(key)? {
+                    println!("{}", value);
+                }
+            },
+            Set { key, value } => {
+                let value = match key {
+                    DefaultSort => {
+                        Sort::try_from(value)?.to_string()
+                    },
+                };
+                self.config.set(format!("records/{}", key.as_str()).as_str(), value.as_str())?;
+            },
+            Reset { key } => {
+                self.config.reset(format!("records/{}", key.as_str()).as_str())?;
             }
         }
 
@@ -199,6 +238,12 @@ impl CommandContext<'_> {
             .optional_empty_changeset()?;
 
         Ok(())
+    }
+
+    fn configuration<T>(&self, key: T) -> Result<Option<String>>
+        where T: Borrow<ConfigurationKey>
+    {
+        self.config.get(format!("records/{}", key.borrow().as_str()).as_str())
     }
 }
 

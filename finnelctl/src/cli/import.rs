@@ -33,14 +33,16 @@ pub struct Command {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum ConfigurationAction {
-    /// Print the configured
+    /// Print the configuration value
     Get {
         key: ConfigurationKey,
     },
+    /// Set the configuration value
     Set {
         key: ConfigurationKey,
         value: String,
     },
+    /// Remove the configuration value
     Reset {
         key: ConfigurationKey,
     },
