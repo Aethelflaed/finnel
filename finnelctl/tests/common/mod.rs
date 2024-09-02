@@ -104,3 +104,18 @@ impl IntoStdout for assert_cmd::assert::Assert {
         String::from_utf8_lossy(self.get_output().stdout.as_slice()).to_string()
     }
 }
+
+macro_rules! assert_contains_in_order {
+    ($content:ident, $($pattern:literal),+ $(,)?) => {
+        {
+            let mut start = 0;
+            for pattern in [$($pattern),+] {
+                if let Some(index) = $content[start..].find(pattern) {
+                    start += index;
+                } else {
+                    panic!("Unable to find {:?} in \"{}\"", pattern, &$content[start..]);
+                }
+            }
+        }
+    }
+}

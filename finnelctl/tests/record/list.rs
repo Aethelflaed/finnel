@@ -41,15 +41,7 @@ fn all() -> Result<()> {
     setup(&env)?;
 
     let stdout = cmd!(env, record list).success().into_stdout();
-
-    let mut start = 0;
-    for pattern in ["Bread", "Beer"] {
-        if let Some(index) = stdout[start..].find(pattern) {
-            start += index;
-        } else {
-            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
-        }
-    }
+    assert_contains_in_order!(stdout, "Bread", "Beer");
 
     Ok(())
 }
@@ -60,41 +52,17 @@ fn sort_by_date() -> Result<()> {
     setup(&env)?;
 
     let stdout = cmd!(env, record list --sort date).success().into_stdout();
-
-    let mut start = 0;
-    for pattern in ["Bread", "Beer"] {
-        if let Some(index) = stdout[start..].find(pattern) {
-            start += index;
-        } else {
-            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
-        }
-    }
+    assert_contains_in_order!(stdout, "Bread", "Beer");
 
     let stdout = cmd!(env, record list --sort "date.desc")
         .success()
         .into_stdout();
-
-    let mut start = 0;
-    for pattern in ["Beer", "Bread"] {
-        if let Some(index) = stdout[start..].find(pattern) {
-            start += index;
-        } else {
-            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
-        }
-    }
+    assert_contains_in_order!(stdout, "Beer", "Bread");
 
     let stdout = cmd!(env, record list --sort "date.desc" "--operation-date")
         .success()
         .into_stdout();
-
-    let mut start = 0;
-    for pattern in ["Bread", "Beer"] {
-        if let Some(index) = stdout[start..].find(pattern) {
-            start += index;
-        } else {
-            panic!("Unable to find {} in {}", pattern, &stdout[start..]);
-        }
-    }
+    assert_contains_in_order!(stdout, "Bread", "Beer");
 
     Ok(())
 }

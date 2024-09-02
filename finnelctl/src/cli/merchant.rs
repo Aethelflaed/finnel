@@ -92,7 +92,11 @@ pub struct List {
     replace_by: ReplaceByMerchantArgument,
 
     /// Show only merchants without a replacer
-    #[arg(long, group = "replace_by_merchant_args", help_heading = "Filter by replacer")]
+    #[arg(
+        long,
+        group = "replace_by_merchant_args",
+        help_heading = "Filter by replacer"
+    )]
     no_replace_by: bool,
 
     /// Maximum number of merchants to show
