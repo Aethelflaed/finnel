@@ -1,8 +1,58 @@
+use crate::cli::category::{CategoryArgument, Identifier as CategoryIdentifier};
 use anyhow::Result;
-
 use clap::{Args, Subcommand};
+use finnel::{merchant::NewMerchant, prelude::*};
 
-use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
+create_identifier! {Merchant}
+
+#[derive(Args, Clone, Debug)]
+#[group(id = "merchant_args")]
+pub struct MerchantArgument {
+    /// Name or id of the merchant to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    merchant: Option<Identifier>,
+}
+
+impl MerchantArgument {
+    /// Fetch the merchant selected by the user, if any
+    ///
+    /// Returns a Result of the eventual database operation. The first Option
+    /// indicates whether or not a preference has been expressed by the user,
+    /// and the second the eventual object if there is one.
+    ///
+    /// <no category_args> => Ok(None)
+    /// --no-merchant => Ok(Some(None))
+    /// --merchant 1 => Ok(Some(Some(Merchant{..})))
+    pub fn resolve(
+        &self,
+        conn: &mut Conn,
+        create: Option<&str>,
+        absence: bool,
+    ) -> Result<Option<Option<Merchant>>> {
+        Self::resolve_with(conn, self.merchant.as_ref(), create, absence)
+    }
+
+    /// Same as the method version, but takes the identifier as parameter.
+    ///
+    /// This allows the definition of other struct to use the same behaviour, but with a
+    /// different name
+    pub fn resolve_with(
+        conn: &mut Conn,
+        identifier: Option<&Identifier>,
+        create: Option<&str>,
+        absence: bool,
+    ) -> Result<Option<Option<Merchant>>> {
+        if let Some(identifier) = identifier {
+            Ok(Some(Some(identifier.find(conn)?)))
+        } else if let Some(name) = create {
+            Ok(Some(Some(NewMerchant::new(name).save(conn)?)))
+        } else if absence {
+            Ok(Some(None))
+        } else {
+            Ok(None)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -27,24 +77,22 @@ pub struct List {
     #[arg(long, help_heading = "Filter merchants")]
     name: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by default category")]
-    category: CategoryArgs,
+    category: DefaultCategoryArgument,
 
     /// Show only merchants without a default category
     #[arg(
         long,
-        group = "category_args",
+        group = "default_category_args",
         help_heading = "Filter by default category"
     )]
     no_default_category: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by replacer")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByMerchantArgument,
 
     /// Show only merchants without a replacer
-    #[arg(long, group = "replace_by_args", help_heading = "Filter by replacer")]
+    #[arg(long, group = "replace_by_merchant_args", help_heading = "Filter by replacer")]
     no_replace_by: bool,
 
     /// Maximum number of merchants to show
@@ -92,29 +140,27 @@ pub struct Create {
     /// Name of the new merchant
     pub name: String,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
-    category: CategoryArgs,
+    category: DefaultCategoryArgument,
 
     /// Create category with given name and use it
     #[arg(
         long,
         value_name = "NAME",
-        group = "category_args",
+        group = "default_category_args",
         help_heading = "Category"
     )]
     create_default_category: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByMerchantArgument,
 
     /// Create the another merchant to use instead of the currently creating
     /// one
     #[arg(
         long,
         value_name = "NAME",
-        group = "replace_by_args",
+        group = "replace_by_merchant_args",
         help_heading = "Replace by"
     )]
     create_replace_by: Option<String>,
@@ -151,39 +197,37 @@ pub struct UpdateArgs {
     #[arg(long)]
     pub new_name: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
-    category: CategoryArgs,
+    category: DefaultCategoryArgument,
 
     /// Create category with given name and use it
     #[arg(
         long,
         value_name = "NAME",
-        group = "category_args",
+        group = "default_category_args",
         help_heading = "Category"
     )]
     create_default_category: Option<String>,
 
     /// Remove the category
-    #[arg(long, group = "category_args", help_heading = "Category")]
+    #[arg(long, group = "default_category_args", help_heading = "Category")]
     no_default_category: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByMerchantArgument,
 
     /// Create the another merchant to use instead of the currently creating
     /// one
     #[arg(
         long,
         value_name = "NAME",
-        group = "replace_by_args",
+        group = "replace_by_merchant_args",
         help_heading = "Replace by"
     )]
     create_replace_by: Option<String>,
 
     /// Remove the indication to replace this merchant by another one
-    #[arg(long, group = "replace_by_args", help_heading = "Replace by")]
+    #[arg(long, group = "replace_by_merchant_args", help_heading = "Replace by")]
     no_replace_by: bool,
 }
 
@@ -222,101 +266,39 @@ pub struct Delete {
 }
 
 #[derive(Args, Clone, Debug)]
-#[group(id = "category_args", multiple = false)]
-struct CategoryArgs {
-    /// Name of the category to use
-    #[arg(long, value_name = "NAME")]
-    default_category: Option<String>,
-
-    /// Id of the category to use
-    #[arg(long, value_name = "ID")]
-    default_category_id: Option<u32>,
+#[group(id = "default_category_args")]
+pub struct DefaultCategoryArgument {
+    /// Name or id of the category to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    default_category: Option<CategoryIdentifier>,
 }
 
-impl CategoryArgs {
-    /// Fetch the category selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no category_args> => Ok(None)
-    /// --no-category => Ok(Some(None))
-    /// --category-id 1 => Ok(Some(Some(Category{..})))
+impl DefaultCategoryArgument {
     pub fn resolve(
         &self,
         conn: &mut Conn,
         create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
-        if let Some(name) = &self.default_category {
-            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.default_category_id {
-            Ok(Some(Some(Category::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
+        CategoryArgument::resolve_with(conn, self.default_category.as_ref(), create, absence)
     }
 }
 
 #[derive(Args, Clone, Debug)]
-#[group(id = "replace_by_args", multiple = false)]
-struct ReplaceByArgs {
-    /// Name of the merchant to replace the current one
-    #[arg(long, value_name = "NAME")]
-    replace_by: Option<String>,
-
-    /// Id of the merchant to replace the current one
-    #[arg(long, value_name = "ID")]
-    replace_by_id: Option<u32>,
+#[group(id = "replace_by_merchant_args")]
+pub struct ReplaceByMerchantArgument {
+    /// Name or id of the merchant to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    replace_by: Option<Identifier>,
 }
 
-impl ReplaceByArgs {
-    /// Fetch the merchant selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no replace_by_args> => Ok(None)
-    /// --no-replace-by => Ok(Some(None))
-    /// --replace-by-id 1 => Ok(Some(Some(Merchant{..})))
+impl ReplaceByMerchantArgument {
     pub fn resolve(
         &self,
         conn: &mut Conn,
         create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Merchant>>> {
-        if let Some(name) = &self.replace_by {
-            Ok(Some(Some(Merchant::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.replace_by_id {
-            Ok(Some(Some(Merchant::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewMerchant::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-#[derive(Args, Clone, Debug)]
-pub struct Identifier {
-    /// Name or id of the merchant
-    pub name_or_id: String,
-}
-
-impl Identifier {
-    pub fn find(&self, conn: &mut Conn) -> Result<Merchant> {
-        if self.name_or_id.chars().all(|c| c.is_ascii_digit()) {
-            Ok(Merchant::find(conn, self.name_or_id.parse()?)?)
-        } else {
-            Ok(Merchant::find_by_name(conn, &self.name_or_id)?)
-        }
+        MerchantArgument::resolve_with(conn, self.replace_by.as_ref(), create, absence)
     }
 }

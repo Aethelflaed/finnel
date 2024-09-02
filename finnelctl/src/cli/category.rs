@@ -6,6 +6,55 @@ use finnel::{category::NewCategory, prelude::*};
 
 create_identifier! {Category}
 
+#[derive(Args, Clone, Debug)]
+#[group(id = "category_args")]
+pub struct CategoryArgument {
+    /// Name or id of the category to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    category: Option<Identifier>,
+}
+
+impl CategoryArgument {
+    /// Fetch the category selected by the user, if any
+    ///
+    /// Returns a Result of the eventual database operation. The first Option
+    /// indicates whether or not a preference has been expressed by the user,
+    /// and the second the eventual object if there is one.
+    ///
+    /// <no category_args> => Ok(None)
+    /// --no-category => Ok(Some(None))
+    /// --category 1 => Ok(Some(Some(Category{..})))
+    pub fn resolve(
+        &self,
+        conn: &mut Conn,
+        create: Option<&str>,
+        absence: bool,
+    ) -> Result<Option<Option<Category>>> {
+        Self::resolve_with(conn, self.category.as_ref(), create, absence)
+    }
+
+    /// Same as the method version, but takes the identifier as parameter.
+    ///
+    /// This allows the definition of other struct to use the same behaviour, but with a
+    /// different name
+    pub fn resolve_with(
+        conn: &mut Conn,
+        identifier: Option<&Identifier>,
+        create: Option<&str>,
+        absence: bool,
+    ) -> Result<Option<Option<Category>>> {
+        if let Some(identifier) = identifier {
+            Ok(Some(Some(identifier.find(conn)?)))
+        } else if let Some(name) = create {
+            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
+        } else if absence {
+            Ok(Some(None))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// List categories
@@ -29,17 +78,15 @@ pub struct List {
     #[arg(long, help_heading = "Filter categories")]
     name: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by parent")]
-    parent: ParentArgs,
+    parent: ParentCategoryArgument,
 
     /// Show only categories without a parent
     #[arg(long, group = "parent_args", help_heading = "Filter by parent")]
     no_parent: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by replacer")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByCategoryArgument,
 
     /// Show only categories without a replacer
     #[arg(long, group = "replace_by_args", help_heading = "Filter by replacer")]
@@ -90,9 +137,8 @@ pub struct Create {
     /// Name of the new category
     pub name: String,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Parent")]
-    parent: ParentArgs,
+    parent: ParentCategoryArgument,
 
     /// Create the another category to use as the parent of the currently
     /// creating one
@@ -104,9 +150,8 @@ pub struct Create {
     )]
     create_parent: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByCategoryArgument,
 
     /// Create the another category to use instead of the currently creating
     /// one
@@ -150,9 +195,8 @@ pub struct UpdateArgs {
     #[arg(long)]
     pub new_name: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Parent")]
-    parent: ParentArgs,
+    parent: ParentCategoryArgument,
 
     /// Create the another category to use as the parent of the currently
     /// creating one
@@ -168,9 +212,8 @@ pub struct UpdateArgs {
     #[arg(long, group = "parent_args", help_heading = "Parent")]
     no_parent: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Replace by")]
-    replace_by: ReplaceByArgs,
+    replace_by: ReplaceByCategoryArgument,
 
     /// Create the another category to use instead of the currently creating
     /// one
@@ -219,85 +262,39 @@ pub struct Delete {
 }
 
 #[derive(Args, Clone, Debug)]
-#[group(id = "parent_args", multiple = false)]
-struct ParentArgs {
-    /// Name of the category to use as the parent of the current one
-    #[arg(long, value_name = "NAME")]
-    parent: Option<String>,
-
-    /// Id of the category to use as the parent of the current one
-    #[arg(long, value_name = "ID")]
-    parent_id: Option<u32>,
+#[group(id = "parent_args")]
+pub struct ParentCategoryArgument {
+    /// Name or id of the category to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    parent: Option<Identifier>,
 }
 
-impl ParentArgs {
-    /// Fetch the category selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no parent_args> => Ok(None)
-    /// --no-parent => Ok(Some(None))
-    /// --parent-id 1 => Ok(Some(Some(Category{..})))
+impl ParentCategoryArgument {
     pub fn resolve(
         &self,
         conn: &mut Conn,
         create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
-        if let Some(name) = &self.parent {
-            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.parent_id {
-            Ok(Some(Some(Category::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
+        CategoryArgument::resolve_with(conn, self.parent.as_ref(), create, absence)
     }
 }
 
 #[derive(Args, Clone, Debug)]
-#[group(id = "replace_by_args", multiple = false)]
-struct ReplaceByArgs {
-    /// Name of the category to replace the current one
-    #[arg(long, value_name = "NAME")]
-    replace_by: Option<String>,
-
-    /// Id of the category to replace the current one
-    #[arg(long, value_name = "ID")]
-    replace_by_id: Option<u32>,
+#[group(id = "replace_by_args")]
+pub struct ReplaceByCategoryArgument {
+    /// Name or id of the category to use
+    #[arg(long, value_name = "NAME_OR_ID")]
+    replace_by: Option<Identifier>,
 }
 
-impl ReplaceByArgs {
-    /// Fetch the category selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no replace_by_args> => Ok(None)
-    /// --no-replace-by => Ok(Some(None))
-    /// --replace-by-id 1 => Ok(Some(Some(Category{..})))
+impl ReplaceByCategoryArgument {
     pub fn resolve(
         &self,
         conn: &mut Conn,
         create: Option<&str>,
         absence: bool,
     ) -> Result<Option<Option<Category>>> {
-        if let Some(name) = &self.replace_by {
-            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.replace_by_id {
-            Ok(Some(Some(Category::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
+        CategoryArgument::resolve_with(conn, self.replace_by.as_ref(), create, absence)
     }
 }

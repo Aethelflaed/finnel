@@ -1,8 +1,9 @@
-use finnel::{category::NewCategory, merchant::NewMerchant, prelude::*};
-
+use crate::cli::category::CategoryArgument;
+use crate::cli::merchant::MerchantArgument;
 use anyhow::Result;
 use chrono::{NaiveDate, Utc};
 use clap::{builder::PossibleValue, Args, Subcommand, ValueEnum};
+use finnel::prelude::*;
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
@@ -48,9 +49,8 @@ pub struct Split {
     #[arg(long, help_heading = "New record")]
     pub details: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
-    category: CategoryArgs,
+    category: CategoryArgument,
 
     /// Create category with given name and use it
     #[arg(
@@ -105,9 +105,8 @@ pub struct Create {
     #[arg(long, value_name = "DATE", help_heading = "Record")]
     value_date: Option<NaiveDate>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
-    category: CategoryArgs,
+    category: CategoryArgument,
 
     /// Create category with given name and use it
     #[arg(
@@ -118,9 +117,8 @@ pub struct Create {
     )]
     create_category: Option<String>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Merchant")]
-    merchant: MerchantArgs,
+    merchant: MerchantArgument,
 
     /// Create merchant with given name and use it
     #[arg(
@@ -298,17 +296,15 @@ pub struct List {
     #[arg(long, help_heading = "Sort records")]
     pub sort: Vec<Sort>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by category")]
-    category: CategoryArgs,
+    category: CategoryArgument,
 
     /// Show only records without a category
     #[arg(long, group = "category_args", help_heading = "Filter by category")]
     no_category: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Filter by merchant")]
-    merchant: MerchantArgs,
+    merchant: MerchantArgument,
 
     /// Show only records without a merchant
     #[arg(long, group = "merchant_args", help_heading = "Filter by merchant")]
@@ -389,9 +385,8 @@ pub struct UpdateArgs {
     )]
     pub operation_date: Option<NaiveDate>,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Category")]
-    category: CategoryArgs,
+    category: CategoryArgument,
 
     /// Create category with given name and use it
     #[arg(
@@ -406,9 +401,8 @@ pub struct UpdateArgs {
     #[arg(long, group = "category_args", help_heading = "Category")]
     no_category: bool,
 
-    #[allow(private_interfaces)]
     #[command(flatten, next_help_heading = "Merchant")]
-    merchant: MerchantArgs,
+    merchant: MerchantArgument,
 
     /// Create merchant with given name and use it
     #[arg(
@@ -433,89 +427,5 @@ impl UpdateArgs {
     pub fn merchant(&self, conn: &mut Conn) -> Result<Option<Option<Merchant>>> {
         self.merchant
             .resolve(conn, self.create_merchant.as_deref(), self.no_merchant)
-    }
-}
-
-#[derive(Args, Clone, Debug)]
-#[group(id = "category_args", multiple = false)]
-struct CategoryArgs {
-    /// Name of the category to use
-    #[arg(long, value_name = "NAME")]
-    category: Option<String>,
-
-    /// Id of the category to use
-    #[arg(long, value_name = "ID")]
-    category_id: Option<u32>,
-}
-
-impl CategoryArgs {
-    /// Fetch the category selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no category_args> => Ok(None)
-    /// --no-category => Ok(Some(None))
-    /// --category-id 1 => Ok(Some(Some(Category{..})))
-    pub fn resolve(
-        &self,
-        conn: &mut Conn,
-        create: Option<&str>,
-        absence: bool,
-    ) -> Result<Option<Option<Category>>> {
-        if let Some(name) = &self.category {
-            Ok(Some(Some(Category::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.category_id {
-            Ok(Some(Some(Category::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewCategory::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-#[derive(Args, Clone, Debug)]
-#[group(id = "merchant_args", multiple = false)]
-struct MerchantArgs {
-    /// Name of the merchant to use
-    #[arg(long, value_name = "NAME")]
-    merchant: Option<String>,
-
-    /// Id of the merchant to use
-    #[arg(long, value_name = "ID")]
-    merchant_id: Option<u32>,
-}
-
-impl MerchantArgs {
-    /// Fetch the merchant selected by the user, if any
-    ///
-    /// Returns a Result of the eventual database operation. The first Option
-    /// indicates whether or not a preference has been expressed by the user,
-    /// and the second the eventual object if there is one.
-    ///
-    /// <no merchant_args> => Ok(None)
-    /// --no-merchant => Ok(Some(None))
-    /// --merchant-id 1 => Ok(Some(Some(Merchant{..})))
-    pub fn resolve(
-        &self,
-        conn: &mut Conn,
-        create: Option<&str>,
-        absence: bool,
-    ) -> Result<Option<Option<Merchant>>> {
-        if let Some(name) = &self.merchant {
-            Ok(Some(Some(Merchant::find_by_name(conn, name.as_str())?)))
-        } else if let Some(id) = self.merchant_id {
-            Ok(Some(Some(Merchant::find(conn, id as i64)?)))
-        } else if let Some(name) = create {
-            Ok(Some(Some(NewMerchant::new(name).save(conn)?)))
-        } else if absence {
-            Ok(Some(None))
-        } else {
-            Ok(None)
-        }
     }
 }
