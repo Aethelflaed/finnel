@@ -108,6 +108,28 @@ fn show_records() -> Result<()> {
 }
 
 #[test]
+fn show_records_from_children_but_not_parents() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, category create Bar "--create-parent" Alcohol).success();
+    cmd!(env, account create Cash).success();
+    cmd!(env, record create -A Cash 5 beer --category Bar).success();
+    cmd!(env, record create -A Cash 10 wine --category Alcohol).success();
+
+    cmd!(env, category show Bar)
+        .success()
+        .stdout(str::contains("beer"))
+        .stdout(str::contains("wine").not());
+
+    cmd!(env, category show Alcohol)
+        .success()
+        .stdout(str::contains("beer"))
+        .stdout(str::contains("wine"));
+
+    Ok(())
+}
+
+#[test]
 fn create() -> Result<()> {
     let env = Env::new()?;
 

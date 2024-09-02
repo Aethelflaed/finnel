@@ -109,7 +109,6 @@ impl CommandContext<'_> {
                 println!("{} | {}", category.id, category.name);
 
                 if let Some(parent) = category.fetch_parent(self.conn)? {
-                    ids.push(parent.id);
                     println!("  Parent: {} | {}", parent.id, parent.name);
                 }
                 if let Some(replaced_by) = category.fetch_replaced_by(self.conn)? {
@@ -151,19 +150,14 @@ impl CommandContext<'_> {
         .with_category()
         .with_merchant();
 
-        let mut builder = TableBuilder::new();
-        table_push_row!(builder, query.type_marker());
-        for result in query.run(self.conn)? {
-            table_push_row!(builder, result);
-        }
+        let records = query.run(self.conn)?;
 
-        let count = builder.count_records() - 1;
-
-        if count > 0 {
-            println!("{}", builder.build());
-        } else {
+        if records.is_empty() {
             println!("No associated records");
+        } else {
+            table_display!(records);
         }
+
         Ok(())
     }
 
