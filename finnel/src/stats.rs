@@ -179,6 +179,13 @@ impl MonthlyCategoryStats {
     }
 }
 
+pub(crate) fn clear_category_id(conn: &mut Conn, id: i64) -> Result<()> {
+    diesel::delete(monthly_category_stats::table)
+        .filter(monthly_category_stats::category_id.eq(Some(id)))
+        .execute(conn)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +327,41 @@ mod tests {
             .iter()
             .all(|c| c.category_id != Some(cat3.id)));
         assert!(category_stats.iter().any(|c| c.category_id.is_none()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete_category() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut stats = MonthlyStats::create(conn, 2024, 8, Currency::EUR)?;
+        let mut cat1 = test::category!(conn, "cat1");
+
+        let date = NaiveDate::from_ymd_opt(2024, 8, 1).unwrap();
+        let account = &test::account!(conn, "account");
+
+        NewRecord {
+            amount: Decimal::new(314, 2),
+            operation_date: date,
+            category: Some(&cat1),
+            direction: Direction::Debit,
+            ..NewRecord::new(account)
+        }
+        .save(conn)?;
+        stats.rebuild(conn)?;
+
+        assert_eq!(
+            1i64,
+            monthly_category_stats::table.select(count_star()).first(conn)?
+        );
+
+        cat1.delete(conn)?;
+
+        assert_eq!(
+            0i64,
+            monthly_category_stats::table.select(count_star()).first(conn)?
+        );
 
         Ok(())
     }

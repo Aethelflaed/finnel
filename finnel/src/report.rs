@@ -105,6 +105,13 @@ impl Report {
     }
 }
 
+pub(crate) fn clear_category_id(conn: &mut Conn, id: i64) -> Result<()> {
+    diesel::delete(reports_categories::table)
+        .filter(reports_categories::category_id.eq(id))
+        .execute(conn)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,6 +152,27 @@ mod tests {
         report.delete(conn)?;
 
         assert_eq!(0i64, reports::table.select(count_star()).first(conn)?);
+        assert_eq!(
+            0i64,
+            reports_categories::table.select(count_star()).first(conn)?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete_category() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut report = Report::create(conn, "foo")?;
+        let mut cat1 = test::category!(conn, "cat1");
+        report.add(conn, [&cat1])?;
+
+        cat1.delete(conn)?;
+
+        report.reload(conn)?;
+        assert_eq!(0, report.categories.len());
+
         assert_eq!(
             0i64,
             reports_categories::table.select(count_star()).first(conn)?
