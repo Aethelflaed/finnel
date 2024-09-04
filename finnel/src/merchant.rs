@@ -57,6 +57,10 @@ impl Merchant {
     /// transaction
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
         crate::record::clear_merchant_id(conn, self.id)?;
+        diesel::update(merchants::table)
+            .filter(merchants::replaced_by_id.eq(Some(self.id)))
+            .set(merchants::replaced_by_id.eq(None::<i64>))
+            .execute(conn)?;
         diesel::delete(&*self).execute(conn)?;
 
         Ok(())
@@ -109,6 +113,19 @@ mod tests {
 
         merchant.delete(conn)?;
         assert!(Merchant::find(conn, merchant.id).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut mer1 = test::merchant!(conn, "mer1");
+        let mut mer2 = test::merchant!(conn, "mer2", replaced_by: Some(&mer1));
+
+        mer1.delete(conn)?;
+        assert!(mer2.reload(conn)?.replaced_by_id.is_none());
 
         Ok(())
     }

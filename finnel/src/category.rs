@@ -57,6 +57,14 @@ impl Category {
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
         crate::record::clear_category_id(conn, self.id)?;
         crate::merchant::clear_category_id(conn, self.id)?;
+        diesel::update(categories::table)
+            .filter(categories::replaced_by_id.eq(Some(self.id)))
+            .set(categories::replaced_by_id.eq(None::<i64>))
+            .execute(conn)?;
+        diesel::update(categories::table)
+            .filter(categories::parent_id.eq(Some(self.id)))
+            .set(categories::parent_id.eq(None::<i64>))
+            .execute(conn)?;
         diesel::delete(&*self).execute(conn)?;
 
         Ok(())
@@ -100,6 +108,21 @@ mod tests {
 
         category.delete(conn)?;
         assert!(Category::find(conn, category.id).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn delete() -> Result<()> {
+        let conn = &mut test::db()?;
+
+        let mut cat1 = test::category!(conn, "cat1");
+        let mut cat2 = test::category!(conn, "cat2", replaced_by: Some(&cat1));
+        let mut cat3 = test::category!(conn, "cat3", parent: Some(&cat1));
+
+        cat1.delete(conn)?;
+        assert!(cat2.reload(conn)?.replaced_by_id.is_none());
+        assert!(cat3.reload(conn)?.parent_id.is_none());
 
         Ok(())
     }
