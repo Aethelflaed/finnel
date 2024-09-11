@@ -80,6 +80,24 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
 
+    recurring_payments (id) {
+        id -> BigInt,
+        name -> Text,
+        description -> Text,
+        frequency -> Text,
+        account_id -> BigInt,
+        amount -> BigInt,
+        currency -> Text,
+        direction -> Text,
+        mode -> Text,
+        category_id -> Nullable<BigInt>,
+        merchant_id -> Nullable<BigInt>,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
     reports (id) {
         id -> BigInt,
         name -> Text,
@@ -100,6 +118,9 @@ diesel::joinable!(monthly_category_stats -> categories (category_id));
 diesel::joinable!(records -> accounts (account_id));
 diesel::joinable!(records -> categories (category_id));
 diesel::joinable!(records -> merchants (merchant_id));
+diesel::joinable!(recurring_payments -> accounts (account_id));
+diesel::joinable!(recurring_payments -> categories (category_id));
+diesel::joinable!(recurring_payments -> merchants (merchant_id));
 diesel::joinable!(reports_categories -> categories (category_id));
 diesel::joinable!(reports_categories -> reports (report_id));
 
@@ -110,6 +131,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     monthly_category_stats,
     monthly_stats,
     records,
+    recurring_payments,
     reports,
     reports_categories,
 );

@@ -56,6 +56,7 @@ impl Category {
     /// transaction
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
         crate::record::clear_category_id(conn, self.id)?;
+        crate::recurring_payment::clear_category_id(conn, self.id)?;
         crate::merchant::clear_category_id(conn, self.id)?;
         crate::report::clear_category_id(conn, self.id)?;
         crate::stats::clear_category_id(conn, self.id)?;

@@ -41,6 +41,7 @@ impl Account {
     /// transaction
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
         crate::record::delete_by_account_id(conn, self.id)?;
+        crate::recurring_payment::delete_by_account_id(conn, self.id)?;
         diesel::delete(&*self).execute(conn)?;
 
         Ok(())

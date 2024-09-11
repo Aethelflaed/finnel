@@ -57,6 +57,7 @@ impl Merchant {
     /// transaction
     pub fn delete(&mut self, conn: &mut Conn) -> Result<()> {
         crate::record::clear_merchant_id(conn, self.id)?;
+        crate::recurring_payment::clear_merchant_id(conn, self.id)?;
         diesel::update(merchants::table)
             .filter(merchants::replaced_by_id.eq(Some(self.id)))
             .set(merchants::replaced_by_id.eq(None::<i64>))

@@ -24,7 +24,7 @@ macro_rules! reloadable {
     };
 }
 
-reloadable!(Account, Category, Merchant, Record, Report);
+reloadable!(Account, Category, Merchant, Record, Report, RecurringPayment);
 
 pub fn db() -> Result<Conn> {
     let mut db = crate::Database::memory()?;

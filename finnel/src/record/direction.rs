@@ -82,6 +82,11 @@ mod tests {
         assert_eq!(Credit, "Crédit".parse::<Direction>()?);
         assert_eq!(Credit, "crédit".parse::<Direction>()?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn display_and_from_str_interoperability() -> Result<()> {
         assert!(Debit.to_string().parse::<Direction>().is_ok());
         assert!(Credit.to_string().parse::<Direction>().is_ok());
 

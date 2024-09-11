@@ -12,6 +12,7 @@ pub mod consolidate;
 pub mod date;
 pub mod merchant;
 pub mod record;
+pub mod recurring_payment;
 pub mod report;
 pub mod stats;
 
@@ -41,6 +42,7 @@ pub mod prelude {
         date,
         merchant::Merchant,
         record::{Direction, Mode, PaymentMethod, Record},
+        recurring_payment::{Frequency, RecurringPayment},
         report::Report,
         stats,
     };
