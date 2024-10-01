@@ -10,7 +10,6 @@ use diesel::prelude::*;
 pub struct NewRecord<'a> {
     pub account: &'a Account,
     pub amount: Decimal,
-    pub currency: Currency,
     pub operation_date: NaiveDate,
     pub value_date: NaiveDate,
     pub direction: Direction,
@@ -27,7 +26,6 @@ impl<'a> NewRecord<'a> {
         Self {
             account,
             amount: Decimal::ZERO,
-            currency: account.currency,
             operation_date: date,
             value_date: date,
             direction: Direction::Debit,
@@ -46,7 +44,6 @@ impl<'a> NewRecord<'a> {
         Ok(ResolvedNewRecord {
             account: self.account,
             amount: self.amount,
-            currency: self.currency,
             operation_date: self.operation_date,
             value_date: self.value_date,
             direction: self.direction,
@@ -61,7 +58,6 @@ impl<'a> NewRecord<'a> {
 pub struct ResolvedNewRecord<'a> {
     pub account: &'a Account,
     pub amount: Decimal,
-    pub currency: Currency,
     pub operation_date: NaiveDate,
     pub value_date: NaiveDate,
     pub direction: Direction,
@@ -73,12 +69,6 @@ pub struct ResolvedNewRecord<'a> {
 
 impl<'a> ResolvedNewRecord<'a> {
     pub fn validate(&self, _conn: &mut Conn) -> Result<ValidatedNewRecord<'a>> {
-        if self.currency != self.account.currency {
-            return Err(Error::Invalid(
-                "record.currency should match the account currency".to_owned(),
-            ));
-        }
-
         Ok(ValidatedNewRecord(self.as_insertable()))
     }
 
@@ -86,7 +76,7 @@ impl<'a> ResolvedNewRecord<'a> {
         InsertableRecord {
             account_id: self.account.id,
             amount: self.amount,
-            currency: self.currency,
+            currency: self.account.currency,
             operation_date: self.operation_date,
             value_date: self.value_date,
             direction: self.direction,
