@@ -8,6 +8,9 @@ pub use frequency::Frequency;
 pub mod new;
 pub use new::NewRecurringPayment;
 
+pub mod change;
+pub use change::ChangeRecurringPayment;
+
 #[derive(Debug, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = recurring_payments)]
 #[diesel(belongs_to(Account, foreign_key = account_id))]

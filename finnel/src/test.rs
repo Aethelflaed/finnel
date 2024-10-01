@@ -96,7 +96,21 @@ macro_rules! record {
     };
 }
 
+macro_rules! recurring_payment {
+    ($conn:ident, $account:expr) => {
+        crate::recurring_payment::NewRecurringPayment::new($account).save($conn)?
+    };
+    ($conn:ident, $account:expr, $($tail:tt)*) => {
+        {
+            let mut object = crate::recurring_payment::NewRecurringPayment::new($account);
+            test::setter!(object, $($tail)*);
+            object.save($conn)?
+        }
+    };
+}
+
 pub(crate) use account;
 pub(crate) use category;
 pub(crate) use merchant;
 pub(crate) use record;
+pub(crate) use recurring_payment as recpay;
