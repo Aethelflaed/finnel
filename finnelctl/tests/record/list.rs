@@ -54,20 +54,26 @@ fn default_sort_order() -> Result<()> {
     let stdout = cmd!(env, record list).success().into_stdout();
     assert_contains_in_order!(stdout, "Bread", "Beer");
 
-    cmd!(env, record list get "default-sort").success()
+    cmd!(env, record list get "default-sort")
+        .success()
         .stdout(str::is_empty());
 
-    cmd!(env, record list set "default-sort" "date.desc").success()
+    cmd!(env, record list set "default-sort" "date.desc")
+        .success()
         .stdout(str::is_empty());
 
-    cmd!(env, record list get "default-sort").success()
+    cmd!(env, record list get "default-sort")
+        .success()
         .stdout(str::contains("date.desc"));
 
     let stdout = cmd!(env, record list).success().into_stdout();
     assert_contains_in_order!(stdout, "Beer", "Bread");
 
-    cmd!(env, record list reset "default-sort").success().stdout(str::is_empty());
-    cmd!(env, record list get "default-sort").success()
+    cmd!(env, record list reset "default-sort")
+        .success()
+        .stdout(str::is_empty());
+    cmd!(env, record list get "default-sort")
+        .success()
         .stdout(str::is_empty());
 
     Ok(())

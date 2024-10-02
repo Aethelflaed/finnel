@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use std::cell::OnceCell;
 use std::borrow::Borrow;
+use std::cell::OnceCell;
 
 use crate::cli::record::*;
 use crate::config::Config;
@@ -51,10 +51,12 @@ impl CommandContext<'_> {
         } = args;
         let details = args.details();
 
-        let mut order = args.sort.clone()
-                .into_iter()
-                .map(|o| o.into())
-                .collect::<Vec<_>>();
+        let mut order = args
+            .sort
+            .clone()
+            .into_iter()
+            .map(|o| o.into())
+            .collect::<Vec<_>>();
 
         if order.is_empty() {
             if let Some(sort) = self.configuration(ConfigurationKey::DefaultSort)? {
@@ -106,7 +108,7 @@ impl CommandContext<'_> {
             }
             Some(Config(config)) => {
                 self.configure(config)?;
-            },
+            }
             None => {
                 if self.account.is_some() {
                     table_display!(query
@@ -137,17 +139,17 @@ impl CommandContext<'_> {
                 if let Some(value) = self.configuration(key)? {
                     println!("{}", value);
                 }
-            },
+            }
             Set { key, value } => {
                 let value = match key {
-                    DefaultSort => {
-                        Sort::try_from(value)?.to_string()
-                    },
+                    DefaultSort => Sort::try_from(value)?.to_string(),
                 };
-                self.config.set(format!("records/{}", key.as_str()).as_str(), value.as_str())?;
-            },
+                self.config
+                    .set(format!("records/{}", key.as_str()).as_str(), value.as_str())?;
+            }
             Reset { key } => {
-                self.config.reset(format!("records/{}", key.as_str()).as_str())?;
+                self.config
+                    .reset(format!("records/{}", key.as_str()).as_str())?;
             }
         }
 
@@ -241,9 +243,11 @@ impl CommandContext<'_> {
     }
 
     fn configuration<T>(&self, key: T) -> Result<Option<String>>
-        where T: Borrow<ConfigurationKey>
+    where
+        T: Borrow<ConfigurationKey>,
     {
-        self.config.get(format!("records/{}", key.borrow().as_str()).as_str())
+        self.config
+            .get(format!("records/{}", key.borrow().as_str()).as_str())
     }
 }
 
