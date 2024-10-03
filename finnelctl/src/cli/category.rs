@@ -3,6 +3,7 @@ use anyhow::Result;
 use clap::{Args, Subcommand};
 
 use finnel::{category::NewCategory, prelude::*};
+use crate::cli::report::Identifier as ReportIdentifier;
 
 create_identifier! {Category}
 
@@ -78,6 +79,10 @@ pub struct List {
     #[arg(long, help_heading = "Filter categories")]
     name: Option<String>,
 
+    /// Show only categories not in given report
+    #[arg(long, help_heading = "Filter categories")]
+    not_in: Option<ReportIdentifier>,
+
     #[command(flatten, next_help_heading = "Filter by parent")]
     parent: ParentCategoryArgument,
 
@@ -108,6 +113,14 @@ impl List {
             }
             n
         })
+    }
+
+    pub fn not_in(&self, conn: &mut Conn) -> Result<Vec<Category>> {
+        if let Some(id) = &self.not_in {
+            id.find(conn).map(|r| r.categories)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     pub fn parent(&self, conn: &mut Conn) -> Result<Option<Option<Category>>> {

@@ -73,10 +73,14 @@ impl CommandContext<'_> {
                 let mut builder = TableBuilder::new();
                 table_push_row_elements!(builder, "id", "name", "parent", "replaced by");
 
+                let not_in = args.not_in(self.conn)?;
+
                 for (category, parent, replacer) in
                     query.with_parent().with_replacer().run(self.conn)?
                 {
-                    table_push_row_elements!(builder, category.id, category.name, parent, replacer);
+                    if not_in.iter().all(|c| c.id != category.id) {
+                        table_push_row_elements!(builder, category.id, category.name, parent, replacer);
+                    }
                 }
 
                 println!("{}", builder.build());

@@ -42,6 +42,29 @@ fn list() -> Result<()> {
 }
 
 #[test]
+fn list_not_in() -> Result<()> {
+    let env = Env::new()?;
+
+    cmd!(env, category create Bar).success();
+    cmd!(env, category create Restaurant).success();
+
+    cmd!(env, category list)
+        .success()
+        .stdout(str::contains("1  | Bar"))
+        .stdout(str::contains("2  | Restaurant"));
+
+    cmd!(env, report create Report).success();
+    cmd!(env, report show Report add Bar).success();
+
+    cmd!(env, category list "--not-in" 1)
+        .success()
+        .stdout(str::contains("1  | Bar").not())
+        .stdout(str::contains("2  | Restaurant"));
+
+    Ok(())
+}
+
+#[test]
 fn show() -> Result<()> {
     let env = Env::new()?;
 
