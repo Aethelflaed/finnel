@@ -147,14 +147,15 @@ impl CalendarMonth {
         let start_of_month = self.start_of_month;
         let end_of_month = start_of_month + Months::new(1) - Days::new(1);
 
-        let offset = start_of_month.weekday().num_days_from_monday() - 1;
+        let offset = start_of_month.weekday().num_days_from_monday();
         let days = end_of_month.day() + offset;
         let number_of_weeks = days / 7 + u32::from(days % 7 != 0);
 
         self.days = (0..number_of_weeks)
             .map(|week| {
                 (0..7).map(|day_of_week| {
-                    let index = week * 7 + day_of_week;
+                    // We add 1 because days are 1..=7 not 0..=6
+                    let index = week * 7 + day_of_week + 1;
                     if index <= offset || index > days {
                         Ok(None)
                     } else {
