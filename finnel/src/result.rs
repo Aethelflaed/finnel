@@ -2,31 +2,35 @@ use oxydized_money::CurrencyError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(derive_more::Error, derive_more::Display, derive_more::From, Debug)]
 pub enum Error {
-    #[error("Not found")]
+    #[display("Not found")]
     NotFound,
-    #[error("{0} not found")]
-    ModelNotFound(&'static str),
-    #[error("{0} not found by {1}")]
+    #[display("{_0} not found")]
+    ModelNotFound(#[error(not(source))] &'static str),
+    #[display("{_0} not found by {_1}")]
     ModelNotFoundBy(&'static str, &'static str),
-    #[error("Conflict with existing data. {0}")]
-    NonUnique(String),
-    #[error("Invalid. {0}")]
-    Invalid(String),
-    #[error("Parsing version information")]
-    VersionError(#[from] semver::Error),
-    #[error("Reading currency. {0}")]
-    CurrencyError(#[from] CurrencyError),
-    #[error("Generic error. {0}")]
-    GenericError(#[from] Box<dyn std::error::Error + Send + Sync>),
-    #[error("Connection error")]
-    ConnectionError(#[from] diesel::result::ConnectionError),
-    #[error("Diesel error. {0}")]
+    #[display("Conflict with existing data. {_0}")]
+    NonUnique(#[error(not(source))] String),
+    #[display("Invalid. {_0}")]
+    Invalid(#[error(not(source))] String),
+    #[display("Parsing version information")]
+    #[from]
+    VersionError(semver::Error),
+    #[display("Reading currency. {_0}")]
+    #[from]
+    CurrencyError(CurrencyError),
+    #[display("Generic error. {_0}")]
+    #[from]
+    GenericError(Box<dyn std::error::Error + Send + Sync>),
+    #[display("Connection error")]
+    #[from]
+    ConnectionError(diesel::result::ConnectionError),
+    #[display("Diesel error. {_0}")]
     DieselError(diesel::result::Error),
-    #[error("Invalid month {0}/{1}")]
+    #[display("Invalid month {_0}/{_1}")]
     InvalidMonth(i32, i32),
-    #[error("Invalid week {0:?}/{1}")]
+    #[display("Invalid week {_0:?}/{_1}")]
     InvalidWeek(chrono::IsoWeek, chrono::Weekday),
 }
 
@@ -98,11 +102,6 @@ impl<T> OptionalExtension<T> for Result<T> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, derive_more::Display, derive_more::Error)]
+#[display("Parse Type Error: {_0} {_1}")]
 pub struct ParseTypeError(pub &'static str, pub String);
-
-impl std::fmt::Display for ParseTypeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "Parse Type Error: {} {}", self.0, self.1)
-    }
-}

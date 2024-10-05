@@ -7,10 +7,9 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.38"
-derive_more = "0.99.17"
+derive_more = { version = "1.0.0", features = ["from", "into", "deref", "deref_mut", "error", "display"] }
 oxydized-money = "0.3.0"
 semver = "1.0.23"
-thiserror = "1.0.61"
 log = "0.4.22"
 
 [dependencies.diesel_migrations]
@@ -20,7 +19,7 @@ features = ["sqlite"]
 
 [dependencies.diesel]
 #path = "../../diesel/diesel"
-version = "2.2.1"
+version = "2.2.4"
 default-features = false
 features = [
   "chrono",
@@ -30,6 +29,6 @@ features = [
 ]
 
 [dev-dependencies]
-anyhow = "1.0.86"
-predicates = "3.1.0"
-pretty_assertions = "1.4.0"
+anyhow = "1.0.89"
+predicates = "3.1.2"
+pretty_assertions = "1.4.1"
