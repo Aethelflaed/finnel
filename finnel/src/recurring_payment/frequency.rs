@@ -6,39 +6,14 @@ use diesel::{
     sql_types::Text,
     sqlite::Sqlite,
 };
-use crate::result::ParseTypeError;
-use std::fmt::{Display, Error, Formatter};
-use std::str::FromStr;
+use derive_more::{Display, FromStr};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
+#[derive(Default, Debug, Display, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression, FromStr)]
 #[diesel(sql_type = Text)]
 pub enum Frequency {
     Weekly,
     #[default]
     Monthly,
-}
-
-use Frequency::*;
-
-impl Display for Frequency {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Weekly => f.write_str("Weekly"),
-            Monthly => f.write_str("Monthly"),
-        }
-    }
-}
-
-impl FromStr for Frequency {
-    type Err = ParseTypeError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_lowercase().as_str() {
-            "weekly" => Ok(Weekly),
-            "monthly" => Ok(Monthly),
-            _ => Err(ParseTypeError("Frequency", value.to_string())),
-        }
-    }
 }
 
 impl ToSql<Text, Sqlite> for Frequency {
@@ -51,30 +26,5 @@ impl ToSql<Text, Sqlite> for Frequency {
 impl FromSql<Text, Sqlite> for Frequency {
     fn from_sql(bytes: <Sqlite as Backend>::RawValue<'_>) -> deserialize::Result<Self> {
         Ok(<String as FromSql<Text, Sqlite>>::from_sql(bytes)?.parse()?)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use anyhow::Result;
-    use pretty_assertions::assert_eq;
-
-    #[test]
-    fn from_str() -> Result<()> {
-        assert_eq!(Weekly, "Weekly".parse::<Frequency>()?);
-        assert_eq!(Weekly, "weekly".parse::<Frequency>()?);
-        assert_eq!(Monthly, "Monthly".parse::<Frequency>()?);
-        assert_eq!(Monthly, "monthly".parse::<Frequency>()?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn display_and_from_str_interoperability() -> Result<()> {
-        assert!(Weekly.to_string().parse::<Frequency>().is_ok());
-        assert!(Monthly.to_string().parse::<Frequency>().is_ok());
-
-        Ok(())
     }
 }

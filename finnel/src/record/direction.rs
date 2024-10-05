@@ -1,8 +1,5 @@
-use std::fmt::{Display, Error, Formatter};
 use std::str::FromStr;
-
 use crate::result::ParseTypeError;
-
 use diesel::{
     backend::Backend,
     deserialize::{self, FromSql, FromSqlRow},
@@ -11,8 +8,9 @@ use diesel::{
     sql_types::Text,
     sqlite::Sqlite,
 };
+use derive_more::Display;
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
+#[derive(Default, Debug, Display, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
 #[diesel(sql_type = Text)]
 pub enum Direction {
     #[default]
@@ -30,15 +28,6 @@ impl Direction {
 }
 
 use Direction::*;
-
-impl Display for Direction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Debit => f.write_str("Debit"),
-            Credit => f.write_str("Credit"),
-        }
-    }
-}
 
 impl FromStr for Direction {
     type Err = ParseTypeError;

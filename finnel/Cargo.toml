@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.38"
-derive_more = { version = "1.0.0", features = ["from", "into", "deref", "deref_mut", "error", "display"] }
+derive_more = { version = "1.0.0", features = ["from", "into", "deref", "deref_mut", "error", "display", "from_str"] }
 oxydized-money = "0.3.0"
 semver = "1.0.23"
 log = "0.4.22"
