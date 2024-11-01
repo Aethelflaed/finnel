@@ -29,6 +29,6 @@ features = [
 ]
 
 [dev-dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.91"
 predicates = "3.1.2"
 pretty_assertions = "1.4.1"
